@@ -1,3 +1,4 @@
+import path from "path"
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import tailwindcss from '@tailwindcss/vite'
@@ -8,11 +9,16 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://localhost:5029',
+        target: 'http://localhost:5029',
         rewrite: path => path.replace(/^\/api/, ''),
         changeOrigin: true,
         secure: false,
       },
+    },
+  },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
     },
   },
 })
