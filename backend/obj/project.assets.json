@@ -403,6 +403,22 @@
           }
         }
       },
+      "Scalar.AspNetCore/2.12.44": {
+        "type": "package",
+        "compile": {
+          "lib/net10.0/Scalar.AspNetCore.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net10.0/Scalar.AspNetCore.dll": {
+            "related": ".xml"
+          }
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
+      },
       "System.ClientModel/1.5.1": {
         "type": "package",
         "dependencies": {
@@ -1001,6 +1017,25 @@
         "microsoft.sqlserver.server.nuspec"
       ]
     },
+    "Scalar.AspNetCore/2.12.44": {
+      "sha512": "wrGzgmRvBE41O79GgiC1HI/w59xWf0dw8V/yOb5KgIeXZ94rWaM/Gg9yEGh761n2tZUlEK4+IxfEIJcvWyeIjA==",
+      "type": "package",
+      "path": "scalar.aspnetcore/2.12.44",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "icon.png",
+        "lib/net10.0/Scalar.AspNetCore.dll",
+        "lib/net10.0/Scalar.AspNetCore.xml",
+        "lib/net8.0/Scalar.AspNetCore.dll",
+        "lib/net8.0/Scalar.AspNetCore.xml",
+        "lib/net9.0/Scalar.AspNetCore.dll",
+        "lib/net9.0/Scalar.AspNetCore.xml",
+        "scalar.aspnetcore.2.12.44.nupkg.sha512",
+        "scalar.aspnetcore.nuspec"
+      ]
+    },
     "System.ClientModel/1.5.1": {
       "sha512": "k2jKSO0X45IqhVOT9iQB4xralNN9foRQsRvXBTyRpAVxyzCJlG895T9qYrQWbcJ6OQXxOouJQ37x5nZH5XKK+A==",
       "type": "package",
@@ -1172,36 +1207,30 @@
   "projectFileDependencyGroups": {
     "net10.0": [
       "Microsoft.AspNetCore.OpenApi >= 10.0.3",
-      "Microsoft.EntityFrameworkCore.SqlServer >= 10.0.3"
+      "Microsoft.EntityFrameworkCore.SqlServer >= 10.0.3",
+      "Scalar.AspNetCore >= 2.12.44"
     ]
   },
   "packageFolders": {
-    "C:\\Users\\rsanjuan\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "/home/Shiroe/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\rsanjuan\\Desktop\\project\\enic-project-1\\backend\\backend.csproj",
+      "projectUniqueName": "/home/Shiroe/github/enic-project-1/backend/backend.csproj",
       "projectName": "backend",
-      "projectPath": "C:\\Users\\rsanjuan\\Desktop\\project\\enic-project-1\\backend\\backend.csproj",
-      "packagesPath": "C:\\Users\\rsanjuan\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\rsanjuan\\Desktop\\project\\enic-project-1\\backend\\obj\\",
+      "projectPath": "/home/Shiroe/github/enic-project-1/backend/backend.csproj",
+      "packagesPath": "/home/Shiroe/.nuget/packages/",
+      "outputPath": "/home/Shiroe/github/enic-project-1/backend/obj/",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
-        "C:\\Users\\rsanjuan\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        "/home/Shiroe/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net10.0"
       ],
       "sources": {
-        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-        "C:\\Program Files\\dotnet\\library-packs": {},
+        "/nix/store/hqgvz6cm9dvmxb6cifyphzi1dv1yshzy-dotnet-sdk-10.0.102/share/dotnet/library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -1233,6 +1262,10 @@
           "Microsoft.EntityFrameworkCore.SqlServer": {
             "target": "Package",
             "version": "[10.0.3, )"
+          },
+          "Scalar.AspNetCore": {
+            "target": "Package",
+            "version": "[2.12.44, )"
           }
         },
         "imports": [
@@ -1254,7 +1287,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.103/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "/nix/store/hqgvz6cm9dvmxb6cifyphzi1dv1yshzy-dotnet-sdk-10.0.102/share/dotnet/sdk/10.0.102/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.AspNetCore": "(,10.0.32767]",
           "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",
