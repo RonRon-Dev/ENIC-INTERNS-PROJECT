@@ -1,21 +1,8 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-
-WORKDIR /src
-
-CMD *.csproj 
-RUN dotnet restore
-
-COPY . .
-RUN dotnet publish -c Release -o out
-
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 
-#AS runtime
-
-WORKDIR /src
-
-COPY --from=build /src/out .
+# backend/Dockerfile for dev hot reload
+FROM mcr.microsoft.com/dotnet/sdk:10.0
+WORKDIR /app
 
 EXPOSE 80
 
-ENTRYPOINT ["dotnet", "backend.dll"]
-
+# Start ASP.NET with hot reload, HTTP only
+CMD ["dotnet", "watch", "run", "--urls", "http://+:80"]

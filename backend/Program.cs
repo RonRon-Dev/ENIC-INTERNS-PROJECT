@@ -23,12 +23,15 @@ if (app.Environment.IsDevelopment())
 {
     // OpenAPI JSON
     app.MapOpenApi();
-
     // Scalar UI
     app.MapScalarApiReference();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseCors("AllowReact");
 app.UseAuthorization();
 app.MapControllers();

@@ -14,12 +14,14 @@
       devShells.x86_64-linux.default = pkgs.mkShell {
         buildInputs = with pkgs; [
           dotnet-sdk_10
+          dotnet-ef
           nodejs_24
           omnisharp-roslyn
           # vimPlugins.omnisharp-extended-lsp-nvim
           # csharp-ls
           csharpier
           openssl
+          sqlcmd
           zlib
           icu
         ];

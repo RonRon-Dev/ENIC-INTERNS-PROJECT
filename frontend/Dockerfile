@@ -12,5 +12,6 @@ EXPOSE 5173
 
 # ENV CHOKIDAR_USEPOLLING=true
 
-CMD ["npm", "run", "dev"]
+# CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "dev", "--", "--host"]
 
