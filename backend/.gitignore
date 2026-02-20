@@ -1,20 +1,20 @@
-bin/
-obj/
-out/
-publish/
+/bin/
+/obj/
+/out/
+/publish/
 
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
 
-.vscode/
+/.vscode/
 
-.vs/
+/.vs/
 
-.idea/
+/.idea/
 
-.DS_Store
+/.DS_Store
 Thumbs.db
 
 *.log
