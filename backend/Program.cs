@@ -25,6 +25,12 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
     // Scalar UI
     app.MapScalarApiReference();
+    // Swagger UI
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "API v1");
+        options.RoutePrefix = "swagger";
+    });
 }
 
 if (!app.Environment.IsDevelopment())
