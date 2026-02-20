@@ -5,11 +5,7 @@
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
   };
 
-  outputs =
-    {
-      self,
-      nixpkgs,
-    }:
+  outputs = { self, nixpkgs, }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -18,7 +14,7 @@
       devShells.x86_64-linux.default = pkgs.mkShell {
         buildInputs = with pkgs; [
           dotnet-sdk_10
-          nodejs_25
+          nodejs_24
           omnisharp-roslyn
           # vimPlugins.omnisharp-extended-lsp-nvim
           # csharp-ls
