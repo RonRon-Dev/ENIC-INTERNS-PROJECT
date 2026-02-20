@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "concurrently \"cd backend && dotnet run\" \"cd frontend && npm run dev\""
+    "dev:backend": "cd backend && dotnet run",
+    "dev:frontend": "cd frontend && npm run dev"
   },
   "repository": {
     "type": "git",
@@ -18,8 +19,5 @@
   "bugs": {
     "url": "https://github.com/ENIC-Internship/enic-project-1/issues"
   },
-  "homepage": "https://github.com/ENIC-Internship/enic-project-1#readme",
-  "devDependencies": {
-    "concurrently": "^9.2.1"
-  }
+  "homepage": "https://github.com/ENIC-Internship/enic-project-1#readme"
 }
