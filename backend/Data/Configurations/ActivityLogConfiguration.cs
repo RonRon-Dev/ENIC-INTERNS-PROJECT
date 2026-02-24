@@ -6,21 +6,21 @@ public class ActivityLogConfiguration : IEntityTypeConfiguration<ActivityLogs>
 {
     public void Configure(EntityTypeBuilder<ActivityLogs> builder)
     {
-        builder.HasKey(al => al.id);
+        builder.HasKey(al => al.Id);
 
-        builder.Property(al => al.userName)
+        builder.Property(al => al.UserName)
             .IsRequired()
             .HasMaxLength(150);
 
-        builder.Property(al => al.activityType)
+        builder.Property(al => al.ActivityType)
             .IsRequired()
             .HasMaxLength(100);
 
-        builder.Property(al => al.timestamp)
+        builder.Property(al => al.Timestamp)
             .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-        builder.HasOne(al => al.user)
-            .WithMany(u => u.activityLogs)
-            .HasForeignKey(al => al.userId);
+        builder.HasOne(al => al.User)
+            .WithMany(u => u.ActivityLogs)
+            .HasForeignKey(al => al.UserId);
     }
 }

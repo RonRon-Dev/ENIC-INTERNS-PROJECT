@@ -2,8 +2,8 @@ namespace backend.Dtos.Response;
 
 public class UserResponse
 {
-    public int id { get; set; }
-    public string name { get; set; } = string.Empty;
-    public string username { get; set; } = string.Empty;
-    public RoleResponse? role { get; set; } = null!;
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public RoleResponse? Role { get; set; } = null!;
 }

@@ -2,15 +2,16 @@ namespace backend.Models;
 
 public class Users
 {
-    public int id { get; set; }
-    public string name { get; set; } = string.Empty;
-    public string username { get; set; } = string.Empty;
-    public string password { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
+    public bool IsVerified { get; set; } = false;
 
     //Foreign key to Roles
-    public int roleId { get; set; }
-    public Roles? role { get; set; } = null!;
+    public int RoleId { get; set; }
+    public Roles? Role { get; set; } = null!;
 
     //Navigation property to ActivityLogs
-    public ICollection<ActivityLogs> activityLogs { get; set; } = new List<ActivityLogs>();
+    public ICollection<ActivityLogs> ActivityLogs { get; set; } = new List<ActivityLogs>();
 }
