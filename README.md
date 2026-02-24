@@ -1,81 +1,157 @@
-** Internship Project **
+<div align="center">
 
+# 🌐 ENIC — Management Information System
 
+**Eurolink Network International Corporation**
 
-## Installation
+A centralized MIS platform where employees can access and manage a variety of internal tools and resources within the organization.
+
+[![ASP.NET Core](https://img.shields.io/badge/ASP.NET_Core-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![SQL Server](https://img.shields.io/badge/SQL_Server-LocalDB%20%7C%20Docker-CC2927?logo=microsoftsqlserver&logoColor=white)](https://www.microsoft.com/sql-server)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+
+</div>
+
+---
+
+## 📋 Table of Contents
+
+- [Tech Stack](#-tech-stack)
+- [Project Structure](#-project-structure)
+- [Getting Started](#-getting-started)
+  - [Manual Installation](#manual-installation)
+  - [Docker Installation](#docker-installation)
+
+---
+
+## 🛠 Tech Stack
+
+| Layer     | Technology                              |
+|-----------|-----------------------------------------|
+| Frontend  | React 19, TypeScript, Vite, Tailwind CSS |
+| Backend   | ASP.NET Core 10, Entity Framework Core  |
+| Database  | Microsoft SQL Server                    |
+| Container | Docker, Docker Compose                  |
+
+---
+
+## 📁 Project Structure
+
+```
+ENIC-INTERNS-PROJECT/
+├── backend/        # ASP.NET Core Web API
+├── frontend/       # React + TypeScript (Vite)
+├── database/       # SQL Server Docker setup
+└── docker-compose.yml
+```
+
+---
+
+## 🚀 Getting Started
+
 ### Manual Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/RonRon-Dev/ENIC-INTERNS-PROJECT.git
-    ```
-2. Navigate to the project directory:
-   ```bash
-   cd ENIC-INTERNS-PROJECT
-    ```
-3. Navigate to the backend directory:
-   ```bash
-   cd backend
-    ```
-4. Install the required dependencies:
-    ```bash
-    dotnet tool install --global dotnet-ef
-    dotnet add package Microsoft.AspNetCore.OpenApi
-    dotnet add package Microsoft.EntityFrameworkCore
-    dotnet add package Microsoft.EntityFrameworkCore.SqlServer
-    dotnet add package Microsoft.EntityFrameworkCore.Tools
-    ```
-5. Migrate the database:
-    ```bash
-    # Only run this command if you have an existing migration. if not delete the Migrations folder and run the command below.
-    dotnet ef migrations add InitialCreate
-    dotnet ef database update
-    ```
-6. Run the backend server:
-    ```bash
-    dotnet watch run
-    ```
-7. Navigate to the frontend directory:
-    ```bash
-    cd ../frontend
-    ```
-8. Install the required dependencies:
-    ```bash
-    npm install
-    ```
-9. Run the frontend server:
-    ```bash
-    npm run dev
-    ```
 
-## Docker Installation
-![> [!IMPORTANT]
-> Make sure you have Docker installed before proceeding with the Docker installation steps.](https://www.docker.com/get-started/)
+> **Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) and [Node.js](https://nodejs.org/) must be installed.
 
-1. clone the repository:
-   ```bash
-   git clone https://github.com/RonRon-Dev/ENIC-INTERNS-PROJECT.git
-    ```
-2. Navigate to the project directory:
-    ```bash
-    cd ENIC-INTERNS-PROJECT
-    ```
-3. Build the Docker images:
-    ```bash
-    docker-compose up -d --build
-    ## If you already have the images built, you can simply run:
-    docker-compose up -d
-    ```
-4. Enter the backend container to run the database migrations:
-    ```bash
-    docker-compose exec backend dotnet ef database update
-    ```
-4. Access the application:
-    - Frontend: Open your web browser and navigate to `http://localhost:5173` (or the port specified in your Docker configuration).
-    - Backend API: The backend API will be accessible at `http://localhost:5000` (or the port specified in your Docker configuration).
-5. To stop the Docker containers, run:
-    ```bash
-    docker-compose down
-    ```
+#### 1. Clone the repository
+```bash
+git clone https://github.com/RonRon-Dev/ENIC-INTERNS-PROJECT.git
+cd ENIC-INTERNS-PROJECT
+```
+
+#### 2. Set up the Backend
+```bash
+cd backend
+```
+
+Install the EF Core CLI tool:
+```bash
+dotnet tool install --global dotnet-ef
+```
+
+Install required NuGet packages:
+```bash
+dotnet add package Microsoft.AspNetCore.OpenApi
+dotnet add package Microsoft.EntityFrameworkCore
+dotnet add package Microsoft.EntityFrameworkCore.SqlServer
+dotnet add package Microsoft.EntityFrameworkCore.Tools
+```
+
+Run database migrations:
+```bash
+# If no Migrations folder exists, generate one first:
+dotnet ef migrations add InitialCreate
+
+# Apply migrations to the database:
+dotnet ef database update
+```
+
+Start the backend server:
+```bash
+dotnet watch run
+```
+
+#### 3. Set up the Frontend
+```bash
+cd ../frontend
+npm install
+npm run dev
+```
+
+#### 4. Access the Application
+
+| Service      | URL                       |
+|--------------|---------------------------|
+| Frontend     | http://localhost:5173     |
+| Backend API  | http://localhost:5029     |
+
+---
+
+### Docker Installation
+
+> [!IMPORTANT]
+> Make sure [Docker Desktop](https://www.docker.com/get-started/) is installed and running before proceeding.
+
+#### 1. Clone the repository
+```bash
+git clone https://github.com/RonRon-Dev/ENIC-INTERNS-PROJECT.git
+cd ENIC-INTERNS-PROJECT
+```
+
+#### 2. Build and start all containers
+```bash
+docker-compose up -d --build
+
+# If images are already built:
+docker-compose up -d
+```
+
+#### 3. Apply database migrations
+```bash
+docker-compose exec api dotnet ef database update
+```
+
+#### 4. Access the Application
+
+| Service      | URL                       |
+|--------------|---------------------------|
+| Frontend     | http://localhost:5173     |
+| Backend API  | http://localhost:5029     |
+
+#### 5. Stop the containers
+```bash
+docker-compose down
+```
+
+---
+
+<div align="center">
+
+Made with ❤️ by ENIC Interns
+
+</div>
 
 
 
