@@ -1,5 +1,6 @@
 using backend.Models;
 using backend.Dtos.Response;
+using backend.Dtos.Request.User;
 namespace backend.Services.Interface;
 
 public interface IUserService
@@ -8,9 +9,9 @@ public interface IUserService
 
   Task<UserResponse?> GetUserByIdAsync(int id);
 
-  Task<UserResponse> CreateUserAsync(Users user);
+  Task<UserResponse> CreateUserAsync(CreateUserRequest user);
 
-  Task<bool> UpdateUserAsync(int id, Users user);
+  Task<bool> UpdateUserAsync(int id, UpdateUserRequest user);
 
   Task<bool> DeleteUserAsync(int id);
 }

@@ -1,5 +1,6 @@
 using backend.Models;
 using backend.Dtos.Response;
+using backend.Dtos.Request.User;
 using backend.Services.Interface;
 using backend.Data;
 using Microsoft.EntityFrameworkCore;
@@ -46,12 +47,12 @@ public class UserService(AppDbContext context) : IUserService
     return result;
   }
 
-  public Task<UserResponse> CreateUserAsync(Users user)
+  public Task<UserResponse> CreateUserAsync(CreateUserRequest user)
   {
     throw new NotImplementedException();
   }
 
-  public Task<bool> UpdateUserAsync(int id, Users user)
+  public Task<bool> UpdateUserAsync(int id, UpdateUserRequest user)
   {
     throw new NotImplementedException();
   }

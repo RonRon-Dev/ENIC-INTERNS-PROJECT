@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using backend.Models;
-using backend.Services;
 using backend.Dtos.Response;
-// using backend.Dtos.Request;
+using backend.Dtos.Request.User;
 using backend.Services.Interface;
 
 namespace backend.Controllers;
@@ -24,6 +22,10 @@ public class UserController(IUserService service) : ControllerBase
       Ok(value: user);
   }
 
-  // [HttpPost]
-  // public async Task<ActionResult<UserResponse
+  /* [HttpPost]
+  public async Task<ActionResult<UserResponse>> CreateUser(CreateUserRequest user)
+  {
+    var createUser = await service.CreateUserAsync(user);
+    return CreatedAtAction(nameof(GetUserById), new { id = user.id }, createUser);
+  } */
 }
