@@ -1,21 +1,21 @@
 import * as React from "react"
 import {
-  BookOpen,
-  Bot,
+  BadgeDollarSign,
+  BotIcon,
+  CirclePile,
   Command,
-  Frame,
-  LifeBuoy,
-  Map,
-  PieChart,
-  Send,
-  Settings2,
-  SquareTerminal,
+  HandshakeIcon,
+  HardHat,
+  Home,
+  LayoutDashboard,
 } from "lucide-react"
 
+import { NavDash } from "@/components/nav-dash"
 import { NavMain } from "@/components/nav-main"
 import { NavProjects } from "@/components/nav-projects"
-import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
+import { NavHome } from "@/components/nav-home"
+
 import {
   Sidebar,
   SidebarContent,
@@ -26,128 +26,135 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
+
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
+    name: "Enic Developer",
+    role: "Administrator",
     avatar: "/avatars/shadcn.jpg",
   },
-  navMain: [
+
+  navHome: [
     {
-      title: "Playground",
-      url: "#",
-      icon: SquareTerminal,
-      isActive: true,
-      items: [
-        {
-          title: "History",
-          url: "#",
-        },
-        {
-          title: "Starred",
-          url: "#",
-        },
-        {
-          title: "Settings",
-          url: "#",
-        },
-      ],
+      title: "Home",
+      url: "/dashboard",
+      icon: Home,
     },
+  ],
+
+  navDash: [
     {
-      title: "Models",
-      url: "#",
-      icon: Bot,
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: LayoutDashboard,
+      isActive: false,
       items: [
         {
-          title: "Genesis",
+          title: "Overview",
           url: "#",
         },
         {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
+          title: "User Management",
           url: "#",
         },
       ],
     },
   ],
-  navSecondary: [
+
+  navMain: [
     {
-      title: "Support",
-      url: "#",
-      icon: LifeBuoy,
+      title: "Inventory & Assets",
+      url: "/inventory",
+      icon: CirclePile,
+      isActive: false,
+      items: [
+        {
+          title: "Subtool 1",
+          url: "#",
+        },
+        {
+          title: "Subtool 2",
+          url: "#",
+        },
+        {
+          title: "Subtool 3",
+          url: "#",
+        },
+      ],
     },
     {
-      title: "Feedback",
+      title: "Operations",
+      url: "/operations",
+      icon: HardHat,
+      items: [
+        {
+          title: "Subtool 1",
+          url: "#",
+        },
+        {
+          title: "Subtool 2",
+          url: "#",
+        },
+        {
+          title: "Subtool 3",
+          url: "#",
+        },
+      ],
+    },
+    {
+      title: "Finance",
       url: "#",
-      icon: Send,
+      icon: BadgeDollarSign,
+      items: [
+        {
+          title: "Subtool 1",
+          url: "#",
+        },
+        {
+          title: "Subtool 2",
+          url: "#",
+        },
+        {
+          title: "Subtool 3",
+          url: "#",
+        },
+      ],
+    },
+    {
+      title: "Marketing",
+      url: "#",
+      icon: HandshakeIcon,
+      items: [
+        {
+          title: "Subtool 1",
+          url: "#",
+        },
+        {
+          title: "Subtool 2",
+          url: "#",
+        },
+        {
+          title: "Subtool 3",
+          url: "#",
+        },
+      ],
     },
   ],
   projects: [
     {
-      name: "Design Engineering",
+      name: "Automation",
       url: "#",
-      icon: Frame,
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: PieChart,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: Map,
+      icon: BotIcon,
     },
   ],
+
+  // navSecondary: [
+  //   {
+  //     title: "Support",
+  //     url: "#",
+  //     icon: LifeBuoy,
+  //   },
+  // ],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -162,8 +169,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <Command className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Acme Inc</span>
-                  <span className="truncate text-xs">Enterprise</span>
+                  <span className="truncate font-semibold">ENIC Systems</span>
+                  <span className="truncate text-xs">version 1.0.0</span>
                 </div>
               </a>
             </SidebarMenuButton>
@@ -171,9 +178,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
+        <NavHome items={data.navHome} />
+        <NavDash items={data.navDash} />
         <NavMain items={data.navMain} />
         <NavProjects projects={data.projects} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        {/* <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />

@@ -1,26 +1,29 @@
-import { Routes, Route, Navigate } from "react-router-dom";
-import Login from "@/pages/LoginPage";
-import Dashboard from "@/pages/DashboardPage";
-// import ForgotPassword from "@/pages/ForgotPassword";
-import SignupPage from "@/pages/SignupPage";
+import { Routes, Route, Navigate } from "react-router-dom"
+import Login from "@/pages/LoginPage"
+import SignupPage from "@/pages/SignupPage"
+import Dashboard from "@/pages/DashboardPage"
+import AppLayout from "@/layouts/AppLayout"
+import InventoryToolPage from "@/pages/tools/InventoryToolPage"
+import OperationsToolPage from "@/pages/tools/OperationsToolPage"
 
 export default function AppRoutes() {
   return (
     <Routes>
-      {/* Login page */}
+      {/* Public routes */}
       <Route path="/login" element={<Login />} />
-
-      {/* Forgot password page */}
-      {/* <Route path="/forgot-password" element={<ForgotPassword />} /> */}
-
-      {/* Sign up page */}
       <Route path="/signup" element={<SignupPage />} />
 
-      {/* Dashboard / home page */}
-      <Route path="/dashboard" element={<Dashboard />} />
+      {/* Protected / App routes */}
+      <Route element={<AppLayout />}>
+        <Route path="/dashboard" element={<Dashboard />} />
 
-      {/* Default route */}
+        {/* Tool page routes */}
+        <Route path="/inventory" element={<InventoryToolPage />} />
+        <Route path="/operations" element={<OperationsToolPage />} />
+      </Route>
+
+      {/* Default */}
       <Route path="*" element={<Navigate to="/login" />} />
     </Routes>
-  );
+  )
 }
