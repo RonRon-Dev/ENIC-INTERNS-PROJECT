@@ -37,7 +37,7 @@ const data = {
   navHome: [
     {
       title: "Home",
-      url: "/dashboard",
+      url: "/home",
       icon: Home,
     },
   ],
@@ -70,7 +70,7 @@ const data = {
       items: [
         {
           title: "Subtool 1",
-          url: "#",
+          url: "subtool_1",
         },
         {
           title: "Subtool 2",
