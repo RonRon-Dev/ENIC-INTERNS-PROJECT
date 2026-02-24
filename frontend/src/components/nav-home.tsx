@@ -1,6 +1,7 @@
 "use client"
 
 import { ChevronRight, type LucideIcon } from "lucide-react"
+import { NavLink } from "react-router-dom"
 
 import {
   Collapsible,
@@ -9,7 +10,6 @@ import {
 } from "@/components/ui/collapsible"
 import {
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuAction,
   SidebarMenuButton,
@@ -18,9 +18,8 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
-import { NavLink } from "react-router-dom"
 
-export function NavMain({
+export function NavHome({
   items,
 }: {
   items: {
@@ -35,13 +34,13 @@ export function NavMain({
   }[]
 }) {
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>Tools</SidebarGroupLabel>
+    <SidebarGroup className="mt-[0vh]">
+      {/* <SidebarGroupLabel>Administrator</SidebarGroupLabel> */}
       <SidebarMenu>
         {items.map((item) => (
           <Collapsible key={item.title} asChild defaultOpen={item.isActive}>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip={item.title}>
+              <SidebarMenuButton asChild tooltip={item.title} className="bg-slate-200 justify-center min-h-[5vh] hover:bg-slate-300 transition-colors ease-in-out">
                 <NavLink
                   to={item.url}
                   className={({ isActive }) =>
@@ -51,8 +50,6 @@ export function NavMain({
                   <item.icon />
                   <span>{item.title}</span>
                 </NavLink>
-
-
               </SidebarMenuButton>
               {item.items?.length ? (
                 <>
