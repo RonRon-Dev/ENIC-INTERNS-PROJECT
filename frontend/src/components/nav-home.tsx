@@ -40,7 +40,7 @@ export function NavHome({
         {items.map((item) => (
           <Collapsible key={item.title} asChild defaultOpen={item.isActive}>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip={item.title} className="bg-slate-200 justify-center min-h-[5vh] hover:bg-slate-300 transition-colors ease-in-out">
+              <SidebarMenuButton asChild tooltip={item.title} className="bg-gray-800 text-white hover:bg-gray-700 hover:text-white transition-colors ease-in-out">
                 <NavLink
                   to={item.url}
                   className={({ isActive }) =>

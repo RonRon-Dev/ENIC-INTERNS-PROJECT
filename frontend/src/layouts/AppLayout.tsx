@@ -9,17 +9,17 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import React from "react"
-import { Dot } from "lucide-react"
 
 export default function AppLayout() {
   const location = useLocation()
   const pathnames = location.pathname.split("/").filter(Boolean)
 
-  // Map route segments to user-friendly titles
+  // Map route segments to readable titles
   const breadcrumbNameMap: Record<string, string> = {
+    home: "Home",
     dashboard: "Dashboard",
-    automation: "Automation Tool",
-    inventory: "Inventory & Assets",
+    automation: "Automation",
+    inventory: "Inventory",
     operations: "Operations",
     finance: "Finance",
     marketing: "Marketing",
@@ -28,6 +28,10 @@ export default function AppLayout() {
     signup: "Sign Up",
     login: "Login",
   }
+
+  // Only show last two segments: current page > subpage
+  const breadcrumbSegments =
+    pathnames.length <= 2 ? pathnames : pathnames.slice(-2)
 
   return (
     <SidebarProvider style={{ "--sidebar-width": "19rem" } as React.CSSProperties}>
@@ -41,25 +45,19 @@ export default function AppLayout() {
           {/* Breadcrumb */}
           <Breadcrumb>
             <BreadcrumbList>
-              <BreadcrumbItem>
-                <Link to="/">Home</Link>
-              </BreadcrumbItem>
-
-              {pathnames.map((segment, index) => {
-                const routeTo = "/" + pathnames.slice(0, index + 1).join("/")
-                const isLast = index === pathnames.length - 1
+              {breadcrumbSegments.map((segment, index) => {
+                const routeTo = "/" + pathnames.slice(0, pathnames.indexOf(segment) + 1).join("/")
+                const isLast = index === breadcrumbSegments.length - 1
                 const title = breadcrumbNameMap[segment] || segment
 
                 return (
                   <React.Fragment key={routeTo}>
-                    <BreadcrumbSeparator />
+                    {index !== 0 && <BreadcrumbSeparator />}
                     <BreadcrumbItem>
                       {isLast ? (
                         <span className="font-semibold">{title}</span>
                       ) : (
-                        <Link to={routeTo} className="capitalize">
-                          {title}
-                        </Link>
+                        <Link to={routeTo}>{title}</Link>
                       )}
                     </BreadcrumbItem>
                   </React.Fragment>
