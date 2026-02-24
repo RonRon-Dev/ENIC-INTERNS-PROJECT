@@ -1,7 +1,7 @@
 using backend.Models;
 using Microsoft.AspNetCore.Mvc;
 
-namespace testingAPI.Controllers;
+namespace backend.Controllers;
 
 [ApiController]
 [Route("[controller]")]
