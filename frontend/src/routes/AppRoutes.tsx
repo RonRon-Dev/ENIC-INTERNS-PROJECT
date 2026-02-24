@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom"
-import Login from "@/pages/LoginPage"
+import LoginPage from "@/pages/LoginPage"
 import SignupPage from "@/pages/SignupPage"
 import Dashboard from "@/pages/AdminDashboardPage"
 import AppLayout from "@/layouts/AppLayout"
@@ -11,7 +11,7 @@ export default function AppRoutes() {
   return (
     <Routes>
       {/* Public routes */}
-      <Route path="/login" element={<Login />} />
+      <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
 
       {/* Protected / App routes */}
