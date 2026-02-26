@@ -66,7 +66,7 @@ const data = {
       items: [
         {
           title: "Subtool 1",
-          url: "subtool_1",
+          url: "/inventory/subtool_1",
         },
         {
           title: "Subtool 2",

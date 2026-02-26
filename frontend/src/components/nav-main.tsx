@@ -48,8 +48,6 @@ export function NavMain({
           );
           const shouldHighlight = isParentActive || isChildActive;
 
-          const isTriggerOnly = !item.url || item.url === "#";
-
           return (
             <Collapsible
               key={item.title}

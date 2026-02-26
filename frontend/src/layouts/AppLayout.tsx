@@ -33,6 +33,7 @@ export default function AppLayout() {
     settings: "Settings",
     signup: "Sign Up",
     login: "Login",
+    subtool: "Subtool Test",
   };
 
   const breadcrumbSegments =
