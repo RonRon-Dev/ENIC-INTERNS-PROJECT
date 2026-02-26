@@ -37,7 +37,7 @@ export default function UserManagementPage() {
       </div >
 
       <div className="text-center items-center justify-center text-3xl font-black">
-        <DataTable columns={columns} data={data} />
+        {/* <DataTable columns={columns} data={data} /> */}
       </div>
       <div className="bg-muted/50 min-h-[100vh] flex-1 rounded-xl md:min-h-min" />
     </>
