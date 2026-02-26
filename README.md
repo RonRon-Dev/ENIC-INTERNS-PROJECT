@@ -147,6 +147,23 @@ docker-compose down
 
 ---
 
+## Backend Setup
+
+Install required NuGet packages:
+
+```bash
+dotnet add .\backend\backend.csproj package BCrypt.Net-Next
+```
+
+Then restore/build:
+
+```bash
+dotnet restore .\backend\backend.csproj
+dotnet build .\backend\backend.csproj
+```
+
+---
+
 <div align="center">
 
 Made with ❤️ by ENIC Interns
