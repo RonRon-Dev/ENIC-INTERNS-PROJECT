@@ -6,14 +6,14 @@ public class UserConfiguration : IEntityTypeConfiguration<Users>
 {
     public void Configure(EntityTypeBuilder<Users> builder)
     {
-        builder.HasKey(u => u.id);
+        builder.HasKey(u => u.Id);
 
-        builder.HasOne(u => u.role)
-            .WithMany(r => r.users)
-            .HasForeignKey(u => u.roleId);
+        builder.HasOne(u => u.Role)
+            .WithMany(r => r.Users)
+            .HasForeignKey(u => u.RoleId);
 
-        builder.HasMany(u => u.activityLogs)
-            .WithOne(al => al.user)
-            .HasForeignKey(al => al.userId);
+        builder.HasMany(u => u.ActivityLogs)
+            .WithOne(al => al.User)
+            .HasForeignKey(al => al.UserId);
     }
 }
