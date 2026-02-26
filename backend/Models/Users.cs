@@ -9,7 +9,7 @@ public class Users
     public bool IsVerified { get; set; } = false;
 
     //Foreign key to Roles
-    public int RoleId { get; set; }
+    public int? RoleId { get; set; }
     public Roles? Role { get; set; } = null!;
 
     //Navigation property to ActivityLogs

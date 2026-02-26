@@ -7,8 +7,6 @@ public class ActivityLogs
     public string ActivityType { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string Payload { get; set; } = string.Empty;
-    public string IpAddress { get; set; } = string.Empty;
-    public string UserAgent { get; set; } = string.Empty;
     public bool IsSuccess { get; set; }
     public DateTime Timestamp { get; set; }
 
