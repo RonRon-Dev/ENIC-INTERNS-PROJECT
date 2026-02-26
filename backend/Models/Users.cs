@@ -9,12 +9,12 @@ public class Users
     public string UserName { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
     public bool IsVerified { get; set; } = false;
+    public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
 
     //reset fields
-    public string? ResetToken { get; set; }
-    public DateTime? ResetTokenExpiry { get; set; }
-    public string? PasswordResetCodeHash { get; set; }
-    public DateTime? PasswordResetCodeExpiresUtc { get; set; }
+    public string? RefreshToken { get; set; }
+    public DateTime? RefreshTokenExpiry { get; set; }
 
     //Foreign key to Roles
     public int? RoleId { get; set; }

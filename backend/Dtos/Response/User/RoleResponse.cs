@@ -1,4 +1,4 @@
-namespace backend.Dtos.Response;
+namespace backend.Dtos.Response.User;
 
 public class RoleResponse
 {

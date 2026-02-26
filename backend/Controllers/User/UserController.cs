@@ -1,9 +1,9 @@
 using backend.Dtos.Request.User;
-using backend.Dtos.Response;
+using backend.Dtos.Response.User;
 using backend.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
 
-namespace backend.Controllers;
+namespace backend.Controllers.User;
 
 [Route("api/users")]
 [ApiController]
@@ -28,4 +28,11 @@ public class UserController(IUserService service) : ControllerBase
       return CreatedAtAction(nameof(GetUserById), new { id = user.id },
     createUser);
     } */
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        var (ok, message) = await service.ResetPasswordAsync(request);
+        return ok ? Ok(new { message }) : BadRequest(new { message });
+    }
 }
