@@ -7,11 +7,22 @@ import GeneralHomePage from "@/pages/GeneralHomePage";
 import AuthPage from "@/pages/auth/AuthPage";
 import UserManagementPage from "@/pages/UserManagementPage";
 import SubToolTestPage from "@/pages/tools/subtools/SubToolPage";
+import { ForgotPasswordForm } from "@/pages/auth/ForgotPasswordForm";
 
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<AuthPage />} />
+      <Route
+        path="/test"
+        element={
+          <ForgotPasswordForm
+            onBack={function (): void {
+              throw new Error("Function not implemented.");
+            }}
+          />
+        }
+      />
 
       <Route element={<AppLayout />}>
         <Route index element={<GeneralHomePage />} />
