@@ -18,22 +18,57 @@ export default function AuthPage() {
   return (
     <div className="relative grid min-h-svh w-full lg:grid-cols-2 overflow-hidden bg-background">
       {/* Branding - fixed position */}
-      <div className="absolute top-6 left-6 md:top-10 md:left-10 z-[60] flex items-center gap-2 font-medium">
-        <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
+      <div
+        className={cn(
+          "transition absolute top-6 left-6 md:top-10 md:left-10 z-[60] flex items-center gap-2 font-medium duration-500",
+          isLogin ? "translate-x-0" : "translate-x-[-10vw] opacity-0"
+        )}
+      >
+        <div
+          className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md"
+        >
           <LucideAtom className="size-4" />
         </div>
         <span className="text-foreground">ENIC - MIS</span>
       </div>
 
+      <div
+        className={cn(
+          "transition absolute top-6 right-6 md:top-10 md:right-10 z-[60] flex items-center gap-2 font-medium duration-500",
+          isLogin ? "translate-x-[110vw] opacity-0" : "translate-x-0"
+        )}
+      >
+        <div
+          className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md"
+        >
+          <LucideAtom className="size-4" />
+        </div>
+        <span className="text-foreground">ENIC - MIS</span>
+      </div>
+
+      {/* <div
+        className={cn(
+          "absolute top-6 md:top-10 z-[60] flex items-center gap-2 font-medium transition-all duration-500 ease-in-out",
+          isLogin
+            ? "left-6 md:left-10 translate-x-0"
+            : "right-6 md:right-10 translate-x-0"
+        )}
+      >
+        <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
+          <LucideAtom className="size-4" />
+        </div>
+        <span className="text-foreground">ENIC - MIS</span>
+      </div> */}
+
       {/* Left Slot: Login */}
-      <div className="flex flex-col p-6 md:p-10 border-r">
+      <div className="flex flex-col p-6 md:p-10">
         <div className="flex flex-1 items-center justify-center">
           <div
             className={cn(
               "w-full max-w-xs transition-all duration-500 ease-in-out",
               isLogin
-                ? "opacity-100 scale-100 translate-y-0"
-                : "opacity-0 scale-95 translate-y-4 pointer-events-none"
+                ? "opacity-100"
+                : "opacity-50 pointer-events-none"
             )}
           >
             <LoginForm onToggle={() => setIsLogin(false)} />
@@ -48,8 +83,8 @@ export default function AuthPage() {
             className={cn(
               "w-full max-w-sm transition-all duration-500 ease-in-out",
               !isLogin
-                ? "opacity-100 scale-100 translate-y-0"
-                : "opacity-0 scale-95 -translate-y-4 pointer-events-none"
+                ? "opacity-100"
+                : "opacity-50 pointer-events-none"
             )}
           >
             <SignupForm onToggle={() => setIsLogin(true)} />
@@ -60,20 +95,21 @@ export default function AuthPage() {
       {/* Sliding Overlay */}
       <div
         className={cn(
-          "absolute top-0 bottom-0 w-1/2 hidden lg:block transition-transform duration-700 cubic-bezier(0.4, 0, 0.2, 1) z-50 shadow-2xl",
+          "absolute top-0 h-full w-1/2 hidden lg:block transition-transform duration-700 cubic-bezier(0.4, 0, 0.2, 1) z-50 p-5",
           isLogin ? "translate-x-full" : "translate-x-0"
         )}
       >
-        <div className="relative h-full w-full overflow-hidden">
+        <div className={cn("relative h-full w-full overflow-hidden shadow-2xl",)}>
           <img
             src="/tektite.jpg"
             alt="MIS Background"
             className={cn(
-              "absolute inset-0 h-full w-full object-cover transition-transform duration-1000",
-              isLogin ? "scale-100" : "scale-110"
+              "transition absolute inset-0 h-full w-full object-cover duration-1000 rounded-md",
             )}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+          <div className={cn("absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent duration-1000 rounded-md",
+          )}
+          />
 
           {/* <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-white text-center">
             <h2
@@ -193,8 +229,10 @@ function SignupForm({ onToggle }: { onToggle: () => void }) {
             <Input
               id="signup-user"
               value={username}
-              readOnly
+              // readOnly
               className="bg-muted/50 font-mono text-primary pr-10 cursor-default"
+              onChange={(e) => setUsername(e.target.value)}
+              required
             />
             <button
               type="button"
