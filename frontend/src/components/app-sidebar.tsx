@@ -70,7 +70,7 @@ const data = {
         },
         {
           title: "Subtool 2",
-          url: "#",
+          url: "/inventory/subtool_2",
         },
         {
           title: "Subtool 3",

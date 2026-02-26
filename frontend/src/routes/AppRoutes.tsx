@@ -23,6 +23,7 @@ export default function AppRoutes() {
           <Route index element={<InventoryToolPage />} />
 
           <Route path="subtool_1" element={<SubToolTestPage />} />
+          <Route path="subtool_2" element={<SubToolTestPage />} />
           {/* <Route path="analytics" element={<InventoryAnalyticsPage />} /> */}
         </Route>
 
