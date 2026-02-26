@@ -21,7 +21,6 @@ export default function AppLayout() {
   const location = useLocation();
   const pathnames = location.pathname.split("/").filter(Boolean);
 
-  // Map route segments to readable titles
   const breadcrumbNameMap: Record<string, string> = {
     home: "Home",
     dashboard: "Dashboard",
