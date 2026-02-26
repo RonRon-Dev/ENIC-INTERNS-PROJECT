@@ -57,7 +57,7 @@ export function NavMain({
               defaultOpen={item.isActive || isChildActive}
             >
               <SidebarMenuItem className="group/menu-item">
-                {isTriggerOnly ? (
+                {/* {isTriggerOnly ? (
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
                       tooltip={item.title}
@@ -80,10 +80,20 @@ export function NavMain({
                       <span>{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
-                )}
+                )} */}
 
                 {item.items?.length ? (
                   <>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton
+                        tooltip={item.title}
+                        isActive={shouldHighlight}
+                        className="transition-all duration-300 ease-in-out data-[active=true]:bg-gray-800 data-[active=true]:text-white hover:bg-muted/50 cursor-pointer"
+                      >
+                        <item.icon className="transition-transform duration-300 ease-in-out" />
+                        <span>{item.title}</span>
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
                     <CollapsibleTrigger asChild>
                       <SidebarMenuAction
                         className={cn(
@@ -115,7 +125,17 @@ export function NavMain({
                       </SidebarMenuSub>
                     </CollapsibleContent>
                   </>
-                ) : null}
+                ) : <SidebarMenuButton
+                  asChild
+                  tooltip={item.title}
+                  isActive={shouldHighlight}
+                  className="transition-all duration-300 ease-in-out data-[active=true]:bg-gray-800 data-[active=true]:text-white hover:bg-muted/50"
+                >
+                  <NavLink to={item.url}>
+                    <item.icon className="transition-transform duration-300 ease-in-out" />
+                    <span>{item.title}</span>
+                  </NavLink>
+                </SidebarMenuButton>}
               </SidebarMenuItem>
             </Collapsible>
           );
