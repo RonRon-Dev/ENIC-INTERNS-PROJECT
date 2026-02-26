@@ -112,7 +112,8 @@ export default function GeneralHomePage() {
   );
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
+      <title>Home</title>
       {/* Header Section */}
       <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
