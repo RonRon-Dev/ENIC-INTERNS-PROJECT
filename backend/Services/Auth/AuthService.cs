@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using backend.Data;
 using backend.Dtos.Request.Auth;
+using backend.Dtos.Request.User;
 using backend.Dtos.Response.Auth;
 using backend.Models;
 using backend.Services.Interface;
@@ -17,9 +18,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     // Account Registration and Sending Request to Admin for Approval
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
-        var existingUser = await context.Users.FirstOrDefaultAsync(u =>
-            u.UserName == request.UserName
-        );
+        var existingUser = await context.Users.FirstOrDefaultAsync(u => u.UserName == request.UserName);
 
         if (existingUser != null)
         {
@@ -29,6 +28,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
                 Message = "Username already exists",
                 AccessToken = null!,
                 RefreshToken = null!,
+                ForcePasswordChange = false
             };
         }
 
@@ -39,24 +39,25 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             Name = request.Name,
             UserName = request.UserName,
             PasswordHash = hashedPassword,
+            // new users usually not forced to change password
+            ForcePasswordChange = false,
+            PasswordResetRequested = false
         };
 
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        //User Registration Logs
-        context.ActivityLogs.Add(
-            new ActivityLogs
-            {
-                UserId = user.Id,
-                UserName = user.UserName,
-                ActivityType = "Authentication",
-                Description = "User Registration",
-                Payload = System.Text.Json.JsonSerializer.Serialize(request),
-                IsSuccess = true,
-                Timestamp = DateTime.UtcNow,
-            }
-        );
+        // User Registration Logs
+        context.ActivityLogs.Add(new ActivityLogs
+        {
+            UserId = user.Id,
+            UserName = user.UserName,
+            ActivityType = "Authentication",
+            Description = "User Registration",
+            Payload = System.Text.Json.JsonSerializer.Serialize(request),
+            IsSuccess = true,
+            Timestamp = DateTime.UtcNow,
+        });
 
         await context.SaveChangesAsync();
 
@@ -66,13 +67,11 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             Message = "User registered successfully, contact your administrator for account approval and role assignment.",
             AccessToken = null!,
             RefreshToken = null!,
+            ForcePasswordChange = false
         };
     }
 
-    // This method handles user login by verifying the provided credentials, 
-    // generating a JWT access token and a refresh token, and logging the authentication activity. 
-    // If the login is successful, 
-    // it returns an AuthResponse containing the tokens; otherwise, it returns an error message.
+    // Login
     public async Task<AuthResponse?> LoginAsync(LoginRequest request)
     {
         var user = await context.Users.FirstOrDefaultAsync(u => u.UserName == request.UserName);
@@ -84,25 +83,57 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
                 Message = "User not found",
                 AccessToken = null!,
                 RefreshToken = null!,
+                ForcePasswordChange = false
             };
         }
 
+        // If an admin issued a temporary password, it is stored in PasswordHash,
+        // so normal BCrypt verify works.
         var isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
-        if (!isPasswordValid)
+
+        // Optional: enforce expiry for temp password
+        if (isPasswordValid && user.ForcePasswordChange && user.PasswordResetCodeExpiresUtc is not null)
         {
-            // Log failed login attempt
-            context.ActivityLogs.Add(
-                new ActivityLogs
+            if (DateTime.UtcNow > user.PasswordResetCodeExpiresUtc.Value)
+            {
+                // expire temp password: invalidate login
+                context.ActivityLogs.Add(new ActivityLogs
                 {
                     UserId = user.Id,
                     UserName = user.UserName,
                     ActivityType = "Authentication",
-                    Description = "User Login Failed",
-                    Payload = System.Text.Json.JsonSerializer.Serialize(request),
+                    Description = "User Login Failed - Temp Password Expired",
+                    Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
                     IsSuccess = false,
                     Timestamp = DateTime.UtcNow,
-                }
-            );
+                });
+
+                await context.SaveChangesAsync();
+
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "Temporary password expired. Please request a new reset.",
+                    AccessToken = null!,
+                    RefreshToken = null!,
+                    ForcePasswordChange = false
+                };
+            }
+        }
+
+        if (!isPasswordValid)
+        {
+            // Log failed login attempt
+            context.ActivityLogs.Add(new ActivityLogs
+            {
+                UserId = user.Id,
+                UserName = user.UserName,
+                ActivityType = "Authentication",
+                Description = "User Login Failed",
+                Payload = System.Text.Json.JsonSerializer.Serialize(request),
+                IsSuccess = false,
+                Timestamp = DateTime.UtcNow,
+            });
 
             await context.SaveChangesAsync();
 
@@ -112,28 +143,26 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
                 Message = "Invalid username or password",
                 AccessToken = null!,
                 RefreshToken = null!,
+                ForcePasswordChange = false
             };
         }
 
-        context.ActivityLogs.Add(
-            // Log successful login
-            new ActivityLogs
-            {
-                UserId = user.Id,
-                UserName = user.UserName,
-                ActivityType = "Authentication",
-                Description = "User Login Successful",
-                Payload = System.Text.Json.JsonSerializer.Serialize(request),
-                IsSuccess = true,
-                Timestamp = DateTime.UtcNow,
-            }
-        );
+        // Log successful login
+        context.ActivityLogs.Add(new ActivityLogs
+        {
+            UserId = user.Id,
+            UserName = user.UserName,
+            ActivityType = "Authentication",
+            Description = "User Login Successful",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
+            IsSuccess = true,
+            Timestamp = DateTime.UtcNow,
+        });
 
         await context.SaveChangesAsync();
 
-        user = await context
-            .Users.Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.UserName == request.UserName);
+        // include role for token
+        user = await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.UserName == request.UserName);
 
         return new AuthResponse
         {
@@ -141,40 +170,216 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             Message = "Login successful",
             AccessToken = GenerateToken(user!),
             RefreshToken = await GenerateAndSaveRefreshTokenAsync(user!),
+            ForcePasswordChange = user!.ForcePasswordChange
         };
     }
 
+    // Logout: revoke refresh token
     public async Task<AuthResponse> LogoutAsync(string token)
     {
+        // Your controller probably passes the access token, but logout should revoke refresh token.
+        // We'll treat "token" as access token and read userId from it.
+        var userId = TryGetUserIdFromJwt(token);
+        if (userId is null)
+        {
+            return new AuthResponse
+            {
+                Success = false,
+                Message = "Invalid token.",
+                AccessToken = null!,
+                RefreshToken = null!,
+                ForcePasswordChange = false
+            };
+        }
+
+        var user = await context.Users.FindAsync(userId.Value);
+        if (user is null)
+        {
+            return new AuthResponse
+            {
+                Success = false,
+                Message = "User not found.",
+                AccessToken = null!,
+                RefreshToken = null!,
+                ForcePasswordChange = false
+            };
+        }
+
+        user.RefreshToken = null;
+        user.RefreshTokenExpiry = null;
+
+        context.ActivityLogs.Add(new ActivityLogs
+        {
+            UserId = user.Id,
+            UserName = user.UserName,
+            ActivityType = "Authentication",
+            Description = "User Logout",
+            Payload = "{}",
+            IsSuccess = true,
+            Timestamp = DateTime.UtcNow,
+        });
+
+        await context.SaveChangesAsync();
+
+        return new AuthResponse
+        {
+            Success = true,
+            Message = "Logged out successfully.",
+            AccessToken = null!,
+            RefreshToken = null!,
+            ForcePasswordChange = false
+        };
+    }
+
+    // Keep your unused RefreshTokenAsync(string token) if interface requires it
+    public async Task<AuthResponse?> RefreshTokenAsync(string token)
+    {
+        // optional: implement later
         throw new NotImplementedException();
     }
 
-    // This method handles the token refresh process by validating the provided refresh token,
-    public async Task<AuthResponse?> RefreshTokenAsync(string token)
-    {
-        throw new NotImplementedException();
-    }
-    
-    // This method validates the provided refresh token against the user's stored token and expiry time.
+    // Refresh token (your implemented version)
     public async Task<AuthResponse?> RefreshTokenAsync(RefreshTokenRequest request)
     {
         var user = await ValidateRefreshTokenAsync(request.UserId, request.RefreshToken);
-        if (user == null)
-          return null;
+        if (user == null) return null;
 
-        var result = new AuthResponse
+        return new AuthResponse
         {
             Success = true,
-            Message = "Login successful",
+            Message = "Token refreshed",
             AccessToken = GenerateToken(user),
             RefreshToken = await GenerateAndSaveRefreshTokenAsync(user),
+            ForcePasswordChange = user.ForcePasswordChange
         };
-
-        return result;
     }
 
+    // -------------------------
+    // Forgot Password FLOW
+    // -------------------------
 
-    // JWT generator
+    // USER: submits forgot request (NO code yet)
+    public async Task<(bool ok, string message, string? code)> ForgotPasswordAsync(ForgotPasswordRequest request)
+    {
+        var username = (request.Username ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(username))
+            return (false, "Username is required.", null);
+
+        var user = await context.Users.FirstOrDefaultAsync(u => u.UserName.ToLower() == username.ToLower());
+
+        // Do not reveal if user exists
+        if (user is null)
+        {
+            return (true, "If the account exists, a reset request has been submitted.", null);
+        }
+
+        // mark as requested for admin queue
+        user.PasswordResetRequested = true;
+        user.PasswordResetRequestedAtUtc = DateTime.UtcNow;
+
+        context.ActivityLogs.Add(new ActivityLogs
+        {
+            UserId = user.Id,
+            UserName = user.UserName,
+            ActivityType = "PasswordReset",
+            Description = "Forgot Password Request (Pending Admin Approval)",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { username = user.UserName }),
+            IsSuccess = true,
+            Timestamp = DateTime.UtcNow,
+        });
+
+        await context.SaveChangesAsync();
+
+        return (true, "Reset request submitted. Please wait for admin approval.", null);
+    }
+
+    // ADMIN: approves reset, generates TEMP PASSWORD (code), sets ForcePasswordChange = true
+    public async Task<(bool ok, string message, string? code)> ApproveForgotPasswordAsync(ApproveForgotPasswordRequest request)
+    {
+        var username = (request.Username ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(username))
+            return (false, "Username is required.", null);
+
+        var user = await context.Users.FirstOrDefaultAsync(u => u.UserName.ToLower() == username.ToLower());
+        if (user is null)
+            return (false, "User not found.", null);
+
+        if (!user.PasswordResetRequested)
+            return (false, "User has no pending reset request.", null);
+
+        var code = GenerateResetCode(10);
+
+        // TEMP password becomes active password (so login works)
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(code);
+
+        // store reset metadata (optional but recommended)
+        user.PasswordResetCodeHash = BCrypt.Net.BCrypt.HashPassword(code);
+        user.PasswordResetCodeExpiresUtc = DateTime.UtcNow.AddHours(1);
+
+        user.ForcePasswordChange = true;
+
+        // clear request
+        user.PasswordResetRequested = false;
+        user.PasswordResetRequestedAtUtc = null;
+
+        context.ActivityLogs.Add(new ActivityLogs
+        {
+            UserId = user.Id,
+            UserName = user.UserName,
+            ActivityType = "PasswordReset",
+            Description = "Admin Approved Reset (Temp Password Generated)",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { username = user.UserName }),
+            IsSuccess = true,
+            Timestamp = DateTime.UtcNow,
+        });
+
+        await context.SaveChangesAsync();
+
+        // return code to admin (admin will send via Viber manually)
+        return (true, "Temporary password generated. Send this code to the user.", code);
+    }
+
+    // USER: after login, reset to new password
+    public async Task<(bool ok, string message)> ResetPasswordAsync(string username, ResetPasswordRequest request)
+    {
+        var newPassword = (request.NewPassword ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(newPassword))
+            return (false, "New password is required.");
+
+        if (newPassword.Length < 8)
+            return (false, "New password must be at least 8 characters.");
+
+        var user = await context.Users.FirstOrDefaultAsync(u => u.UserName == username);
+        if (user is null)
+            return (false, "User not found.");
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        user.ForcePasswordChange = false;
+
+        // invalidate temp code
+        user.PasswordResetCodeHash = null;
+        user.PasswordResetCodeExpiresUtc = null;
+
+        context.ActivityLogs.Add(new ActivityLogs
+        {
+            UserId = user.Id,
+            UserName = user.UserName,
+            ActivityType = "PasswordReset",
+            Description = "User Reset Password Successfully",
+            Payload = "{}",
+            IsSuccess = true,
+            Timestamp = DateTime.UtcNow,
+        });
+
+        await context.SaveChangesAsync();
+
+        return (true, "Password updated successfully.");
+    }
+
+    // -------------------------
+    // Helpers
+    // -------------------------
+
     private string GenerateToken(Users user)
     {
         var claims = new List<Claim>
@@ -206,8 +411,8 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     private async Task<Users?> ValidateRefreshTokenAsync(int userId, string refreshToken)
     {
         var user = await context.Users.FindAsync(userId);
-        if (user is null || 
-            user.RefreshToken != refreshToken || 
+        if (user is null ||
+            user.RefreshToken != refreshToken ||
             user.RefreshTokenExpiry <= DateTime.UtcNow)
         {
             return null;
@@ -215,8 +420,6 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         return user;
     }
 
-    // This method generates a secure random refresh token, 
-    // which is a base64-encoded string of 32 random bytes.
     private string GenerateRefreshToken()
     {
         var randomNumber = new byte[32];
@@ -234,56 +437,37 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         return refreshToken;
     }
 
-
-    // Generates a temporary reset code, stores HASH + expiry, logs activity.
-    public async Task<(bool ok, string message, string? code)> ForgotPasswordAsync(ForgotPasswordRequest request)
-    {
-      
-        var username = (request.Username ?? "").Trim();
-
-        if (string.IsNullOrWhiteSpace(username))
-            return (false, "Username is required.", null);
-
-        var user = await context.Users.FirstOrDefaultAsync(u => u.UserName.ToLower() == username.ToLower());
-
-
-        if (user is null)
-            return (true, "If the account exists, a reset code has been generated.", null);
-
-     
-        var code = GenerateResetCode(10);
-
-  
-        user.PasswordResetCodeHash = BCrypt.Net.BCrypt.HashPassword(code);
-        user.PasswordResetCodeExpiresUtc = DateTime.UtcNow.AddMinutes(10);
-
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = user.Id,
-            UserName = user.UserName,
-            ActivityType = "Authentication",
-            Description = "Forgot Password - Reset Code Generated",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { request.Username }),
-            IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
-        });
-
-        await context.SaveChangesAsync();
-
-       
-        return (true, "Reset code generated. Use it to reset your password within 10 minutes.", code);
-    }
-
     private static string GenerateResetCode(int length)
     {
-    
         const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         var bytes = RandomNumberGenerator.GetBytes(length);
         var result = new char[length];
-
         for (int i = 0; i < length; i++)
             result[i] = chars[bytes[i] % chars.Length];
-
         return new string(result);
+    }
+
+    private int? TryGetUserIdFromJwt(string token)
+    {
+        try
+        {
+            // token might be "Bearer xxx"
+            var raw = token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? token["Bearer ".Length..]
+                : token;
+
+            var handler = new JwtSecurityTokenHandler();
+            var jwt = handler.ReadJwtToken(raw);
+
+            var idClaim = jwt.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(idClaim, out var id))
+                return id;
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

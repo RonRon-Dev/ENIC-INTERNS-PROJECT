@@ -94,6 +94,9 @@ namespace backend.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("ForcePasswordChange")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsVerified")
                         .HasColumnType("bit");
 
@@ -110,6 +113,12 @@ namespace backend.Migrations
 
                     b.Property<string>("PasswordResetCodeHash")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("PasswordResetRequested")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("PasswordResetRequestedAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("RefreshToken")
                         .HasColumnType("nvarchar(max)");

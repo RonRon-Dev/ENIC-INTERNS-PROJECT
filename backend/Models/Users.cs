@@ -11,6 +11,14 @@ public class Users
     public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
 
+
+    // force user to change password on first login or after reset
+    public bool ForcePasswordChange { get; set; } = false;
+
+    // user request to admin
+    public bool PasswordResetRequested { get; set; } = false;
+    public DateTime? PasswordResetRequestedAtUtc { get; set; }
+    
     //reset fields
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiry { get; set; }
