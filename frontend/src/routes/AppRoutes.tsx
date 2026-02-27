@@ -1,32 +1,47 @@
-import { Routes, Route, Navigate } from "react-router-dom"
-import LoginPage from "@/pages/LoginPage"
-import SignupPage from "@/pages/SignupPage"
-import Dashboard from "@/pages/AdminDashboardPage"
-import AppLayout from "@/layouts/AppLayout"
-import InventoryToolPage from "@/pages/tools/InventoryToolPage"
-import OperationsToolPage from "@/pages/tools/OperationsToolPage"
-import GeneralHomePage from "@/pages/GeneralHomePage"
+import { Routes, Route, Navigate } from "react-router-dom";
+import Dashboard from "@/pages/AdminDashboardPage";
+import AppLayout from "@/layouts/AppLayout";
+import InventoryToolPage from "@/pages/tools/InventoryToolPage";
+import OperationsToolPage from "@/pages/tools/OperationsToolPage";
+import GeneralHomePage from "@/pages/GeneralHomePage";
+import AuthPage from "@/pages/auth/AuthPage";
+import UserManagementPage from "@/pages/UserManagementPage";
+import SubToolTestPage from "@/pages/tools/subtools/SubToolPage";
+import { ForgotPasswordForm } from "@/pages/auth/ForgotPasswordForm";
 
 export default function AppRoutes() {
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
+      <Route path="/login" element={<AuthPage />} />
+      <Route
+        path="/test"
+        element={
+          <ForgotPasswordForm
+            onBack={function (): void {
+              throw new Error("Function not implemented.");
+            }}
+          />
+        }
+      />
 
-      {/* Protected / App routes */}
       <Route element={<AppLayout />}>
         <Route index element={<GeneralHomePage />} />
         <Route path="/home" element={<GeneralHomePage />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/users" element={<UserManagementPage />} />
 
-        {/* Tool page routes */}
-        <Route path="/inventory" element={<InventoryToolPage />} />
+        <Route path="/inventory">
+          <Route index element={<InventoryToolPage />} />
+
+          <Route path="subtool_1" element={<SubToolTestPage />} />
+          <Route path="subtool_2" element={<SubToolTestPage />} />
+          {/* <Route path="analytics" element={<InventoryAnalyticsPage />} /> */}
+        </Route>
+
         <Route path="/operations" element={<OperationsToolPage />} />
       </Route>
 
-      {/* Default */}
       <Route path="*" element={<Navigate to="/login" />} />
     </Routes>
-  )
+  );
 }

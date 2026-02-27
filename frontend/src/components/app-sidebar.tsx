@@ -1,4 +1,4 @@
-import * as React from "react"
+import * as React from "react";
 import {
   BadgeDollarSign,
   BotIcon,
@@ -8,13 +8,14 @@ import {
   HardHat,
   Home,
   LayoutDashboard,
-} from "lucide-react"
+  User2Icon,
+} from "lucide-react";
 
-import { NavDash } from "@/components/nav-dash"
-import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
-import { NavUser } from "@/components/nav-user"
-import { NavHome } from "@/components/nav-home"
+import { NavDash } from "@/components/nav-dash";
+import { NavMain } from "@/components/nav-main";
+import { NavProjects } from "@/components/nav-projects";
+import { NavUser } from "@/components/nav-user";
+import { NavHome } from "@/components/nav-home";
 
 import {
   Sidebar,
@@ -24,8 +25,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-
+} from "@/components/ui/sidebar";
 
 const data = {
   user: {
@@ -44,20 +44,16 @@ const data = {
 
   navDash: [
     {
-      title: "Dashboard",
+      title: "Analytics Dashboard",
       url: "/dashboard",
       icon: LayoutDashboard,
       isActive: false,
-      items: [
-        {
-          title: "Overview",
-          url: "#",
-        },
-        {
-          title: "User Management",
-          url: "#",
-        },
-      ],
+    },
+    {
+      title: "User Management",
+      url: "/users",
+      icon: User2Icon,
+      isActive: false,
     },
   ],
 
@@ -70,11 +66,11 @@ const data = {
       items: [
         {
           title: "Subtool 1",
-          url: "subtool_1",
+          url: "/inventory/subtool_1",
         },
         {
           title: "Subtool 2",
-          url: "#",
+          url: "/inventory/subtool_2",
         },
         {
           title: "Subtool 3",
@@ -155,7 +151,7 @@ const data = {
   //     icon: LifeBuoy,
   //   },
   // ],
-}
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
@@ -188,5 +184,5 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavUser user={data.user} />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
