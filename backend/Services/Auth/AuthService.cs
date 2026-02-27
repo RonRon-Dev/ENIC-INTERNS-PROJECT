@@ -44,6 +44,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
+        //User Registration Logs
         context.ActivityLogs.Add(
             new ActivityLogs
             {
@@ -62,13 +63,16 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         return new AuthResponse
         {
             Success = true,
-            Message = "User registered successfully",
+            Message = "User registered successfully, contact your administrator for account approval and role assignment.",
             AccessToken = null!,
             RefreshToken = null!,
         };
     }
 
-    // Login
+    // This method handles user login by verifying the provided credentials, 
+    // generating a JWT access token and a refresh token, and logging the authentication activity. 
+    // If the login is successful, 
+    // it returns an AuthResponse containing the tokens; otherwise, it returns an error message.
     public async Task<AuthResponse?> LoginAsync(LoginRequest request)
     {
         var user = await context.Users.FirstOrDefaultAsync(u => u.UserName == request.UserName);
@@ -86,6 +90,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         var isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
         if (!isPasswordValid)
         {
+            // Log failed login attempt
             context.ActivityLogs.Add(
                 new ActivityLogs
                 {
@@ -111,6 +116,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         }
 
         context.ActivityLogs.Add(
+            // Log successful login
             new ActivityLogs
             {
                 UserId = user.Id,
@@ -143,10 +149,30 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         throw new NotImplementedException();
     }
 
-    public async Task<AuthResponse> RefreshTokenAsync(string token)
+    // This method handles the token refresh process by validating the provided refresh token,
+    public async Task<AuthResponse?> RefreshTokenAsync(string token)
     {
         throw new NotImplementedException();
     }
+    
+    // This method validates the provided refresh token against the user's stored token and expiry time.
+    public async Task<AuthResponse?> RefreshTokenAsync(RefreshTokenRequest request)
+    {
+        var user = await ValidateRefreshTokenAsync(request.UserId, request.RefreshToken);
+        if (user == null)
+          return null;
+
+        var result = new AuthResponse
+        {
+            Success = true,
+            Message = "Login successful",
+            AccessToken = GenerateToken(user),
+            RefreshToken = await GenerateAndSaveRefreshTokenAsync(user),
+        };
+
+        return result;
+    }
+
 
     // JWT generator
     private string GenerateToken(Users user)
@@ -177,6 +203,20 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
     }
 
+    private async Task<Users?> ValidateRefreshTokenAsync(int userId, string refreshToken)
+    {
+        var user = await context.Users.FindAsync(userId);
+        if (user is null || 
+            user.RefreshToken != refreshToken || 
+            user.RefreshTokenExpiry <= DateTime.UtcNow)
+        {
+            return null;
+        }
+        return user;
+    }
+
+    // This method generates a secure random refresh token, 
+    // which is a base64-encoded string of 32 random bytes.
     private string GenerateRefreshToken()
     {
         var randomNumber = new byte[32];

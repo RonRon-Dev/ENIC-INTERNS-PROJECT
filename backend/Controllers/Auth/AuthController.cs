@@ -48,13 +48,15 @@ public class AuthController(IAuthService service) : ControllerBase
         return ok ? Ok(new { message, code }) : BadRequest(new { message });
     }
 
-    /* [HttpPost("refresh")]
-    public async Task<ActionResult<AuthResponse>> Refresh(RefreshTokenRequest
-    request)
+    [HttpPost("refresh-token")]
+    public async Task<ActionResult<AuthResponse?>> RefreshToken(RefreshTokenRequest request)
     {
         var result = await service.RefreshTokenAsync(request);
+        if (result is null || result.AccessToken is null || result.RefreshToken is null)
+            return Unauthorized(new { message = "Invalid refresh token" });
+
         return Ok(result);
-    } */
+    }
 
     /* [HttpPost("logout")]
     public async Task<IActionResult> Logout()
