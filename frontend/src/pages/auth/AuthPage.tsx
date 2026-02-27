@@ -22,6 +22,7 @@ export default function AuthPage() {
 
   return (
     <div className="relative grid min-h-svh w-full lg:grid-cols-2 overflow-hidden bg-background">
+      <title>ENIC - Management Information System</title>
       <div
         className={cn(
           "transition absolute top-6 left-6 md:top-10 md:left-10 z-[60] flex items-center gap-2 font-medium duration-500",
@@ -51,12 +52,12 @@ export default function AuthPage() {
       </div>
 
       {/* Left Slot: Login / Forgot Password */}
-      <div className="flex flex-col p-6 md:p-10">
+      <div className="flex flex-col">
         <div className="flex flex-1 items-center justify-center">
           <div
             key={mode === "forgot" ? "forgot" : "login"}
             className={cn(
-              "w-full max-w-xs transition-all duration-500 ease-in-out",
+              "w-full max-w-sm transition-all duration-500 ease-in-out",
               isLeftView
                 ? "opacity-100"
                 : "opacity-20 pointer-events-none blur-sm"
@@ -75,11 +76,11 @@ export default function AuthPage() {
       </div>
 
       {/* Right Slot: Signup */}
-      <div className="flex flex-col p-6 md:p-10">
+      <div className="flex flex-col">
         <div className="flex flex-1 items-center justify-center">
           <div
             className={cn(
-              "w-full max-w-sm transition-all duration-500 ease-in-out",
+              "w-full max-w-md transition-all duration-500 ease-in-out",
               mode === "signup"
                 ? "opacity-100"
                 : "opacity-20 pointer-events-none blur-sm"

@@ -80,7 +80,10 @@ export default function AppLayout() {
                         {index !== 0 && <BreadcrumbSeparator />}
                         <BreadcrumbItem>
                           {isLast ? (
-                            <span className="font-semibold">{title}</span>
+                            <>
+                              <title>{title + " - ENIC"}</title>
+                              <span className="font-semibold">{title}</span>
+                            </>
                           ) : (
                             <Link to={routeTo}>{title}</Link>
                           )}
