@@ -7,8 +7,6 @@ using backend.Dtos.Request.Auth;
 using backend.Dtos.Response.Auth;
 using backend.Models;
 using backend.Services.Interface;
-using BCrypt.Net;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -34,17 +32,16 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             };
         }
 
-        var HashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password, 10);
+        var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password, 10);
 
         var user = new Users
         {
             Name = request.Name,
             UserName = request.UserName,
-            PasswordHash = HashedPassword,
+            PasswordHash = hashedPassword,
         };
 
         context.Users.Add(user);
-
         await context.SaveChangesAsync();
 
         context.ActivityLogs.Add(
@@ -62,22 +59,17 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
 
         await context.SaveChangesAsync();
 
-        var result = new AuthResponse
+        return new AuthResponse
         {
             Success = true,
             Message = "User registered successfully",
             AccessToken = null!,
             RefreshToken = null!,
         };
-
-        return result;
     }
 
-    // This method handles user login by verifying the provided credentials, 
-    // generating a JWT access token and a refresh token, and logging the authentication activity. 
-    // If the login is successful, 
-    // it returns an AuthResponse containing the tokens; otherwise, it returns an error message.
-    public async Task<AuthResponse> LoginAsync(LoginRequest request)
+    // Login
+    public async Task<AuthResponse?> LoginAsync(LoginRequest request)
     {
         var user = await context.Users.FirstOrDefaultAsync(u => u.UserName == request.UserName);
         if (user == null)
@@ -90,6 +82,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
                 RefreshToken = null!,
             };
         }
+
         var isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
         if (!isPasswordValid)
         {
@@ -101,10 +94,13 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
                     ActivityType = "Authentication",
                     Description = "User Login Failed",
                     Payload = System.Text.Json.JsonSerializer.Serialize(request),
-                    IsSuccess = true,
+                    IsSuccess = false,
                     Timestamp = DateTime.UtcNow,
                 }
             );
+
+            await context.SaveChangesAsync();
+
             return new AuthResponse
             {
                 Success = false,
@@ -127,34 +123,32 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             }
         );
 
+        await context.SaveChangesAsync();
+
         user = await context
             .Users.Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.UserName == request.UserName);
-        var result = new AuthResponse
+
+        return new AuthResponse
         {
             Success = true,
             Message = "Login successful",
-            AccessToken = GenerateToken(user),
-            RefreshToken = await GenerateAndSaveRefreshTokenAsync(user),
+            AccessToken = GenerateToken(user!),
+            RefreshToken = await GenerateAndSaveRefreshTokenAsync(user!),
         };
-
-        return result;
     }
 
-    // This method is responsible for logging out a user by invalidating the provided token.
     public async Task<AuthResponse> LogoutAsync(string token)
     {
         throw new NotImplementedException();
     }
 
-    // This method handles the token refresh process by validating the provided refresh token,
     public async Task<AuthResponse> RefreshTokenAsync(string token)
     {
         throw new NotImplementedException();
     }
 
-    // This method generates a JWT access token for the authenticated user, 
-    // including claims for the user's name, identifier, and role (if available).
+    // JWT generator
     private string GenerateToken(Users user)
     {
         var claims = new List<Claim>
@@ -164,12 +158,10 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         };
 
         if (user.Role != null)
-        {
             claims.Add(new Claim(ClaimTypes.Role, user.Role.Name));
-        }
 
         var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(configuration.GetValue<string>("AppSettings:Token"))
+            Encoding.UTF8.GetBytes(configuration.GetValue<string>("AppSettings:Token")!)
         );
 
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
@@ -185,8 +177,6 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
     }
 
-    // This method generates a secure random refresh token, 
-    // which is a base64-encoded string of 32 random bytes.
     private string GenerateRefreshToken()
     {
         var randomNumber = new byte[32];
@@ -195,8 +185,6 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         return Convert.ToBase64String(randomNumber);
     }
 
-    // This method generates a refresh token, saves it to the user's 
-    // record in the database along with an expiry time, and returns the generated token.
     private async Task<string> GenerateAndSaveRefreshTokenAsync(Users user)
     {
         var refreshToken = GenerateRefreshToken();
@@ -206,36 +194,56 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         return refreshToken;
     }
 
-    // Implement Forgot Password -- Sending Request to Rest Password to the Admin
-    public async Task<(bool ok, string message, string? code)> ForgotPasswordAsync(ForgotPasswordRequest Request)
+
+    // Generates a temporary reset code, stores HASH + expiry, logs activity.
+    public async Task<(bool ok, string message, string? code)> ForgotPasswordAsync(ForgotPasswordRequest request)
     {
-        throw new NotImplementedException();
-    }
-    /* public async Task<(bool ok, string message, string? code)>
-    ForgotPasswordAsync(ForgotPasswordRequest req)
-    {
-        var email = (req.Email ?? "").Trim().ToLower();
-        if (string.IsNullOrWhiteSpace(email))
-            return (false, "Email is required.", null);
+      
+        var username = (request.Username ?? "").Trim();
+
+        if (string.IsNullOrWhiteSpace(username))
+            return (false, "Username is required.", null);
+
+        var user = await context.Users.FirstOrDefaultAsync(u => u.UserName.ToLower() == username.ToLower());
+
+
+        if (user is null)
+            return (true, "If the account exists, a reset code has been generated.", null);
+
+     
+        var code = GenerateResetCode(10);
+
   
-        var user = await context.Users.FirstOrDefaultAsync(u => u.Email.ToLower()
-    == email); if (user is null)
-        {
-            // Security best practice: don't reveal if email exists
-            return (true, "If the email exists, a reset code has been generated.",
-    null);
-        }
-  
-        // generate random temporary password / OTP
-        var code = GenerateResetCode(10); // e.g., "A7K9P2XQ1Z"
         user.PasswordResetCodeHash = BCrypt.Net.BCrypt.HashPassword(code);
         user.PasswordResetCodeExpiresUtc = DateTime.UtcNow.AddMinutes(10);
-  
+
+        context.ActivityLogs.Add(new ActivityLogs
+        {
+            UserId = user.Id,
+            UserName = user.UserName,
+            ActivityType = "Authentication",
+            Description = "Forgot Password - Reset Code Generated",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { request.Username }),
+            IsSuccess = true,
+            Timestamp = DateTime.UtcNow,
+        });
+
         await context.SaveChangesAsync();
-  
-        // NOTE: In production, send code via email.
-        // For now, return it so you can test easily.
-        return (true, "Reset code generated. Use it to reset your password within
-    10 minutes.", code);
-    } */
+
+       
+        return (true, "Reset code generated. Use it to reset your password within 10 minutes.", code);
+    }
+
+    private static string GenerateResetCode(int length)
+    {
+    
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        var bytes = RandomNumberGenerator.GetBytes(length);
+        var result = new char[length];
+
+        for (int i = 0; i < length; i++)
+            result[i] = chars[bytes[i] % chars.Length];
+
+        return new string(result);
+    }
 }

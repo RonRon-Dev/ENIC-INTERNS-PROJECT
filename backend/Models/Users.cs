@@ -16,6 +16,10 @@ public class Users
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiry { get; set; }
 
+    // password reset fields
+    public string? PasswordResetCodeHash { get; set; }
+    public DateTime? PasswordResetCodeExpiresUtc { get; set; }
+
     //Foreign key to Roles
     public int? RoleId { get; set; }
     public Roles? Role { get; set; } = null!;
