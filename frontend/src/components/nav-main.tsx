@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, type LucideIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, type LucideIcon } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -82,42 +82,49 @@ export function NavMain({
 
                 {item.items?.length ? (
                   <>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton
-                        tooltip={item.title}
-                        className="transition-all duration-300 ease-in-out data-[active=true]:bg-gray-800 data-[active=true]:text-white hover:bg-muted/50 cursor-pointer"
-                      >
-                        <item.icon className="transition-transform duration-300 ease-in-out" />
-                        <span>{item.title}</span>
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuAction
-                        className={cn(
-                          "transition-all duration-300 ease-in-out data-[state=open]:rotate-90"
-                        )}
-                      >
-                        <ChevronRight className="size-4" />
-                        <span className="sr-only">Toggle</span>
-                      </SidebarMenuAction>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {item.items?.map((subItem) => (
-                          <SidebarMenuSubItem key={subItem.title}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={location.pathname === subItem.url}
-                              className="transition-all duration-200 ease-in-out data-[active=true]:bg-gray-800 data-[active=true]:text-white"
-                            >
-                              <NavLink to={subItem.url}>
-                                <span>{subItem.title}</span>
-                              </NavLink>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
+                    <Collapsible className="group/collapsible">
+                      {/* Trigger (Whole Row) */}
+                      <CollapsibleTrigger asChild>
+                        <div className="flex items-center justify-between w-full">
+
+                          <SidebarMenuButton
+                            tooltip={item.title}
+                            className="transition-all duration-300 ease-in-out
+                   data-[active=true]:bg-gray-800
+                   data-[active=true]:text-white
+                   hover:bg-muted/50 cursor-default"
+                          >
+                            <item.icon className="transition-transform duration-300 ease-in-out" />
+                            <span>{item.title}</span>
+                            <ChevronDown className="size-4 ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                          </SidebarMenuButton>
+
+
+
+                        </div>
+                      </CollapsibleTrigger>
+
+                      {/* Content */}
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {item.items?.map((subItem) => (
+                            <SidebarMenuSubItem key={subItem.title}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={location.pathname === subItem.url}
+                                className="transition-all duration-200 ease-in-out
+                       data-[active=true]:bg-gray-800
+                       data-[active=true]:text-white"
+                              >
+                                <NavLink to={subItem.url}>
+                                  <span>{subItem.title}</span>
+                                </NavLink>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </>
                 ) :
                   <SidebarMenuButton

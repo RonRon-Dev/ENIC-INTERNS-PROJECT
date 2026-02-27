@@ -80,7 +80,10 @@ export default function AppLayout() {
                         {index !== 0 && <BreadcrumbSeparator />}
                         <BreadcrumbItem>
                           {isLast ? (
-                            <span className="font-semibold">{title}</span>
+                            <>
+                              <title>{title + " - ENIC"}</title>
+                              <span className="font-semibold">{title}</span>
+                            </>
                           ) : (
                             <Link to={routeTo}>{title}</Link>
                           )}
@@ -92,7 +95,7 @@ export default function AppLayout() {
               </Breadcrumb>
             </header>
             {/* Page Content */}
-            <div className="flex flex-1 flex-col gap-4 p-12 pt-0">
+            <div className="flex flex-1 flex-col gap-4 p-16 pt-4">
               <Outlet />
             </div>
           </SidebarInset>
