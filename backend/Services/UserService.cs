@@ -11,36 +11,36 @@ public class UserService(AppDbContext context) : IUserService
 
   static List<Users> users = new List<Users>
   {
-    new Users { id = 1, name = "John Doe", username = "johndoe", password = "password123" },
-    new Users { id = 2, name = "Jane Smith", username = "janesmith", password = "password456" }
+    new Users { Id = 1, Name = "John Doe", UserName = "johndoe", PasswordHash = "password123" },
+    new Users { Id = 2, Name = "Jane Smith", UserName = "janesmith", PasswordHash = "password456" }
   };
 
   public async Task<List<UserResponse>> GetAllUsersAsync()
     => await context.Users.Select(u => new UserResponse
     {
-      id = u.id,
-      name = u.name,
-      username = u.username,
-      role = u.role != null ? new RoleResponse
+      Id = u.Id,
+      Name = u.Name,
+      UserName = u.UserName,
+      Role = u.Role != null ? new RoleResponse
       {
-        id = u.role.id,
-        name = u.role.name
+        Id = u.Role.Id,
+        Name = u.Role.Name
       } : null
     }).ToListAsync();
 
   public async Task<UserResponse?> GetUserByIdAsync(int id)
   {
     var result = await context.Users
-      .Where(u => u.id == id)
+      .Where(u => u.Id == id)
       .Select(u => new UserResponse
       {
-        id = u.id,
-        name = u.name,
-        username = u.username,
-        role = u.role != null ? new RoleResponse
+        Id = u.Id,
+        Name = u.Name,
+        UserName = u.UserName,
+        Role = u.Role != null ? new RoleResponse
         {
-          id = u.role.id,
-          name = u.role.name
+          Id = u.Role.Id,
+          Name = u.Role.Name
         } : null
       })
       .FirstOrDefaultAsync();

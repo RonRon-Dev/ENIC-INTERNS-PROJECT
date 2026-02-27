@@ -2,17 +2,17 @@ namespace backend.Models;
 
 public class ActivityLogs
 {
-    public long id { get; set; }
-    public string userName { get; set; } = string.Empty;
-    public string activityType { get; set; } = string.Empty;
-    public string description { get; set; } = string.Empty;
-    public string payload { get; set; } = string.Empty;
-    public string ipAddress { get; set; } = string.Empty;
-    public string userAgent { get; set; } = string.Empty;
-    public bool isSuccess { get; set; }
-    public DateTime timestamp { get; set; }
+    public long Id { get; set; }
+    public string UserName { get; set; } = string.Empty;
+    public string ActivityType { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Payload { get; set; } = string.Empty;
+    public string IpAddress { get; set; } = string.Empty;
+    public string UserAgent { get; set; } = string.Empty;
+    public bool IsSuccess { get; set; }
+    public DateTime Timestamp { get; set; }
 
     //Foreign key to Users
-    public int userId { get; set; }
-    public Users? user { get; set; } = null!;
+    public int UserId { get; set; }
+    public Users? User { get; set; } = null!;
 }
