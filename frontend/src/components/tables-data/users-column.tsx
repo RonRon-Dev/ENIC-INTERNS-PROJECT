@@ -1,7 +1,7 @@
 "use client"
 
+import type { ColumnDef } from "@tanstack/react-table"
 import {
-  ColumnDef,
   flexRender,
   getCoreRowModel,
   useReactTable,
@@ -15,6 +15,31 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+
+
+// This type is used to define the shape of our data.
+// You can use a Zod schema here if you want.
+export type User = {
+  id: string
+  amount: number
+  status: "pending" | "processing" | "success" | "failed"
+  email: string
+}
+
+export const columns: ColumnDef<User>[] = [
+  {
+    accessorKey: "status",
+    header: "Status",
+  },
+  {
+    accessorKey: "email",
+    header: "Email",
+  },
+  {
+    accessorKey: "amount",
+    header: "Amount",
+  },
+]
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
