@@ -95,7 +95,7 @@ export default function AppLayout() {
               </Breadcrumb>
             </header>
             {/* Page Content */}
-            <div className="flex flex-1 flex-col gap-4 p-16 pt-4">
+            <div className="flex flex-1 flex-col gap-4 px-[100px] pt-10">
               <Outlet />
             </div>
           </SidebarInset>
