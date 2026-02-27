@@ -8,11 +8,7 @@ public class UserConfiguration : IEntityTypeConfiguration<Users>
     {
         builder.HasKey(u => u.Id);
 
-        builder.Property(u => u.Email)
-            .IsRequired()
-            .HasMaxLength(150);
-
-            builder.HasIndex(u => u.Email)
+        builder.HasIndex(u => u.UserName)
             .IsUnique();
 
         builder.HasOne(u => u.Role)

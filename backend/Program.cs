@@ -62,6 +62,14 @@ if (app.Environment.IsDevelopment())
         options.SwaggerEndpoint("/openapi/v1.json", "API v1");
         options.RoutePrefix = "swagger";
     });
+
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+        var context = services.GetRequiredService<AppDbContext>();
+        await DatabaseSeeder.SeedAsync(context);
+    }
+
 }
 
 if (!app.Environment.IsDevelopment())
