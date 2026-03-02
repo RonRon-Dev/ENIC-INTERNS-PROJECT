@@ -50,6 +50,7 @@ export const columns: ColumnDef<User>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Username" />
     ),
+    enableHiding: false,
   },
   {
     id: 'name',
