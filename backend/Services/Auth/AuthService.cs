@@ -39,9 +39,6 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             Name = request.Name,
             UserName = request.UserName,
             PasswordHash = hashedPassword,
-            // new users usually not forced to change password
-            ForcePasswordChange = false,
-            PasswordResetRequested = false
         };
 
         context.Users.Add(user);
@@ -91,36 +88,6 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         // so normal BCrypt verify works.
         var isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
 
-        // Optional: enforce expiry for temp password
-        if (isPasswordValid && user.ForcePasswordChange && user.PasswordResetCodeExpiresUtc is not null)
-        {
-            if (DateTime.UtcNow > user.PasswordResetCodeExpiresUtc.Value)
-            {
-                // expire temp password: invalidate login
-                context.ActivityLogs.Add(new ActivityLogs
-                {
-                    UserId = user.Id,
-                    UserName = user.UserName,
-                    ActivityType = "Authentication",
-                    Description = "User Login Failed - Temp Password Expired",
-                    Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
-                    IsSuccess = false,
-                    Timestamp = DateTime.UtcNow,
-                });
-
-                await context.SaveChangesAsync();
-
-                return new AuthResponse
-                {
-                    Success = false,
-                    Message = "Temporary password expired. Please request a new reset.",
-                    AccessToken = null!,
-                    RefreshToken = null!,
-                    ForcePasswordChange = false
-                };
-            }
-        }
-
         if (!isPasswordValid)
         {
             // Log failed login attempt
@@ -168,9 +135,9 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         {
             Success = true,
             Message = "Login successful",
-            AccessToken = GenerateToken(user!),
-            RefreshToken = await GenerateAndSaveRefreshTokenAsync(user!),
-            ForcePasswordChange = user!.ForcePasswordChange
+            AccessToken = GenerateToken(user),
+            RefreshToken = await GenerateAndSaveRefreshTokenAsync(user),
+            ForcePasswordChange = user.ForcePasswordChange
         };
     }
 
@@ -231,13 +198,6 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         };
     }
 
-    // Keep your unused RefreshTokenAsync(string token) if interface requires it
-    public async Task<AuthResponse?> RefreshTokenAsync(string token)
-    {
-        // optional: implement later
-        throw new NotImplementedException();
-    }
-
     // Refresh token (your implemented version)
     public async Task<AuthResponse?> RefreshTokenAsync(RefreshTokenRequest request)
     {
@@ -259,106 +219,91 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     // -------------------------
 
     // USER: submits forgot request (NO code yet)
-    public async Task<(bool ok, string message, string? code)> ForgotPasswordAsync(ForgotPasswordRequest request)
+    public async Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordRequest request)
     {
-        var username = (request.Username ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(username))
-            return (false, "Username is required.", null);
+        var username = (request.UserName ?? "").Trim();
+        /* if (string.IsNullOrWhiteSpace(username))
+            return new ForgotPasswordResponse
+            {
+                Success = false,
+                Message = "Username is required.",
+            }; */
 
-        var user = await context.Users.FirstOrDefaultAsync(u => u.UserName.ToLower() == username.ToLower());
+        var user = await context.Users.FirstOrDefaultAsync(
+            u => u.UserName.ToLower() == username.ToLower());
 
         // Do not reveal if user exists
         if (user is null)
         {
-            return (true, "If the account exists, a reset request has been submitted.", null);
+            return new ForgotPasswordResponse
+            {
+                Success = true,
+                Message = "Reset request submitted. Please wait for admin approval.",
+            };
         }
 
         // mark as requested for admin queue
-        user.PasswordResetRequested = true;
-        user.PasswordResetRequestedAtUtc = DateTime.UtcNow;
+        /* user.PasswordResetRequested = true;
+        user.PasswordResetRequestedAtUtc = DateTime.UtcNow; */
+        user.UserRequests.Add(new UserRequests
+        {
+            RequestType = "Reset Password",
+            RequestStatus = "Pending",
+            RequestDate = DateTime.UtcNow,
+        });
 
         context.ActivityLogs.Add(new ActivityLogs
         {
             UserId = user.Id,
             UserName = user.UserName,
-            ActivityType = "PasswordReset",
-            Description = "Forgot Password Request (Pending Admin Approval)",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { username = user.UserName }),
+            ActivityType = "Reset Password Request",
+            Description = "Reset Password Request (Pending Admin Approval)",
+            Payload = System.Text.Json.JsonSerializer.Serialize(request),
             IsSuccess = true,
             Timestamp = DateTime.UtcNow,
         });
 
         await context.SaveChangesAsync();
 
-        return (true, "Reset request submitted. Please wait for admin approval.", null);
-    }
-
-    // ADMIN: approves reset, generates TEMP PASSWORD (code), sets ForcePasswordChange = true
-    public async Task<(bool ok, string message, string? code)> ApproveForgotPasswordAsync(ApproveForgotPasswordRequest request)
-    {
-        var username = (request.Username ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(username))
-            return (false, "Username is required.", null);
-
-        var user = await context.Users.FirstOrDefaultAsync(u => u.UserName.ToLower() == username.ToLower());
-        if (user is null)
-            return (false, "User not found.", null);
-
-        if (!user.PasswordResetRequested)
-            return (false, "User has no pending reset request.", null);
-
-        var code = GenerateResetCode(10);
-
-        // TEMP password becomes active password (so login works)
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(code);
-
-        // store reset metadata (optional but recommended)
-        user.PasswordResetCodeHash = BCrypt.Net.BCrypt.HashPassword(code);
-        user.PasswordResetCodeExpiresUtc = DateTime.UtcNow.AddHours(1);
-
-        user.ForcePasswordChange = true;
-
-        // clear request
-        user.PasswordResetRequested = false;
-        user.PasswordResetRequestedAtUtc = null;
-
-        context.ActivityLogs.Add(new ActivityLogs
+        return new ForgotPasswordResponse
         {
-            UserId = user.Id,
-            UserName = user.UserName,
-            ActivityType = "PasswordReset",
-            Description = "Admin Approved Reset (Temp Password Generated)",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { username = user.UserName }),
-            IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
-        });
-
-        await context.SaveChangesAsync();
-
-        // return code to admin (admin will send via Viber manually)
-        return (true, "Temporary password generated. Send this code to the user.", code);
+            Success = true,
+            Message = "Reset request submitted. Please wait for admin approval.",
+        };
     }
 
     // USER: after login, reset to new password
-    public async Task<(bool ok, string message)> ResetPasswordAsync(string username, ResetPasswordRequest request)
+    public async Task<ForgotPasswordResponse> UpdatePasswordAsync(ResetPasswordRequest request)
     {
         var newPassword = (request.NewPassword ?? "").Trim();
         if (string.IsNullOrWhiteSpace(newPassword))
-            return (false, "New password is required.");
+            return new ForgotPasswordResponse
+            {
+                Success = false,
+                Message = "New password is required.",
+            };
 
         if (newPassword.Length < 8)
-            return (false, "New password must be at least 8 characters.");
+            return new ForgotPasswordResponse
+            {
+                Success = false,
+                Message = "New password must be at least 8 characters long.",
+            };
 
-        var user = await context.Users.FirstOrDefaultAsync(u => u.UserName == username);
+        var user = await context.Users.FirstOrDefaultAsync(u => u.UserName == request.UserName);
         if (user is null)
-            return (false, "User not found.");
+            return new ForgotPasswordResponse
+            {
+                Success = false,
+                Message = "User not found.",
+            };
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         user.ForcePasswordChange = false;
 
         // invalidate temp code
-        user.PasswordResetCodeHash = null;
-        user.PasswordResetCodeExpiresUtc = null;
+        /* user.PasswordResetCodeHash = null;
+        user.PasswordResetCodeExpiresUtc = null; */
 
         context.ActivityLogs.Add(new ActivityLogs
         {
@@ -373,7 +318,11 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
 
         await context.SaveChangesAsync();
 
-        return (true, "Password updated successfully.");
+        return new ForgotPasswordResponse
+        {
+            Success = true,
+            Message = "Password updated successfully.",
+        };
     }
 
     // -------------------------
@@ -385,15 +334,17 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.Name, user.UserName),
+            new Claim(ClaimTypes.GivenName, user.Name),
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim("ForcePasswordChange", user.ForcePasswordChange.ToString())
         };
 
         if (user.Role != null)
             claims.Add(new Claim(ClaimTypes.Role, user.Role.Name));
 
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(configuration.GetValue<string>("AppSettings:Token")!)
-        );
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
+            configuration.GetValue<string>("AppSettings:Token")!
+        ));
 
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
 
@@ -437,16 +388,6 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         return refreshToken;
     }
 
-    private static string GenerateResetCode(int length)
-    {
-        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        var bytes = RandomNumberGenerator.GetBytes(length);
-        var result = new char[length];
-        for (int i = 0; i < length; i++)
-            result[i] = chars[bytes[i] % chars.Length];
-        return new string(result);
-    }
-
     private int? TryGetUserIdFromJwt(string token)
     {
         try
@@ -462,7 +403,6 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             var idClaim = jwt.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
             if (int.TryParse(idClaim, out var id))
                 return id;
-
             return null;
         }
         catch

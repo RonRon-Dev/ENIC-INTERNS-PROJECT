@@ -1,9 +1,11 @@
 using System.Security.Cryptography;
 using backend.Data;
+using backend.Models;
 using backend.Dtos.Request.User;
 using backend.Dtos.Response.User;
 using backend.Services.Interface;
 using Microsoft.EntityFrameworkCore;
+using BCrypt.Net;
 
 namespace backend.Services.User;
 
@@ -48,62 +50,78 @@ public class UserService(AppDbContext context) : IUserService
         throw new NotImplementedException();
     }
 
-    // This method should be here because it handles the password user password reset using Admin privileges
-    // this method is used by Admin to reset user password without OTP code.
-    public async Task<(bool ok, string message)> ResetPasswordAsync(ResetPasswordRequest request)
+    // ADMIN: approves reset, generates TEMP PASSWORD (code), sets ForcePasswordChange = true
+    public async Task<ResetPasswordResponse> ApproveResetPasswordAsync(ApproveResetPasswordRequest request)
     {
-        // This method is implemented in AuthService, not UserService.
-        throw new NotImplementedException();
-    }
-    /* public async Task<(bool ok, string message)> ResetPasswordAsync(ResetPasswordRequest request)
-    {
-        var email = (request.Email ?? "").Trim().ToLower();
-        var code = (request.OtpCode ?? "").Trim();
-        var newPassword = (request.NewPassword ?? "").Trim();
+        var username = (request.UserName ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(username))
+            return new ResetPasswordResponse
+            {
+                Success = false,
+                Message = "Username is required.",
+                TemporaryPassword = "",
+            };
 
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(newPassword))
-            return (false, "Email, code, and new password are required.");
-
-        if (newPassword.Length < 8)
-            return (false, "New password must be at least 8 characters.");
-
-        var user = await context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+        var user = await context.Users.FirstOrDefaultAsync(u => u.UserName.ToLower() == username.ToLower());
         if (user is null)
-            return (false, "Invalid reset request.");
+            return new ResetPasswordResponse
+            {
+                Success = false,
+                Message = "User not found.",
+                TemporaryPassword = "",
+            };
 
-        if (user.PasswordResetCodeHash is null || user.PasswordResetCodeExpiresUtc is null)
-            return (false, "No active reset request.");
+        if (!user.UserRequests.Any(ur => ur.RequestType == "Reset Password" && ur.RequestStatus == "Pending"))
+            return new ResetPasswordResponse
+            {
+                Success = false,
+                Message = "No password reset request found for this user.",
+                TemporaryPassword = "",
+            };
 
-        if (DateTime.UtcNow > user.PasswordResetCodeExpiresUtc.Value)
-            return (false, "Reset code expired. Request a new one.");
+        var code = GenerateResetCode(10);
 
-        var valid = BCrypt.Net.BCrypt.Verify(code, user.PasswordResetCodeHash);
-        if (!valid)
-            return (false, "Invalid reset code.");
+        // TEMP password becomes active password (so login works)
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(code, 10);
 
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        user.ForcePasswordChange = true;
 
-        // clear reset fields
-        user.PasswordResetCodeHash = null;
-        user.PasswordResetCodeExpiresUtc = null;
+        context.ActivityLogs.Add(new ActivityLogs
+        {
+            UserId = user.Id,
+            UserName = user.UserName,
+            ActivityType = "PasswordReset",
+            Description = "Admin Approved Reset (Temp Password Generated)",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { username = user.UserName }),
+            IsSuccess = true,
+            Timestamp = DateTime.UtcNow,
+        });
 
         await context.SaveChangesAsync();
-        return (true, "Password updated successfully.");
-    }
 
-    private static string GenerateResetCode(int length)
-    {
-        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no confusing chars like O/0, I/1
-        var bytes = RandomNumberGenerator.GetBytes(length);
-        var result = new char[length];
-        for (int i = 0; i < length; i++)
-            result[i] = chars[bytes[i] % chars.Length];
-        return new string(result);
-    } */
+        // return code to admin (admin will send via Viber manually)
+        return new ResetPasswordResponse
+        {
+            Success = true,
+            Message = "Password reset approved. Temporary password generated.",
+            TemporaryPassword = code,
+        };
+    }
 
     // Deleting a user by ID. This should also handle any related data cleanup if necessary (e.g., activity logs).
     public Task<bool> DeleteUserAsync(int id)
     {
         throw new NotImplementedException();
     }
+
+    private static string GenerateResetCode(int length)
+    {
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        var bytes = RandomNumberGenerator.GetBytes(length);
+        var result = new char[length];
+        for (int i = 0; i < length; i++)
+            result[i] = chars[bytes[i] % chars.Length];
+        return new string(result);
+    }
+
 }

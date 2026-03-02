@@ -4,11 +4,11 @@ namespace backend.Dtos.Request.Auth;
 public class RegisterRequest
 {
     [Required]
-    [StringLength(100, MinimumLength = 3, ErrorMessage = "Name must be between 3 and 100 characters.")]
+    [StringLength(100, ErrorMessage = "Name must be less than 100 characters.")]
     public string Name { get; set; } = string.Empty;
 
     [Required]
-    [StringLength(100, MinimumLength = 3, ErrorMessage = "Username must be between 3 and 50 characters.")]
+    [StringLength(100, ErrorMessage = "Name must be less than 100 characters.")]
     public string UserName { get; set; } = string.Empty;
 
     [Required]
