@@ -82,3 +82,8 @@
 #nprogress .peg {
   box-shadow: 0 0 100px hsl(var(--primary));
 }
+
+::selection {
+  background-color: black;
+  color: white;
+}

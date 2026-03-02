@@ -52,7 +52,7 @@ function UserManagementContent() {
           <CardTitle className="text-2xl tracking-wide">{assignedUsers}</CardTitle>
         </Card>
       </div>
-      <div className='flex flex-wrap items-end justify-between gap-2'>
+      <div className='flex flex-wrap items-end justify-between gap-2 mt-4'>
         <div>
           <h2 className='text-2xl font-bold tracking-tight'>User List</h2>
           <p className='text-muted-foreground'>
