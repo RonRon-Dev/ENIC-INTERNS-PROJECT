@@ -2,7 +2,7 @@
 
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { showSubmittedData } from '@/lib/show-submitted-data'
 import { Button } from '@/components/ui/button'
@@ -26,7 +26,7 @@ import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/password-input'
 import { SelectDropdown } from '@/components/select-dropdown'
 import { AlertTriangle, Shield, User2Icon, UserCheck } from 'lucide-react'
-import { roles } from '@/data/data'
+import { roles } from '@/data/const'
 import { type User } from '@/data/schema'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -131,6 +131,23 @@ export function UsersActionDialog({
   }
 
   const isPasswordTouched = !!form.formState.dirtyFields.password
+  const fullName = form.watch("name");
+
+  useEffect(() => {
+    if (isEdit) return // 🔥 only run in add mode
+
+    if (fullName?.trim()) {
+      const names = fullName.toLowerCase().trim().split(/\s+/)
+      const generated =
+        names.length >= 2
+          ? `${names[0].charAt(0)}.${names[names.length - 1]}`
+          : names[0]
+
+      form.setValue("username", generated)
+    } else {
+      form.setValue("username", "")
+    }
+  }, [fullName, isEdit, form])
 
   return (
     <Dialog
@@ -161,7 +178,7 @@ export function UsersActionDialog({
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
                     <FormLabel className='col-span-2 text-end'>
-                      Name
+                      Full Name
                     </FormLabel>
                     <FormControl>
                       <Input
@@ -169,6 +186,8 @@ export function UsersActionDialog({
                         className='col-span-4'
                         autoComplete='off'
                         {...field}
+                      // value={fullName}
+                      // onChange={(e) => setFullName(e.target.value)}
                       />
                     </FormControl>
                     <FormMessage className='col-span-4 col-start-3' />
@@ -186,7 +205,8 @@ export function UsersActionDialog({
                     <FormControl>
                       <Input
                         placeholder='john_doe'
-                        className='col-span-4'
+                        className='col-span-3'
+                        disabled={isEdit}
                         {...field}
                       />
                     </FormControl>
@@ -204,7 +224,7 @@ export function UsersActionDialog({
                       defaultValue={field.value || 'Unassigned'}
                       onValueChange={field.onChange}
                       placeholder='Select a role'
-                      className='col-span-4'
+                      className='col-span-3'
                       items={roles.map(({ label, value }) => ({
                         label,
                         value,

@@ -18,7 +18,7 @@ function UserManagementContent() {
   const totalUsers = data.length
   const pendingUsers = data.filter((u) => u.status === "pending").length
   const activeUsers = data.filter((u) => u.status === "active").length
-  const assignedUsers = data.filter((u) => u.role !== "unassigned").length
+  const assignedUsers = data.filter((u) => u.role !== "guest").length
 
   return (
     <>

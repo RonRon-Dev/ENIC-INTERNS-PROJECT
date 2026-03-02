@@ -6,13 +6,26 @@ const userStatusSchema = z.union([
   z.literal('deactivated'),
   z.literal('pending'),
 ])
-export type UserStatus = z.infer<typeof userStatusSchema>
 
-const userRoleSchema = z.union([
-  z.literal('superadmin'),
-  z.literal('admin'),
-  z.literal('unassigned'),
+const userRoleSchema = z.enum([
+  'guest',
+  'admin',
+  'superadmin',
+  'dev',
+  'operations',
+  'marketing',
+  'managers',
+  'documentations',
+  'it',
 ])
+
+const activityTypeSchema = z.union([
+  z.literal('authentication'),
+  z.literal('privilege'),
+  z.literal('account management'),
+])
+
+export type UserRole = z.infer<typeof userRoleSchema>
 
 const userSchema = z.object({
   id: z.string(),
@@ -22,7 +35,9 @@ const userSchema = z.object({
   role: userRoleSchema,
 })
 
+export type UserStatus = z.infer<typeof userStatusSchema>
 export type User = z.infer<typeof userSchema>
+export type ActivityType = z.infer<typeof activityTypeSchema>
 export const userListSchema = z.array(userSchema)
 
 type BaseNavItem = {
@@ -53,5 +68,14 @@ type SidebarData = {
   navGroups: NavGroup[]
 }
 
-export type { SidebarData, NavGroup, NavItem, NavCollapsible, NavLink }
 
+type ActivityLog = {
+  id: string
+  user: User
+  description: string
+  time: string
+  date: string
+  type: ActivityType
+}
+
+export type { SidebarData, NavGroup, NavItem, NavCollapsible, NavLink, ActivityLog }

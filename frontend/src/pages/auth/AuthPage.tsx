@@ -261,8 +261,8 @@ function SignupForm({ onToggle }: { onToggle: () => void }) {
           <div className="relative">
             <Input
               value={username}
-              readOnly
               className="bg-muted/50 font-mono text-primary pr-10 cursor-default"
+              onChange={(e) => setUsername(e.target.value)}
             />
             <button
               type="button"
