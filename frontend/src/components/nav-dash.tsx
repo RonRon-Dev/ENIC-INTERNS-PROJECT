@@ -66,29 +66,37 @@ export function NavDash({
 
                 {item.items?.length ? (
                   <>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuAction className="data-[state=open]:rotate-90">
-                        <ChevronRight />
-                        <span className="sr-only">Toggle</span>
-                      </SidebarMenuAction>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {item.items?.map((subItem) => (
-                          <SidebarMenuSubItem key={subItem.title}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={location.pathname === subItem.url}
-                              className="transition-all duration-200 ease-in-out"
-                            >
-                              <NavLink to={subItem.url}>
-                                <span>{subItem.title}</span>
-                              </NavLink>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
+                    <Collapsible className="group/collapsible">
+                      {/* Trigger */}
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuAction
+                          className="transition-transform duration-300 
+                 group-data-[state=open]/collapsible:rotate-90"
+                        >
+                          <ChevronRight />
+                          <span className="sr-only">Toggle</span>
+                        </SidebarMenuAction>
+                      </CollapsibleTrigger>
+
+                      {/* Content */}
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {item.items?.map((subItem) => (
+                            <SidebarMenuSubItem key={subItem.title}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={location.pathname === subItem.url}
+                                className="transition-all duration-200 ease-in-out"
+                              >
+                                <NavLink to={subItem.url}>
+                                  <span>{subItem.title}</span>
+                                </NavLink>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </>
                 ) : null}
               </SidebarMenuItem>

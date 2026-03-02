@@ -22,6 +22,7 @@ export default function AuthPage() {
 
   return (
     <div className="relative grid min-h-svh w-full lg:grid-cols-2 overflow-hidden bg-background">
+      <title>ENIC - Management Information System</title>
       <div
         className={cn(
           "transition absolute top-6 left-6 md:top-10 md:left-10 z-[60] flex items-center gap-2 font-medium duration-500",
@@ -51,12 +52,12 @@ export default function AuthPage() {
       </div>
 
       {/* Left Slot: Login / Forgot Password */}
-      <div className="flex flex-col p-6 md:p-10">
+      <div className="flex flex-col">
         <div className="flex flex-1 items-center justify-center">
           <div
             key={mode === "forgot" ? "forgot" : "login"}
             className={cn(
-              "w-full max-w-xs transition-all duration-500 ease-in-out",
+              "w-full max-w-sm transition-all duration-500 ease-in-out",
               isLeftView
                 ? "opacity-100"
                 : "opacity-20 pointer-events-none blur-sm"
@@ -75,11 +76,11 @@ export default function AuthPage() {
       </div>
 
       {/* Right Slot: Signup */}
-      <div className="flex flex-col p-6 md:p-10">
+      <div className="flex flex-col">
         <div className="flex flex-1 items-center justify-center">
           <div
             className={cn(
-              "w-full max-w-sm transition-all duration-500 ease-in-out",
+              "w-full max-w-md transition-all duration-500 ease-in-out",
               mode === "signup"
                 ? "opacity-100"
                 : "opacity-20 pointer-events-none blur-sm"
@@ -96,13 +97,60 @@ export default function AuthPage() {
           isLeftView ? "translate-x-full" : "translate-x-0"
         )}
       >
-        <div className="relative h-full w-full overflow-hidden shadow-2xl rounded-xl">
+        <div className="relative h-full w-full overflow-hidden shadow-2xl rounded-xl flex flex-col items-center">
+          {/* Background & Gradients */}
           <img
-            src="/tektite.jpg"
+            src={isLeftView ? "/tektite_1.jpg" : "/tektite_2.jpg"}
             alt="MIS Background"
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover animate-pulse-slow"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#3c51c7]/100 via-[#3c51c7]/30 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/100 via-black/30 to-transparent" />
+
+          {/* Content Container */}
+          <div
+            key={mode}
+            className="relative z-10 flex h-full w-full flex-col items-center justify-between py-[10vh] px-6 md:px-12 text-center text-white animate-in fade-in slide-in-from-bottom-8 duration-700"
+          >
+            {/* Responsive Header & Subtitle */}
+            <div className="flex flex-col items-center space-y-0 md:space-y-1">
+              <h2 className="text-2xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold tracking-tight font-poppins leading-tight">
+                {isLeftView
+                  ? "One Portal. Every Tool. Unified."
+                  : "We Link the World."}
+              </h2>
+              <p className="text-sm sm:text-base md:text-lg font-medium text-white max-w-md lg:max-w-xl leading-relaxed">
+                {isLeftView
+                  ? "Log in to access and manage your tools and account"
+                  : "Eurolink Network International Corporation"}
+              </p>
+            </div>
+
+            {/* Responsive Middle Graphic */}
+            <div className="flex flex-1 items-center justify-center w-full max-w-[85%] lg:max-w-[95%] my-8">
+              <img
+                src={isLeftView ? "/ui-preview.svg" : "/ui-preview.svg"}
+                alt="System Graphic"
+                className="w-full h-auto max-h-[40vh] md:max-h-[50vh] object-contain animate-pulse-slow"
+              />
+            </div>
+
+            {/* Responsive Bottom Logo */}
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-8 sm:h-10 md:h-12 w-auto flex items-center justify-center">
+                <img
+                  src="/ENICMIS.svg"
+                  alt="ENIC-MIS Logo"
+                  className="h-full w-auto object-contain"
+                />
+              </div>
+              <div className="flex flex-col items-center space-y-1">
+                <p className="text-[10px] sm:text-[12px] font-bold text-white/60">
+                  2026 All Rights Reserved.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
