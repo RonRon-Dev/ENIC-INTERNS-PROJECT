@@ -32,6 +32,12 @@ export type { ActivityLog }
 import { activityTypes } from '@/data/const'
 import { roles } from '@/data/const'
 
+const roleOptions = roles.map(({ label, value, icon }) => ({
+  label,
+  value,
+  icon,
+}))
+
 export const columns: ColumnDef<ActivityLog>[] = [
   {
     accessorKey: 'username',
@@ -163,18 +169,13 @@ export function DataTable<TData, TValue>({
         table={table}
         searchPlaceholder='Search activity logs...'
       // searchKey='username'
-      // filters={[
-      //   {
-      //     columnId: 'status',
-      //     title: 'Status',
-      //     options: statusOptions,
-      //   },
-      //   {
-      //     columnId: 'role',
-      //     title: 'Role',
-      //     options: roleOptions,
-      //   },
-      // ]}
+      filters={[
+        {
+          columnId: 'role',
+          title: 'Role',
+          options: roleOptions,
+        },
+      ]}
       />
 
       <div className="overflow-hidden rounded-md border">
