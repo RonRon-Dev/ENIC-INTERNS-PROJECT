@@ -109,19 +109,19 @@ export function UsersActionDialog({
     resolver: zodResolver(formSchema),
     defaultValues: isEdit
       ? {
-          ...currentRow,
-          password: '',
-          confirmPassword: '',
-          isEdit,
-        }
+        ...currentRow,
+        password: '',
+        confirmPassword: '',
+        isEdit,
+      }
       : {
-          name: '',
-          username: '',
-          role: '',
-          password: '',
-          confirmPassword: '',
-          isEdit,
-        },
+        name: '',
+        username: '',
+        role: '',
+        password: '',
+        confirmPassword: '',
+        isEdit,
+      },
   })
 
   const onSubmit = (values: UserForm) => {
@@ -314,14 +314,12 @@ export function UsersDeleteDialog({
             from the system. This cannot be undone.
           </p>
 
-          <Label className='my-2'>
-            Username:
-            <Input
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder='Enter username to confirm deletion.'
-            />
-          </Label>
+          <Input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder='Enter username to confirm deletion.'
+            className='mt-2'
+          />
 
           <Alert variant='destructive'>
             <AlertTitle>Warning!</AlertTitle>

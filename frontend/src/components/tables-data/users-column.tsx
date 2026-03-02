@@ -1,7 +1,6 @@
 "use client"
 
 import type {
-  Column,
   ColumnDef,
   ColumnFiltersState,
   SortingState,
@@ -23,51 +22,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { Edit, MoreHorizontal, Notebook, Shield, Trash, User2Icon, UserCheck, UserMinus } from "lucide-react"
 import { DataTablePagination } from "../data-table-components/data-table-pagination"
-import { DataTableViewOptions } from "../data-table-components/data-table-toggle"
+import { DataTableToolbar } from "../data-table-components/data-table-toolbar"
 import { DataTableColumnHeader } from "../data-table-components/data-table-header"
-import { DataTableFacetedFilter } from "../data-table-components/data-table-faceted-filter"
-import { DataTableRowActions } from "./data-table-row-actions"
+import { DataTableRowActions } from "./users-data-table-row-actions"
 import { type User } from '@/data/schema'
 export type { User }
 import { callTypes, roles } from '@/data/data'
-
-// This type is used to define the shape of our data.
-// You can use a Zod schema here if you want.
-// export type User = {
-//   id: string
-//   name: string
-//   status: "pending" | "active" | "inactive" | "deactivated"
-//   username: string
-//   role: "admin" | "superadmin" | "unassigned"
-// }
-
-// const statusOptions = [
-//   { label: "Pending", value: "pending", badge: "bg-gray-100/30 text-gray-900 dark:text-teal-200 border-gray-200" },
-//   { label: "Active", value: "active", badge: "bg-green-100/30 text-green-900 dark:text-green-200 border-green-200" },
-//   { label: "Deactivated", value: "deactivated", badge: "bg-red-100/30 text-red-900 dark:text-red-200 border-red-200" },
-//   { label: "Inactive", value: "inactive", badge: "bg-amber-100/30 text-amber-900 dark:text-amber-200 border-amber-200" },
-// ]
-
-// const roleOptions = [
-//   { label: "Unassigned", value: "unassigned", icon: User2Icon },
-//   { label: "Admin", value: "admin", icon: UserCheck },
-//   { label: "Superadmin", value: "superadmin", icon: Shield },
-// ]
-
 
 const statusOptions = Array.from(callTypes, ([value, badge]) => ({
   value,
@@ -83,19 +46,23 @@ const roleOptions = roles.map(({ label, value, icon }) => ({
 
 export const columns: ColumnDef<User>[] = [
   {
-    id: 'fullName',
-    header: 'Name',
-    accessorFn: (row) => `${row.name}`,
-  },
-  {
     accessorKey: 'username',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Username" />
     ),
   },
   {
+    id: 'name',
+    header: 'Name',
+    accessorFn: (row) => `${row.name}`,
+  },
+  {
     accessorKey: 'status',
     header: 'Status',
+    filterFn: (row, id, value) => {
+      if (!value?.length) return true
+      return value.includes(row.getValue(id))
+    },
     cell: ({ row }) => {
       const status = row.getValue('status') as string
       const badge = callTypes.get(status as User['status'])
@@ -109,6 +76,10 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: 'role',
     header: 'Role',
+    filterFn: (row, id, value) => {
+      if (!value?.length) return true
+      return value.includes(row.getValue(id))
+    },
     cell: ({ row }) => {
       const role = row.getValue('role') as string
       const option = roles.find((r) => r.value === role)
@@ -159,27 +130,23 @@ export function DataTable<TData, TValue>({
 
   return (
     <div>
-      <div className="flex items-center py-4 gap-2">
-        <Input
-          placeholder="Filter username..."
-          value={(table.getColumn("username")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("username")?.setFilterValue(event.target.value)
-          }
-          className="max-w-sm"
-        />
-        <DataTableFacetedFilter
-          column={table.getColumn("status") as Column<TData, unknown>}
-          title="Status"
-          options={statusOptions}
-        />
-        <DataTableFacetedFilter
-          column={table.getColumn("role") as Column<TData, unknown>}
-          title="Role"
-          options={roleOptions}
-        />
-        <DataTableViewOptions table={table} />
-      </div>
+      <DataTableToolbar
+        table={table}
+        searchPlaceholder='Filter username...'
+        searchKey='username'
+        filters={[
+          {
+            columnId: 'status',
+            title: 'Status',
+            options: statusOptions,
+          },
+          {
+            columnId: 'role',
+            title: 'Role',
+            options: roleOptions,
+          },
+        ]}
+      />
 
       <div className="overflow-hidden rounded-md border">
         <Table>
@@ -227,7 +194,6 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
       <DataTablePagination table={table} />
-
     </div>
   )
 }

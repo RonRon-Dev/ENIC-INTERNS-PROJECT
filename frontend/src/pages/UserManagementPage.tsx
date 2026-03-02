@@ -5,21 +5,14 @@ import { ShieldCheck, UserCheck, UserCog, Users2 } from "lucide-react";
 import { useEffect, useState } from "react"
 import { UsersDialogs } from '@/components/tables-data/users-dialogs'
 import { UsersProvider } from '@/components/tables-data/users-provider'
-
-async function getData(): Promise<User[]> {
-  return [
-    { id: "728ed521", name: "Jane Doe", status: "pending", username: "janedoe", role: "unassigned" },
-    { id: "728ed52f", name: "John Doe", status: "active", username: "johndoe", role: "superadmin" },
-    { id: "728ed522", name: "John Smith", status: "inactive", username: "johnsmith", role: "admin" },
-    { id: "728ed511", name: "Kate Doe", status: "deactivated", username: "katedoe", role: "unassigned" },
-  ]
-}
+import { UsersPrimaryButtons } from "@/components/tables-data/users-primary-buttons";
+import { users } from "@/data/users"
 
 function UserManagementContent() {
   const [data, setData] = useState<User[]>([])
 
   useEffect(() => {
-    getData().then(setData)
+    users().then(setData)
   }, [])
 
   const totalUsers = data.length
@@ -59,7 +52,15 @@ function UserManagementContent() {
           <CardTitle className="text-2xl tracking-wide">{assignedUsers}</CardTitle>
         </Card>
       </div>
-
+      <div className='flex flex-wrap items-end justify-between gap-2 mt-4'>
+        <div>
+          <h2 className='text-2xl font-bold tracking-tight'>User List</h2>
+          <p className='text-muted-foreground'>
+            Manage your users and their roles here.
+          </p>
+        </div>
+        <UsersPrimaryButtons />
+      </div>
       <div>
         <DataTable columns={columns} data={data} />
       </div>

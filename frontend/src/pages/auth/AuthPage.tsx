@@ -22,7 +22,6 @@ export default function AuthPage() {
 
   return (
     <div className="relative grid min-h-svh w-full lg:grid-cols-2 overflow-hidden bg-background">
-      <title>ENIC - Management Information System</title>
       <div
         className={cn(
           "transition absolute top-6 left-6 md:top-10 md:left-10 z-[60] flex items-center gap-2 font-medium duration-500",

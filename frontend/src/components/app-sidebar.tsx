@@ -1,21 +1,7 @@
 import * as React from "react";
-import {
-  BadgeDollarSign,
-  BotIcon,
-  CirclePile,
-  Command,
-  HandshakeIcon,
-  HardHat,
-  Home,
-  LayoutDashboard,
-  User2Icon,
-} from "lucide-react";
 
-import { NavDash } from "@/components/nav-dash";
-import { NavMain } from "@/components/nav-main";
-import { NavProjects } from "@/components/nav-projects";
 import { NavUser } from "@/components/nav-user";
-import { NavHome } from "@/components/nav-home";
+import { NavGroup } from "@/components/nav-group";
 
 import {
   Sidebar,
@@ -27,133 +13,35 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-const data = {
-  user: {
-    name: "Enic Developer",
-    role: "Administrator",
-    avatar: "/avatars/shadcn.jpg",
-  },
-
-  navHome: [
-    {
-      title: "Home",
-      url: "/home",
-      icon: Home,
-    },
-  ],
-
-  navDash: [
-    {
-      title: "Analytics Dashboard",
-      url: "/dashboard",
-      icon: LayoutDashboard,
-      isActive: false,
-    },
-    {
-      title: "User Management",
-      url: "/users",
-      icon: User2Icon,
-      isActive: false,
-    },
-  ],
-
-  navMain: [
-    {
-      title: "Inventory & Assets",
-      url: "/inventory",
-      icon: CirclePile,
-      isActive: false,
-      items: [
-        {
-          title: "Subtool 1",
-          url: "/inventory/subtool_1",
-        },
-        {
-          title: "Subtool 2",
-          url: "/inventory/subtool_2",
-        },
-        {
-          title: "Subtool 3",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Operations",
-      url: "/operations",
-      icon: HardHat,
-      items: [
-        {
-          title: "Subtool 1",
-          url: "#",
-        },
-        {
-          title: "Subtool 2",
-          url: "#",
-        },
-        {
-          title: "Subtool 3",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Finance",
-      url: "#",
-      icon: BadgeDollarSign,
-      items: [
-        {
-          title: "Subtool 1",
-          url: "#",
-        },
-        {
-          title: "Subtool 2",
-          url: "#",
-        },
-        {
-          title: "Subtool 3",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Marketing",
-      url: "#",
-      icon: HandshakeIcon,
-      items: [
-        {
-          title: "Subtool 1",
-          url: "#",
-        },
-        {
-          title: "Subtool 2",
-          url: "#",
-        },
-        {
-          title: "Subtool 3",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  projects: [
-    {
-      name: "Automation",
-      url: "#",
-      icon: BotIcon,
-    },
-  ],
-
-  // navSecondary: [
-  //   {
-  //     title: "Support",
-  //     url: "#",
-  //     icon: LifeBuoy,
-  //   },
-  // ],
-};
+import { sidebarData } from "@/data/sidebar"
+import { Command } from "lucide-react";
+import { useEffect, useState } from "react"
+import { users } from "@/data/users"
+import type { User } from "@/data/schema"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const [pendingCount, setPendingCount] = useState(0)
+
+  useEffect(() => {
+    users().then((data) => {
+      const count = data.filter((u) => u.status === "pending").length
+      setPendingCount(count)
+    })
+  }, [])
+
+  const dynamicNavGroups = sidebarData.navGroups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => {
+      if ("url" in item && item.url === "/users") {
+        return {
+          ...item,
+          badge: pendingCount > 0 ? String(pendingCount) : undefined,
+        }
+      }
+      return item
+    }),
+  }))
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -173,15 +61,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+
       <SidebarContent>
-        <NavHome items={data.navHome} />
-        <NavDash items={data.navDash} />
-        <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
-        {/* <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
+        {dynamicNavGroups.map((group) => (
+          <NavGroup key={group.title ?? "root"} {...group} />
+        ))}
       </SidebarContent>
+
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={sidebarData.user} />
       </SidebarFooter>
     </Sidebar>
   );
