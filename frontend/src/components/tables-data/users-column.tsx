@@ -1,7 +1,6 @@
 "use client"
 
 import type {
-  Column,
   ColumnDef,
   ColumnFiltersState,
   SortingState,
@@ -23,13 +22,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { DataTablePagination } from "../data-table-components/data-table-pagination"
 import { DataTableToolbar } from "../data-table-components/data-table-toolbar"
 import { DataTableColumnHeader } from "../data-table-components/data-table-header"
-import { DataTableFacetedFilter } from "../data-table-components/data-table-faceted-filter"
 import { DataTableRowActions } from "./users-data-table-row-actions"
 import { type User } from '@/data/schema'
 export type { User }
@@ -49,15 +46,15 @@ const roleOptions = roles.map(({ label, value, icon }) => ({
 
 export const columns: ColumnDef<User>[] = [
   {
-    id: 'name',
-    header: 'Name',
-    accessorFn: (row) => `${row.name}`,
-  },
-  {
     accessorKey: 'username',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Username" />
     ),
+  },
+  {
+    id: 'name',
+    header: 'Name',
+    accessorFn: (row) => `${row.name}`,
   },
   {
     accessorKey: 'status',
@@ -135,7 +132,7 @@ export function DataTable<TData, TValue>({
     <div>
       <DataTableToolbar
         table={table}
-        searchPlaceholder='Filter users...'
+        searchPlaceholder='Filter username...'
         searchKey='username'
         filters={[
           {
@@ -150,7 +147,6 @@ export function DataTable<TData, TValue>({
           },
         ]}
       />
-
 
       <div className="overflow-hidden rounded-md border">
         <Table>

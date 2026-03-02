@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { LinkProps } from "react-router-dom"
 
 const userStatusSchema = z.union([
   z.literal('active'),
@@ -20,6 +21,37 @@ const userSchema = z.object({
   status: userStatusSchema,
   role: userRoleSchema,
 })
-export type User = z.infer<typeof userSchema>
 
+export type User = z.infer<typeof userSchema>
 export const userListSchema = z.array(userSchema)
+
+type BaseNavItem = {
+  title: string
+  badge?: string
+  icon?: React.ElementType
+}
+
+type NavLink = BaseNavItem & {
+  url: LinkProps["to"]
+  items?: never
+}
+
+type NavCollapsible = BaseNavItem & {
+  items: (BaseNavItem & { url: LinkProps["to"] })[]
+  url?: never
+}
+
+type NavItem = NavLink | NavCollapsible
+
+type NavGroup = {
+  title?: string
+  items: NavItem[]
+}
+
+type SidebarData = {
+  user: User
+  navGroups: NavGroup[]
+}
+
+export type { SidebarData, NavGroup, NavItem, NavCollapsible, NavLink }
+
