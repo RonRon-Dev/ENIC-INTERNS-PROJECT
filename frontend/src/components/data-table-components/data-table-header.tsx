@@ -33,10 +33,12 @@ export function DataTableColumnHeader<TData, TValue>({
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            // size="sm"
             className="data-[state=open]:bg-accent -ml-3 h-8"
           >
-            <TableHead className="flex items-center p-0">{title}</TableHead>
+            <span className="flex items-center font-bold">
+              {title}
+            </span>
+
             {column.getIsSorted() === "desc" ? (
               <ArrowDown />
             ) : column.getIsSorted() === "asc" ? (
