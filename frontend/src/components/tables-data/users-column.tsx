@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { DataTablePagination } from "../data-table-components/data-table-pagination"
-import { DataTableViewOptions } from "../data-table-components/data-table-toggle"
+import { DataTableToolbar } from "../data-table-components/data-table-toolbar"
 import { DataTableColumnHeader } from "../data-table-components/data-table-header"
 import { DataTableFacetedFilter } from "../data-table-components/data-table-faceted-filter"
 import { DataTableRowActions } from "./users-data-table-row-actions"
@@ -49,7 +49,7 @@ const roleOptions = roles.map(({ label, value, icon }) => ({
 
 export const columns: ColumnDef<User>[] = [
   {
-    id: 'fullName',
+    id: 'name',
     header: 'Name',
     accessorFn: (row) => `${row.name}`,
   },
@@ -133,27 +133,24 @@ export function DataTable<TData, TValue>({
 
   return (
     <div>
-      <div className="flex items-center py-4 gap-2">
-        <Input
-          placeholder="Filter username..."
-          value={(table.getColumn("username")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("username")?.setFilterValue(event.target.value)
-          }
-          className="max-w-sm"
-        />
-        <DataTableFacetedFilter
-          column={table.getColumn("status") as Column<TData, unknown>}
-          title="Status"
-          options={statusOptions}
-        />
-        <DataTableFacetedFilter
-          column={table.getColumn("role") as Column<TData, unknown>}
-          title="Role"
-          options={roleOptions}
-        />
-        <DataTableViewOptions table={table} />
-      </div>
+      <DataTableToolbar
+        table={table}
+        searchPlaceholder='Filter users...'
+        searchKey='username'
+        filters={[
+          {
+            columnId: 'status',
+            title: 'Status',
+            options: statusOptions,
+          },
+          {
+            columnId: 'role',
+            title: 'Role',
+            options: roleOptions,
+          },
+        ]}
+      />
+
 
       <div className="overflow-hidden rounded-md border">
         <Table>
