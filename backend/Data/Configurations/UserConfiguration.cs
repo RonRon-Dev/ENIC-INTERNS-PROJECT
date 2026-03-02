@@ -18,5 +18,9 @@ public class UserConfiguration : IEntityTypeConfiguration<Users>
         builder.HasMany(u => u.ActivityLogs)
             .WithOne(al => al.User)
             .HasForeignKey(al => al.UserId);
+
+        builder.HasMany(u => u.UserRequests)
+            .WithOne(ur => ur.User)
+            .HasForeignKey(ur => ur.UserId);
     }
 }

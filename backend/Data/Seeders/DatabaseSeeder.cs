@@ -10,7 +10,7 @@ public class DatabaseSeeder
         await context.Database.MigrateAsync();
 
         var roles = new[]
-         {
+        {
             "Guest",
             "Admin",
             "Superadmin",
@@ -20,7 +20,7 @@ public class DatabaseSeeder
             "Managers",
             "Documentations",
             "IT",
-            "Others"
+            "Others",
         };
 
         foreach (var roleName in roles)
@@ -32,7 +32,6 @@ public class DatabaseSeeder
         }
 
         await context.SaveChangesAsync();
-
 
         const string superadminUsername = "enic.mis@superadmin";
         if (!await context.Users.AnyAsync(u => u.UserName == superadminUsername))
@@ -53,7 +52,6 @@ public class DatabaseSeeder
 
             await context.SaveChangesAsync();
         }
-
 
         const string adminUsername = "enic.mis@admin";
         if (!await context.Users.AnyAsync(u => u.UserName == adminUsername))

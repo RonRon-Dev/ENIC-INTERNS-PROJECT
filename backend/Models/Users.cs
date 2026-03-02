@@ -11,21 +11,12 @@ public class Users
     public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
 
-
     // force user to change password on first login or after reset
     public bool ForcePasswordChange { get; set; } = false;
-
-    // user request to admin
-    public bool PasswordResetRequested { get; set; } = false;
-    public DateTime? PasswordResetRequestedAtUtc { get; set; }
     
     //reset fields
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiry { get; set; }
-
-    // password reset fields
-    public string? PasswordResetCodeHash { get; set; }
-    public DateTime? PasswordResetCodeExpiresUtc { get; set; }
 
     //Foreign key to Roles
     public int? RoleId { get; set; }
@@ -33,4 +24,8 @@ public class Users
 
     //Navigation property to ActivityLogs
     public ICollection<ActivityLogs> ActivityLogs { get; set; } = new List<ActivityLogs>();
+
+    //Navigation Property to UserRequests
+    public ICollection<UserRequests> UserRequests { get; set; } = new List<UserRequests>();
+
 }
