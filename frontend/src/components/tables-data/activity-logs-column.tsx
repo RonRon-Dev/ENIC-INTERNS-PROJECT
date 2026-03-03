@@ -13,7 +13,6 @@ import {
   getSortedRowModel,
   getPaginationRowModel,
   getFacetedUniqueValues,
-  getFacetedRowModel,
 } from "@tanstack/react-table"
 import {
   Table,
@@ -28,29 +27,26 @@ import { Badge } from "@/components/ui/badge"
 import { DataTablePagination } from "../data-table-components/data-table-pagination"
 import { DataTableToolbar } from "../data-table-components/data-table-toolbar"
 import { DataTableColumnHeader } from "../data-table-components/data-table-header"
-import { DataTableRowActions } from "./users-data-table-row-actions"
-import { type User } from '@/data/schema'
-export type { User }
-import { userTypes, roles } from '@/data/const'
-
-const statusOptions = Array.from(userTypes, ([value, badge]) => ({
-  value,
-  label: value.charAt(0).toUpperCase() + value.slice(1),
-  badge,
-}))
+import { type ActivityLog } from '@/data/schema'
+export type { ActivityLog }
+import { activityTypes } from '@/data/const'
+import { roles } from '@/data/const'
 
 const roleOptions = roles.map(({ label, value, icon }) => ({
-  label: label.charAt(0).toUpperCase() + label.slice(1),
-  value,
+  label: label
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase()), value,
   icon,
 }))
 
-const includesArrayFilter = (row: any, id: string, value: string[]) => {
-  if (!value?.length) return true
-  return value.includes(row.getValue(id))
-}
+const activityTypeOptions = Array.from(activityTypes.keys()).map((key) => ({
+  label: key
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase()),
+  value: key,
+}))
 
-export const columns: ColumnDef<User>[] = [
+export const columns: ColumnDef<ActivityLog>[] = [
   {
     accessorKey: 'username',
     header: ({ column }) => (
@@ -59,37 +55,29 @@ export const columns: ColumnDef<User>[] = [
       </div>
     ),
     cell: ({ row }) => (
-      <div className="ml-5">{row.original.username}</div>
+      <div className="flex items-center">
+        <div className="ml-5">{row.original.user.username}</div>
+      </div>
     ),
     enableHiding: false,
   },
   {
-    accessorKey: 'name',
+    id: 'name',
     header: 'Name',
+    accessorFn: (row) => `${row.user.name}`,
     enableHiding: false,
     cell: ({ row }) => (
-      <div className="capitalize">{row.original.name}</div>
+      <div className="capitalize">{row.original.user.name}</div>
     ),
   },
   {
-    accessorKey: 'status',
-    header: 'Status',
-    filterFn: includesArrayFilter,
-    cell: ({ row }) => {
-      const status = row.getValue('status') as string
-      const badge = userTypes.get(status as User['status'])
-
-      return (
-        <Badge variant="outline" className={badge + ' capitalize'}>
-          {status}
-        </Badge>
-      )
-    },
-  },
-  {
-    accessorKey: 'role',
+    id: 'role',
     header: 'Role',
-    filterFn: includesArrayFilter,
+    accessorFn: (row) => row.user.role,
+    filterFn: (row, id, value) => {
+      if (!value?.length) return true
+      return value.includes(row.getValue(id))
+    },
     cell: ({ row }) => {
       const role = row.getValue('role') as string
       const option = roles.find((r) => r.value === role)
@@ -98,17 +86,67 @@ export const columns: ColumnDef<User>[] = [
       return (
         <div className="flex items-center gap-1.5">
           {Icon && <Icon className="size-3.5 text-muted-foreground" />}
-          <span className="capitalize">
-            {option?.label ?? role}
-          </span>
+          <span className="capitalize">{option?.label ?? role}</span>
         </div>
       )
     },
   },
   {
-    id: 'actions',
-    cell: DataTableRowActions,
+    id: 'type',
+    accessorKey: 'type',
+    header: 'Type',
+    filterFn: (row, id, value) => {
+      if (!value?.length) return true
+      return value.includes(row.getValue(id))
+    },
+    cell: ({ row }) => {
+      const type = row.getValue('type') as string
+      const badge = activityTypes.get(type as ActivityLog['type'])
+
+      return (
+        <Badge variant="outline" className={badge + ' capitalize'}>
+          {type}
+        </Badge>
+      )
+    },
   },
+  {
+    id: 'description',
+    header: 'Description',
+    accessorFn: (row) => row.description,
+    cell: ({ row }) => (
+      <div className="max-w-[150px] line-clamp-1">
+        {row.original.description.charAt(0).toUpperCase() + row.original.description.slice(1)}
+      </div>
+    ),
+  },
+  {
+    id: 'date',
+    header: 'Date',
+    accessorFn: (row) => {
+      const date = new Date(row.date + 'T00:00:00'); // prevent timezone shift
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    },
+  },
+  {
+    id: 'time',
+    header: 'Time',
+    accessorFn: (row) => {
+      const [hourStr, minute] = row.time.split(':');
+      const hour = parseInt(hourStr, 10);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 || 12;
+      return `${hour12}:${minute} ${ampm}`;
+    },
+  },
+  // {
+  //   id: 'actions',
+  //   cell: DataTableRowActions,
+  // },
 ]
 
 interface DataTableProps<TData, TValue> {
@@ -135,7 +173,6 @@ export function DataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
-    getFacetedRowModel: getFacetedRowModel(),
     state: {
       sorting,
       columnFilters,
@@ -146,18 +183,18 @@ export function DataTable<TData, TValue>({
     <div>
       <DataTableToolbar
         table={table}
-        searchPlaceholder='Filter username...'
+        searchPlaceholder='Search activity logs...'
         // searchKey='username'
         filters={[
-          {
-            columnId: 'status',
-            title: 'Status',
-            options: statusOptions,
-          },
           {
             columnId: 'role',
             title: 'Role',
             options: roleOptions,
+          },
+          {
+            columnId: 'type',
+            title: 'Type',
+            options: activityTypeOptions,
           },
         ]}
       />

@@ -1,6 +1,7 @@
 import { UsersActionDialog, UsersDeleteDialog } from './users-action-dialog'
 import { useUsers } from '@/components/tables-data/users-provider'
 import { UsersInviteDialog } from './users-invite-dialog'
+import { UsersAddRoleDialog } from './users-add-role-dialog'
 
 export function UsersDialogs() {
   const { open, setOpen, currentRow, setCurrentRow } = useUsers()
@@ -12,11 +13,11 @@ export function UsersDialogs() {
         onOpenChange={() => setOpen('add')}
       />
 
-      <UsersInviteDialog
+      {/* <UsersInviteDialog
         key='user-invite'
         open={open === 'invite'}
         onOpenChange={() => setOpen('invite')}
-      />
+      /> */}
 
       {currentRow && (
         <>
@@ -45,6 +46,10 @@ export function UsersDialogs() {
           />
         </>
       )}
+      <UsersAddRoleDialog
+        open={open === 'role'}
+        onOpenChange={() => setOpen(null)}
+      />
     </>
   )
 }

@@ -261,8 +261,15 @@ function SignupForm({ onToggle }: { onToggle: () => void }) {
           <div className="relative">
             <Input
               value={username}
-              readOnly
               className="bg-muted/50 font-mono text-primary pr-10 cursor-default"
+              onChange={(e) => {
+                let value = e.target.value
+                
+                value = value.replace(/\s/g, '')
+                value = value.toLowerCase()
+
+                setUsername(value)
+              }}
             />
             <button
               type="button"
