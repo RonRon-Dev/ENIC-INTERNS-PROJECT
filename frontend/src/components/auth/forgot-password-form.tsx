@@ -8,6 +8,10 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
+import { forgotPasswordSchema, type ForgotPasswordRequest } from "@/validations";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { forgotPassword } from "@/services/auth";
 
 interface ForgotPasswordFormProps {
   onBack: () => void;
@@ -15,10 +19,50 @@ interface ForgotPasswordFormProps {
 
 export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
   const [isSent, setIsSent] = useState(false);
+  // Initialize the form with react-hook-form and zod validation
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors },
+  } = useForm<ForgotPasswordRequest>({
+    resolver: zodResolver(forgotPasswordSchema),
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSent(true);
+  // State to hold any server-side error messages
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  // Function to handle form submission
+  const onSubmit = async (data: ForgotPasswordRequest) => {
+    try {
+      setServerError(null);
+      const response = await forgotPassword(data);
+      setIsSent(true);
+      if (!response.success) {
+        setServerError(response.message);
+        return;
+      }
+    } catch (error: any) {
+      const res = error.response?.data;
+      
+      if (!res) {
+        setServerError("Something went wrong");
+        return;
+      }
+      // Handle field-level errors
+      if (res.errors) {
+        Object.entries(res.errors).forEach(([key, value]) => {
+          setError(key as keyof ForgotPasswordRequest, {
+            type: "server",
+            message: value as string,
+          });
+        });
+      }
+      // Handle general message
+      if (res.message) {
+        setServerError(res.message);
+      }
+    } 
   };
 
   return (
@@ -35,15 +79,31 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
       </div>
 
       {!isSent ? (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <form 
+          onSubmit={handleSubmit(onSubmit)} 
+          className="flex flex-col gap-6"
+        >
           <FieldGroup>
             <Field>
               <FieldLabel>System Username</FieldLabel>
-              <Input type="text" placeholder="eg. j.luna" required />
+              <Input 
+                // Spread the register function to connect the input with react-hook-form
+                {...register("username")}
+                type="text" 
+                placeholder="eg. j.luna" 
+              />
               <FieldDescription>
                 Enter the username associated with your MIS account.
               </FieldDescription>
+              <p className="text-sm text-red-500">
+                {/* Display validation error for the username field, if any*/}
+                {errors.username?.message}
+              </p>
             </Field>
+            <p className="text-red-500 text-sm">{
+              // Display any server-side error messages that are not field-specific
+              serverError
+            }</p>
             <Button type="submit" className="w-full">
               Send Reset Request
             </Button>

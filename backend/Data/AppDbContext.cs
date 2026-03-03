@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
   public DbSet<Users> Users => Set<Users>(); 
   public DbSet<Roles> Roles => Set<Roles>();
+  public DbSet<UserRequests> UserRequests => Set<UserRequests>();
   public DbSet<ActivityLogs> ActivityLogs => Set<ActivityLogs>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)

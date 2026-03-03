@@ -8,6 +8,9 @@ public class UserConfiguration : IEntityTypeConfiguration<Users>
     {
         builder.HasKey(u => u.Id);
 
+        builder.HasIndex(u => u.UserName)
+            .IsUnique();
+
         builder.HasOne(u => u.Role)
             .WithMany(r => r.Users)
             .HasForeignKey(u => u.RoleId);
@@ -15,5 +18,9 @@ public class UserConfiguration : IEntityTypeConfiguration<Users>
         builder.HasMany(u => u.ActivityLogs)
             .WithOne(al => al.User)
             .HasForeignKey(al => al.UserId);
+
+        builder.HasMany(u => u.UserRequests)
+            .WithOne(ur => ur.User)
+            .HasForeignKey(ur => ur.UserId);
     }
 }
