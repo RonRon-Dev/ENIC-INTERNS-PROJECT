@@ -16,6 +16,31 @@ namespace backend.Services.Auth;
 
 public class AuthService(AppDbContext context, IConfiguration configuration) : IAuthService
 {
+    public async Task<IamResponse?> GetIamAsync(int userId)
+    {
+        var user = await context
+            .Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+        
+        if (user == null)
+            return new IamResponse
+            {
+                Name = null,
+                UserName = null,
+                NameIdentifier = null,
+                ForcePasswordChange = false
+            };
+
+        return new IamResponse
+        {
+            Name = user.Name,
+            UserName = user.UserName,
+            NameIdentifier = user.Id.ToString(),
+            ForcePasswordChange = user.ForcePasswordChange
+        };
+    }
+
     // Account Registration and Sending Request to Admin for Approval
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
@@ -61,6 +86,14 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
 
         context.Users.Add(user);
         await context.SaveChangesAsync();
+
+        context.UserRequests.Add(new UserRequests
+        {
+            UserId = user.Id,
+            RequestType = "Account Registration",
+            RequestStatus = "Pending",
+            RequestDate = DateTime.UtcNow,
+        });
 
         // User Registration Logs
         context.ActivityLogs.Add(new ActivityLogs
@@ -185,24 +218,10 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     }
 
     // Logout: revoke refresh token
-    public async Task<AuthResponse> LogoutAsync(string token)
+    public async Task<AuthResponse> LogoutAsync(int? userId)
     {
-        // Your controller probably passes the access token, but logout should revoke refresh token.
-        // We'll treat "token" as access token and read userId from it.
-        var userId = TryGetUserIdFromJwt(token);
-        if (userId is null)
-        {
-            return new AuthResponse
-            {
-                Success = false,
-                Message = "Invalid token.",
-                AccessToken = null!,
-                RefreshToken = null!,
-                ForcePasswordChange = false
-            };
-        }
+        var user = await context.Users.FindAsync(userId);
 
-        var user = await context.Users.FindAsync(userId.Value);
         if (user is null)
         {
             return new AuthResponse
@@ -224,7 +243,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             UserName = user.UserName,
             ActivityType = "Authentication",
             Description = "User Logout",
-            Payload = "{}",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { user.UserName }),
             IsSuccess = true,
             Timestamp = DateTime.UtcNow,
         });

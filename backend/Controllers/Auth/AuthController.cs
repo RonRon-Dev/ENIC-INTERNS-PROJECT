@@ -4,6 +4,7 @@ using backend.Dtos.Response.Auth;
 using backend.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace backend.Controllers.Auth;
 
@@ -11,6 +12,23 @@ namespace backend.Controllers.Auth;
 [ApiController]
 public class AuthController(IAuthService service) : ControllerBase
 {
+    [Authorize]
+    [HttpGet("iam")]
+    public async Task<ActionResult<IamResponse>> GetIam()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (userId is null)
+          return Unauthorized();
+
+        var result = await service.GetIamAsync(int.Parse(userId));
+
+        if (result is null)
+            return NotFound(new { message = "User not found" });
+
+        return Ok(result);
+    }
+
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
     {
@@ -21,18 +39,34 @@ public class AuthController(IAuthService service) : ControllerBase
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request)
     {
-        try
-        {
-            var result = await service.LoginAsync(request);
+        var result = await service.LoginAsync(request);
 
-            if (result is null || result.AccessToken is null || result.RefreshToken is null)
-                return Unauthorized(result);
-            return Ok(result);
-        }
-        catch (Exception ex)
+        if (result is null || result.AccessToken is null || result.RefreshToken is null)
+            return Unauthorized(result);
+
+        Response.Cookies.Append("accessToken", result.AccessToken, new CookieOptions
         {
-            return StatusCode(500, new { error = ex.Message });
-        }
+            HttpOnly = true,
+            Secure = false,
+            SameSite = SameSiteMode.Lax,
+            /* For Production
+            Secure = true,
+            SameSite = SameSiteMode.Strict, */
+            Expires = DateTime.UtcNow.AddMinutes(15)
+        });
+
+        Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = false,
+            SameSite = SameSiteMode.Lax,
+            /* For Production
+            Secure = true,
+            SameSite = SameSiteMode.Strict, */
+            Expires = DateTime.UtcNow.AddDays(7)
+        });
+
+        return Ok(result);
     }
 
     // USER: request reset (PENDING admin approval, no code returned)
@@ -46,6 +80,7 @@ public class AuthController(IAuthService service) : ControllerBase
             : BadRequest(new { message = response.Message });
     }
 
+    [Authorize]
     [HttpPut("update-password")]
     public async Task<IActionResult> UpdatePassword(ResetPasswordRequest request)
     {
@@ -57,6 +92,7 @@ public class AuthController(IAuthService service) : ControllerBase
     }
 
     // USER: refresh token
+    [Authorize]
     [HttpPost("refresh-token")]
     public async Task<ActionResult<AuthResponse>> RefreshToken(RefreshTokenRequest request)
     {
@@ -76,14 +112,13 @@ public class AuthController(IAuthService service) : ControllerBase
     // If your frontend can pass Authorization: Bearer <accessToken>, you can
     // enable this.
     [Authorize]
-    [HttpDelete("logout")]
+    [HttpPost("logout")]
     public async Task<IActionResult> Logout()
     {
-        var authHeader = Request.Headers.Authorization.ToString();
-        if (string.IsNullOrWhiteSpace(authHeader))
-            return BadRequest(new { message = "Missing Authorization header." });
-
-        var result = await service.LogoutAsync(authHeader);
-        return result.Success ? Ok(result) : BadRequest(result);
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var result = await service.LogoutAsync(userId);
+        Response.Cookies.Delete("refreshToken");
+        Response.Cookies.Delete("accessToken");
+        return Ok(result);
     }
 }

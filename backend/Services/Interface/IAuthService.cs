@@ -6,10 +6,11 @@ namespace backend.Services.Interface;
 
 public interface IAuthService
 {
-    Task<ForgotPasswordResponse>ForgotPasswordAsync(ForgotPasswordRequest request);
-    Task<ForgotPasswordResponse> UpdatePasswordAsync(ResetPasswordRequest request);
+    Task<IamResponse?> GetIamAsync(int userId);
     Task<AuthResponse> RegisterAsync(RegisterRequest request);
     Task<AuthResponse?> LoginAsync(LoginRequest request);
-    Task<AuthResponse> LogoutAsync(string token);
+    Task<AuthResponse> LogoutAsync(int? userId);
     Task<AuthResponse?> RefreshTokenAsync(RefreshTokenRequest request);
+    Task<ForgotPasswordResponse>ForgotPasswordAsync(ForgotPasswordRequest request);
+    Task<ForgotPasswordResponse> UpdatePasswordAsync(ResetPasswordRequest request);
 }

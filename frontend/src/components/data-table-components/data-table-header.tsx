@@ -33,10 +33,12 @@ export function DataTableColumnHeader<TData, TValue>({
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            // size="sm"
-            className="data-[state=open]:bg-accent -ml-3 h-8"
+            className="data-[state=open]:bg-none -ml-3 h-8 hover:bg-transparent"
           >
-            <TableHead className="flex items-center p-0">{title}</TableHead>
+            <span className="flex items-center font-bold">
+              {title}
+            </span>
+
             {column.getIsSorted() === "desc" ? (
               <ArrowDown />
             ) : column.getIsSorted() === "asc" ? (
@@ -55,11 +57,11 @@ export function DataTableColumnHeader<TData, TValue>({
             <ArrowDown />
             Desc
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
+          {/* <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => column.toggleVisibility(false)}>
             <EyeOff />
             Hide
-          </DropdownMenuItem>
+          </DropdownMenuItem> */}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

@@ -2,7 +2,7 @@
 
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { showSubmittedData } from '@/lib/show-submitted-data'
 import { Button } from '@/components/ui/button'
@@ -25,12 +25,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/password-input'
 import { SelectDropdown } from '@/components/select-dropdown'
-import { AlertTriangle, Shield, User2Icon, UserCheck } from 'lucide-react'
-import { roles } from '@/data/data'
+import { AlertTriangle, Check, Copy } from 'lucide-react'
+import { roles } from '@/data/const'
 import { type User } from '@/data/schema'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
+
 
 const formSchema = z
   .object({
@@ -109,19 +110,19 @@ export function UsersActionDialog({
     resolver: zodResolver(formSchema),
     defaultValues: isEdit
       ? {
-          ...currentRow,
-          password: '',
-          confirmPassword: '',
-          isEdit,
-        }
+        ...currentRow,
+        password: '',
+        confirmPassword: '',
+        isEdit,
+      }
       : {
-          name: '',
-          username: '',
-          role: '',
-          password: '',
-          confirmPassword: '',
-          isEdit,
-        },
+        name: '',
+        username: '',
+        role: '',
+        password: '',
+        confirmPassword: '',
+        isEdit,
+      },
   })
 
   const onSubmit = (values: UserForm) => {
@@ -131,6 +132,33 @@ export function UsersActionDialog({
   }
 
   const isPasswordTouched = !!form.formState.dirtyFields.password
+  const fullName = form.watch("name");
+
+  useEffect(() => {
+    if (isEdit) return
+
+      if (fullName?.trim()) {
+        const names = fullName.toLowerCase().trim().split(/\s+/)
+        const generated =
+          names.length >= 2
+            ? `${names[0].charAt(0)}.${names[names.length - 1]}`
+            : names[0]
+
+        form.setValue("username", generated)
+      } else {
+        form.setValue("username", "")
+      }
+  }, [fullName, isEdit, form])
+
+  const [copied, setCopied] = useState(false)
+
+  const copyUsername = () => {
+    const username = form.getValues('username')
+    if (!username) return
+    navigator.clipboard.writeText(username)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <Dialog
@@ -161,14 +189,16 @@ export function UsersActionDialog({
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
                     <FormLabel className='col-span-2 text-end'>
-                      Name
+                      Full Name
                     </FormLabel>
                     <FormControl>
                       <Input
                         placeholder='John Doe'
                         className='col-span-4'
-                        autoComplete='off'
+                        // autoComplete='off'
                         {...field}
+                      // value={fullName}
+                      // onChange={(e) => setFullName(e.target.value)}
                       />
                     </FormControl>
                     <FormMessage className='col-span-4 col-start-3' />
@@ -180,15 +210,34 @@ export function UsersActionDialog({
                 name='username'
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
-                    <FormLabel className='col-span-2 text-end'>
-                      Username
-                    </FormLabel>
+                    <FormLabel className='col-span-2 text-end'>Username</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder='john_doe'
-                        className='col-span-4'
-                        {...field}
-                      />
+                      <div className='col-span-3 relative'>
+                        <Input
+                          placeholder='auto-generated'
+                          className='bg-muted/50 font-mono text-primary pr-10'
+                          // readOnly={!isEdit}
+                          disabled={isEdit}
+                          {...field}
+                          onChange={(e) => {
+                            if (isEdit) return 
+                            let value = e.target.value
+                            value = value.replace(/\s/g, '').toLowerCase()
+                            field.onChange(value)
+                          }}
+                        />
+                        {!isEdit && (
+                          <button
+                            type='button'
+                            onClick={copyUsername}
+                            className='absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-background rounded transition-colors'
+                          >
+                            {copied
+                              ? <Check className='h-4 w-4 text-green-600' />
+                              : <Copy className='h-4 w-4 text-muted-foreground' />}
+                          </button>
+                        )}
+                      </div>
                     </FormControl>
                     <FormMessage className='col-span-4 col-start-3' />
                   </FormItem>
@@ -201,12 +250,19 @@ export function UsersActionDialog({
                   <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
                     <FormLabel className='col-span-2 text-end'>Role</FormLabel>
                     <SelectDropdown
-                      defaultValue={field.value || 'Unassigned'}
+                      defaultValue={field.value || 'unassigned'}
                       onValueChange={field.onChange}
                       placeholder='Select a role'
-                      className='col-span-4'
-                      items={roles.map(({ label, value }) => ({
-                        label,
+                      className='col-span-3'
+                      items={roles.map(({ label, value, icon: Icon }) => ({
+                        label: (
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            <span>
+                              {label.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase())}
+                            </span>
+                          </div>
+                        ),
                         value,
                       }))}
                     />
@@ -314,14 +370,12 @@ export function UsersDeleteDialog({
             from the system. This cannot be undone.
           </p>
 
-          <Label className='my-2'>
-            Username:
-            <Input
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder='Enter username to confirm deletion.'
-            />
-          </Label>
+          <Input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder='Enter username to confirm deletion.'
+            className='mt-2'
+          />
 
           <Alert variant='destructive'>
             <AlertTitle>Warning!</AlertTitle>

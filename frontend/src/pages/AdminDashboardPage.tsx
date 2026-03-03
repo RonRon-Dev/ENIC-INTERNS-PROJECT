@@ -1,14 +1,26 @@
-export default function DashboardPage() {
+import { useEffect, useState } from "react"
+import { columns, DataTable } from "@/components/tables-data/activity-logs-column"
+import { userlogs } from "@/data/userlogs"
+import type { ActivityLog } from "@/data/schema"
+    
+export default function Dashboard() {
+    const [data, setData] = useState<ActivityLog[]>([])
+
+    useEffect(() => {
+        async function loadData() {
+            const logs = await userlogs()
+            setData(logs)
+        }
+
+        loadData()
+    }, [])
+
     return (
         <>
-            <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-                <div className="bg-muted/50 aspect-video rounded-xl" />
-                <div className="bg-muted/50 aspect-video rounded-xl" />
-                <div className="bg-muted/50 aspect-video rounded-xl" />
+            <h1 className='text-2xl font-bold tracking-tight'>Activity Logs</h1>
+            <div>
+                <DataTable columns={columns} data={data} />
             </div>
-
-            <div className="text-center items-center justify-center text-3xl font-black">THIS IS DASHBOARD</div>
-            <div className="bg-muted/50 min-h-[100vh] flex-1 rounded-xl md:min-h-min" />
         </>
     )
 }

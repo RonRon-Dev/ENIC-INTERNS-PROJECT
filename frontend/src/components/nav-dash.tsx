@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, type LucideIcon } from "lucide-react";
+import { Badge, ChevronRight, type LucideIcon } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
 import {
@@ -106,4 +106,8 @@ export function NavDash({
       </SidebarMenu>
     </SidebarGroup>
   );
+}
+
+function NavBadge({ children }: { children: ReactNode }) {
+  return <Badge className='rounded-full px-1 py-0 text-xs'>{children}</Badge>
 }
