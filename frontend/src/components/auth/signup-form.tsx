@@ -168,12 +168,14 @@ export default function SignupForm({ onToggle }: { onToggle: () => void }) {
         </Button>
         <p className="text-center text-sm">
           Returning?{" "}
-          <button
+          <Button
+            type="button"
             onClick={onToggle}
-            className="font-semibold underline underline-offset-4 hover:text-primary"
+            className="font-semibold underline underline-offset-4 hover:text-primary p-0"
+            variant="link"
           >
             Sign In
-          </button>
+          </Button>
         </p>
       </FieldGroup>
     </form>
