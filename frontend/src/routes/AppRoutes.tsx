@@ -7,6 +7,7 @@ import GeneralHomePage from "@/pages/GeneralHomePage";
 import AuthPage from "@/pages/auth/AuthPage";
 import UserManagementPage from "@/pages/UserManagementPage";
 import SubToolTestPage from "@/pages/tools/subtools/SubToolPage";
+import ProtectedRoute from "./ProtectedRoutes";
 // import { ForgotPasswordForm } from "@/pages/auth/ForgotPasswordForm";
 
 export default function AppRoutes() {
@@ -32,7 +33,12 @@ export default function AppRoutes() {
       /> */}
 
       {/* Protected Application Layout */}
-      <Route element={<AppLayout />}>
+      <Route element={
+        // Wrap the AppLayout with ProtectedRoute to ensure authentication is checked before rendering
+        <ProtectedRoute>
+          <AppLayout />
+        </ProtectedRoute>
+      }>
         <Route path="/home" element={<GeneralHomePage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/users" element={<UserManagementPage />} />
