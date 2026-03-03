@@ -14,12 +14,11 @@ export default function AppRoutes() {
   return (
     <Routes>
       {/* Default Landing */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<Navigate to="/home" replace />} />
 
       {/* Public Routes */}
       <Route path="/login" element={<AuthPage />} />
 
-    
       {/* <Route
         path="/test"
         element={
@@ -33,15 +32,32 @@ export default function AppRoutes() {
       /> */}
 
       {/* Protected Application Layout */}
-      <Route element={
-        // Wrap the AppLayout with ProtectedRoute to ensure authentication is checked before rendering
-        <ProtectedRoute>
-          <AppLayout />
-        </ProtectedRoute>
-      }>
+      <Route
+        element={
+          // Wrap the AppLayout with ProtectedRoute to ensure authentication is checked before rendering
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route path="/home" element={<GeneralHomePage />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/users" element={<UserManagementPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Superadmin", "Admin"]}>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute allowedRoles={["Superadmin", "Admin"]}>
+              <UserManagementPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Nested Inventory Routes */}
         <Route path="/inventory">
@@ -54,7 +70,9 @@ export default function AppRoutes() {
       </Route>
 
       {/* Fall back */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+
+
+      {/* <Route path="*" element={<Navigate to="/login" replace />} /> */}
     </Routes>
   );
 }

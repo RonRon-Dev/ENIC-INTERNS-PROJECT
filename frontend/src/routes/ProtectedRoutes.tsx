@@ -1,14 +1,29 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/auth-context";
+import { UnauthorisedError } from "@/components/errors/401";
 
-// ProtectedRoute component that checks if the user is authenticated before rendering the child components
-export default function ProtectedRoute({ children }) {
+type ProtectedRouteProps = {
+  children: React.ReactNode;
+  allowedRoles?: string[];
+};
+
+export default function ProtectedRoute({
+  children,
+  allowedRoles,
+}: ProtectedRouteProps) {
   const auth = useAuth();
 
   if (auth.loading) return <div>Loading...</div>;
 
-  if (!auth.isAuthenticated)
-    return <Navigate to="/login" />;
+  // Login Authetication
+  if (!auth.isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
-  return children;
+  // Role Restrictions
+  if (allowedRoles && !allowedRoles.includes(auth.user?.roleName ?? "")) {
+    return <UnauthorisedError />;
+  }
+
+  return <>{children}</>;
 }

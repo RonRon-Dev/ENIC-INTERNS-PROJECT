@@ -45,9 +45,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // const refreshUser = async () => {
+  //   try {
+  //     const data = await getAuthenticatedUser();
+  //     setUser(data);
+  //   } catch {
+  //     setUser(null);
+  //   }
+  // };
+
   const refreshUser = async () => {
     try {
       const data = await getAuthenticatedUser();
+
+      console.log("Authenticated User:", data);
+      console.log("Role Received:", data.roleName);
+      console.log("Type of Role:", typeof data.roleName);
+
       setUser(data);
     } catch {
       setUser(null);

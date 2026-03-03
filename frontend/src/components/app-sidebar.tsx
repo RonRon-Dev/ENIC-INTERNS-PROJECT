@@ -63,6 +63,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
 
       <SidebarContent>
+        {/* Todo here tommoro, add rbac per page */}
         {dynamicNavGroups.map((group) => (
           <NavGroup key={group.title ?? "root"} {...group} />
         ))}

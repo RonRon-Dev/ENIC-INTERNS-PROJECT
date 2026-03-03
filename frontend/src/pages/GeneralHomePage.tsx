@@ -108,7 +108,7 @@ export default function GeneralHomePage() {
   const filteredTools = tools.filter(
     (tool) =>
       tool.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tool.description.toLowerCase().includes(searchQuery.toLowerCase())
+      tool.description.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -164,7 +164,7 @@ export default function GeneralHomePage() {
                   "flex items-center gap-4 p-5 transition-all duration-200 rounded-xl min-w-[30vh] group relative",
                   tool.isAccessible
                     ? "hover:bg-muted/60 cursor-pointer hover:border-gray-500"
-                    : "opacity-60 grayscale cursor-not-allowed bg-muted/5 border-dashed"
+                    : "opacity-60 grayscale cursor-not-allowed bg-muted/5 border-dashed",
                 )}
               >
                 <div
@@ -172,7 +172,7 @@ export default function GeneralHomePage() {
                     "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-colors duration-200 relative",
                     tool.isAccessible
                       ? "bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground"
-                      : "bg-muted/50 text-muted-foreground/30"
+                      : "bg-muted/50 text-muted-foreground/30",
                   )}
                 >
                   <tool.icon className="h-6 w-6" />
