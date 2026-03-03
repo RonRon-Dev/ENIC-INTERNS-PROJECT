@@ -115,7 +115,7 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
                   <FormLabel>Icon</FormLabel>
                   <FormControl>
                     <div className='grid grid-cols-5 gap-2'>
-                      {availableIcons.map(({ label, value, icon: Icon }) => (
+                      {availableIcons.map(({ value, icon: Icon }) => (
                         <Button
                           key={value.toLowerCase()}
                           type='button'

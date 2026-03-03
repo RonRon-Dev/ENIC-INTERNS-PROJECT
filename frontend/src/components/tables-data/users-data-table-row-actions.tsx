@@ -1,5 +1,4 @@
 import { MoreHorizontal, Trash2, UserCheck, UserPen, UserX } from 'lucide-react'
-import { type Row } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,

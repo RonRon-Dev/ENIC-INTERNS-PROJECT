@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, ChevronRight, Laptop, Moon, Sun } from 'lucide-react'
+import { ArrowRight, ChevronRight } from 'lucide-react'
 import { useSearch } from '@/components/search-provider'
 // import { useTheme } from '@/context/theme-provider'
 import {
@@ -10,7 +10,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from '@/components/ui/command'
 import { sidebarData } from '@/data/sidebar'
 import { ScrollArea } from './ui/scroll-area'

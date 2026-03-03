@@ -17,7 +17,6 @@ import { sidebarData } from "@/data/sidebar"
 import { Command } from "lucide-react";
 import { useEffect, useState } from "react"
 import { users } from "@/data/users"
-import type { User } from "@/data/schema"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [pendingCount, setPendingCount] = useState(0)

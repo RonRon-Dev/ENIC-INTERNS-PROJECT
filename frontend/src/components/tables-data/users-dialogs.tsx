@@ -1,6 +1,5 @@
 import { UsersActionDialog, UsersDeactivateDialog, UsersActivateDialog, UsersApproveDialog, UsersRejectDialog } from './users-action-dialog'
 import { useUsers } from '@/components/tables-data/users-provider'
-import { UsersInviteDialog } from './users-invite-dialog'
 import { UsersAddRoleDialog } from './users-add-role-dialog'
 
 export function UsersDialogs() {

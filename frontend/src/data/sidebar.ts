@@ -9,10 +9,6 @@ import {
   User2Icon,
 } from "lucide-react"
 import type { SidebarData } from "./schema"
-import { useAuth
-
-  
- } from "@/auth-context"
 
 export const sidebarData: SidebarData = {
   user: {

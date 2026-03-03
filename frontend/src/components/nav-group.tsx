@@ -181,7 +181,7 @@ function SidebarMenuCollapsedDropdown({
   )
 }
 
-function checkIsActive(href: string, item: NavItem, mainNav = false) {
+function checkIsActive(href: string, item: NavItem) {
   if ("url" in item) {
     return href === item.url || href.startsWith(item.url)
   }
