@@ -107,6 +107,7 @@ export function UsersActionDialog({
 }: UserActionDialogProps) {
   const isEdit = !!currentRow
   const form = useForm<UserForm>({
+    mode: 'onChange',
     resolver: zodResolver(formSchema),
     defaultValues: isEdit
       ? {
@@ -214,7 +215,7 @@ export function UsersActionDialog({
                     <FormControl>
                       <div className='col-span-3 relative'>
                         <Input
-                          placeholder='auto-generated'
+                          // placeholder='auto-generated'
                           className='bg-muted/50 font-mono text-primary pr-10'
                           // readOnly={!isEdit}
                           disabled={isEdit}
@@ -313,7 +314,8 @@ export function UsersActionDialog({
           </Form>
         </div>
         <DialogFooter>
-          <Button type='submit' form='user-form'>
+          <Button type='submit' form='user-form' disabled={!form.formState.isValid || !form.formState.isDirty}
+          >
             Save changes
           </Button>
         </DialogFooter>
@@ -476,13 +478,11 @@ export function UsersApproveDialog({
     showSubmittedData(currentRow, 'The following user has been approved:')
   }
 
-   const form = useForm<UserForm>({
+  const form = useForm<UserForm>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-        role: '',
-        password: '',
-        confirmPassword: '',
-      },
+      role: '',
+    },
   })
 
   const onSubmit = (values: UserForm) => {
@@ -491,11 +491,14 @@ export function UsersApproveDialog({
     onOpenChange(false)
   }
 
+  const selectedRole = form.watch('role')
+
   return (
     <ConfirmDialog
       open={open}
       onOpenChange={onOpenChange}
       handleConfirm={handleApprove}
+      disabled={!selectedRole}
       title={
         <span className='text-green-600'>
           <UserCheck
@@ -513,40 +516,40 @@ export function UsersApproveDialog({
             <br />
             This will grant them access to the system.
           </p>
-            <Form {...form}>
+          <Form {...form}>
             <form
               id='user-form'
               onSubmit={form.handleSubmit(onSubmit)}
               className='space-y-4 px-0.5'
-            >   
-          <FormField
-            control={form.control}
-            name='role'
-            render={({ field }) => (
-              <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
-                {/* <FormLabel className='col-span-2 text-end'>Role</FormLabel> */}
-                <SelectDropdown
-                  defaultValue={field.value}
-                  onValueChange={field.onChange}
-                  placeholder='Select a role'
-                  className='col-span-6'
-                  items={roles.map(({ label, value, icon: Icon }) => ({
-                    label: (
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-4 w-4" />
-                        <span>
-                          {label.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase())}
-                        </span>
-                      </div>
-                    ),
-                    value,
-                  }))}
-                />
-                <FormMessage className='col-span-4 col-start-3' />
-              </FormItem>
-            )}
-          />
-          </form> 
+            >
+              <FormField
+                control={form.control}
+                name='role'
+                render={({ field }) => (
+                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
+                    {/* <FormLabel className='col-span-2 text-end'>Role</FormLabel> */}
+                    <SelectDropdown
+                      defaultValue={field.value}
+                      onValueChange={field.onChange}
+                      placeholder='Select a role'
+                      className='col-span-6'
+                      items={roles.map(({ label, value, icon: Icon }) => ({
+                        label: (
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            <span>
+                              {label.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase())}
+                            </span>
+                          </div>
+                        ),
+                        value,
+                      }))}
+                    />
+                    <FormMessage className='col-span-4 col-start-3' />
+                  </FormItem>
+                )}
+              />
+            </form>
           </Form>
           <Alert>
             <AlertTitle>Note</AlertTitle>
@@ -583,6 +586,7 @@ export function UsersRejectDialog({
     <ConfirmDialog
       open={open}
       onOpenChange={onOpenChange}
+      disabled={!reason}
       handleConfirm={handleReject}
       title={
         <span className='text-destructive'>
@@ -604,7 +608,7 @@ export function UsersRejectDialog({
           <Input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder='Reason for rejection (optional)'
+            placeholder='Reason for rejection'
           />
           <Alert variant='destructive'>
             <AlertTitle>Warning!</AlertTitle>

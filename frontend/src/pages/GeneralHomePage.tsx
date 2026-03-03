@@ -138,13 +138,13 @@ export default function GeneralHomePage() {
 
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <p className="text-muted-foreground">
+          <div className="text-muted-foreground">
             {loading ? (
               <Skeleton className="h-4 w-40" />
             ) : (
               "Select a tool to continue."
             )}
-          </p>
+          </div>
           {!loading && searchQuery && (
             <p className="text-xs text-muted-foreground italic">
               Found {filteredTools.length} results for "{searchQuery}"
