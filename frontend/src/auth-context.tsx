@@ -12,6 +12,7 @@ type User = {
   name: string;
   userName: string;
   nameIdentifier: string;
+  roleName?: string;
   forcePasswordChange: boolean;
 };
 
@@ -34,6 +35,7 @@ async function getAuthenticatedUser() {
     name: data.name,
     userName: data.userName,
     nameIdentifier: data.nameIdentifier,
+    roleName: data.roleName,
     forcePasswordChange: data.forcePasswordChange,
   };
 }
