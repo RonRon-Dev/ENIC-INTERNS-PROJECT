@@ -218,7 +218,7 @@ export function UsersActionDialog({
                           // placeholder='auto-generated'
                           className='bg-muted/50 font-mono text-primary pr-10'
                           // readOnly={!isEdit}
-                          disabled={isEdit}
+                          readOnly={isEdit}
                           {...field}
                           onChange={(e) => {
                             if (isEdit) return
@@ -227,17 +227,17 @@ export function UsersActionDialog({
                             field.onChange(value)
                           }}
                         />
-                        {!isEdit && (
-                          <button
-                            type='button'
-                            onClick={copyUsername}
-                            className='absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-background rounded transition-colors'
-                          >
-                            {copied
-                              ? <Check className='h-4 w-4 text-green-600' />
-                              : <Copy className='h-4 w-4 text-muted-foreground' />}
-                          </button>
-                        )}
+                        {/* {!isEdit && ( */}
+                        <button
+                          type='button'
+                          onClick={copyUsername}
+                          className='absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-background rounded transition-colors'
+                        >
+                          {copied
+                            ? <Check className='h-4 w-4 text-green-600' />
+                            : <Copy className='h-4 w-4 text-muted-foreground' />}
+                        </button>
+                        {/* )} */}
                       </div>
                     </FormControl>
                     <FormMessage className='col-span-4 col-start-3' />
