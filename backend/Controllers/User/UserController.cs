@@ -14,12 +14,42 @@ public class UserController(IUserService service) : ControllerBase
     public async Task<ActionResult<List<UserResponse>>> GetAllUSers() =>
         Ok(await service.GetAllUsersAsync());
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:int}")]
     public async Task<ActionResult<UserResponse>> GetUserById(int id)
     {
         var user = await service.GetUserByIdAsync(id);
-        return user is null ? NotFound("User not found") : Ok(value: user);
+        return user is null ? NotFound(new { message = "User not found" }) : Ok(user);
     }
+
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpGet("pending-registrations")]
+    public async Task<IActionResult> GetPendingRegistrations()
+    {
+        var pending = await service.GetPendingRegistrationsAsync();
+        return Ok(pending);
+    }
+    
+
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpPut("approve-registration")]
+    public async Task<IActionResult> ApproveRegistration([FromBody] ApproveRegistrationRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var response = await service.ApproveRegistrationAsync(request);
+
+        return response.Success
+            ? Ok(new { message = response.Message })
+            : BadRequest(new { message = response.Message });
+    }
+
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpGet("roles")]
+    public async Task<ActionResult<List<RoleResponse>>> GetRoles()
+        => Ok(await service.GetRolesAsync());
+
+
 
     /* [HttpPost]
     public async Task<ActionResult<UserResponse>> CreateUser(CreateUserRequest
@@ -33,8 +63,9 @@ public class UserController(IUserService service) : ControllerBase
     // ADMIN: approve reset -> generates temp password/code (admin sends via
     // Viber) You can optionally protect this with [Authorize(Roles = "Admin")]
     // once roles are stable.
-    [HttpPut("approve-reset-password")]
     // [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpPut("approve-reset-password")]
     public async Task<IActionResult> ApproveResetPasswordAsync(ApproveResetPasswordRequest request)
     {
         var response = await service.ApproveResetPasswordAsync(request);
@@ -57,5 +88,6 @@ public class UserController(IUserService service) : ControllerBase
         var (ok, message) = await service.ResetPasswordAsync(username, request);
         return ok ? Ok(new { message }) : BadRequest(new { message });
     } */
+    
 
 }

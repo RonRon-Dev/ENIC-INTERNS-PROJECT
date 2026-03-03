@@ -14,6 +14,9 @@ public interface IUserService
   Task<bool> UpdateUserAsync(int id, UpdateUserRequest user);
 
   // Task<(bool ok, string message)> ApproveForgotPasswordAsync(ApproveForgotPasswordRequest request);
+  Task<List<UserResponse>> GetPendingRegistrationsAsync();
+  Task<(bool Success, string Message)> ApproveRegistrationAsync(ApproveRegistrationRequest request);
+  Task<List<RoleResponse>> GetRolesAsync();
 
   Task<ResetPasswordResponse>ApproveResetPasswordAsync(ApproveResetPasswordRequest request);
 

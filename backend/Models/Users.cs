@@ -18,8 +18,11 @@ public class Users
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiry { get; set; }
 
+    //approval fields for user request
+    public bool IsApproved { get; set; } = false;
+ 
     //Foreign key to Roles
-    public int? RoleId { get; set; }
+    public int RoleId { get; set; }
     public Roles? Role { get; set; } = null!;
 
     //Navigation property to ActivityLogs
