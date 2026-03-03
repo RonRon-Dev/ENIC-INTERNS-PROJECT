@@ -1,5 +1,5 @@
-import { Shield, UserCheck, User, ShieldCheck, Code, Megaphone, Settings, Users, FileText, Cpu } from 'lucide-react'
-import { type UserStatus, type ActivityLog, type ActivityType } from './schema'
+import { Shield, User, ShieldCheck, Code, Megaphone, Settings, Users, FileText, Cpu } from 'lucide-react'
+import { type UserStatus, type ActivityLog } from './schema'
 
 export const userTypes = new Map<UserStatus, string>([
   ['active', 'bg-teal-100/30 text-teal-900 dark:text-teal-200 border-teal-200'],
@@ -14,13 +14,13 @@ export const activityTypes = new Map<ActivityLog["type"], string>([
 ])
 
 export const roles = [
-  { label: 'Guest', value: 'guest', icon: User },
-  { label: 'Admin', value: 'admin', icon: Shield },
-  { label: 'Superadmin', value: 'superadmin', icon: ShieldCheck },
-  { label: 'Dev', value: 'dev', icon: Code },
-  { label: 'Operations', value: 'operations', icon: Settings },
-  { label: 'Marketing', value: 'marketing', icon: Megaphone },
-  { label: 'Managers', value: 'managers', icon: Users },
-  { label: 'Documentations', value: 'documentations', icon: FileText },
-  { label: 'IT', value: 'it', icon: Cpu },
+  { label: 'guest', value: 'guest', icon: User },
+  { label: 'admin', value: 'admin', icon: Shield },
+  { label: 'superadmin', value: 'superadmin', icon: ShieldCheck },
+  { label: 'dev', value: 'dev', icon: Code },
+  { label: 'operations', value: 'operations', icon: Settings },
+  { label: 'marketing', value: 'marketing', icon: Megaphone },
+  { label: 'managers', value: 'managers', icon: Users },
+  { label: 'documentations', value: 'documentations', icon: FileText },
+  { label: 'it', value: 'it', icon: Cpu },
 ] as const

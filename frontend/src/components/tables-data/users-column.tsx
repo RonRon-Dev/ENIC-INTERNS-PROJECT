@@ -13,6 +13,7 @@ import {
   getSortedRowModel,
   getPaginationRowModel,
   getFacetedUniqueValues,
+  getFacetedRowModel,
 } from "@tanstack/react-table"
 import {
   Table,
@@ -39,10 +40,15 @@ const statusOptions = Array.from(userTypes, ([value, badge]) => ({
 }))
 
 const roleOptions = roles.map(({ label, value, icon }) => ({
-  label,
+  label: label.charAt(0).toUpperCase() + label.slice(1),
   value,
   icon,
 }))
+
+const includesArrayFilter = (row: any, id: string, value: string[]) => {
+  if (!value?.length) return true
+  return value.includes(row.getValue(id))
+}
 
 export const columns: ColumnDef<User>[] = [
   {
@@ -53,30 +59,28 @@ export const columns: ColumnDef<User>[] = [
       </div>
     ),
     cell: ({ row }) => (
-      <div className="flex items-center">
-        <div className="ml-5">{row.original.username}</div>
-      </div>
+      <div className="ml-5">{row.original.username}</div>
     ),
     enableHiding: false,
   },
   {
-    id: 'name',
+    accessorKey: 'name',
     header: 'Name',
-    accessorFn: (row) => `${row.name}`,
     enableHiding: false,
+    cell: ({ row }) => (
+      <div className="capitalize">{row.original.name}</div>
+    ),
   },
   {
     accessorKey: 'status',
     header: 'Status',
-    filterFn: (row, id, value) => {
-      if (!value?.length) return true
-      return value.includes(row.getValue(id))
-    },
+    filterFn: includesArrayFilter,
     cell: ({ row }) => {
       const status = row.getValue('status') as string
       const badge = userTypes.get(status as User['status'])
+
       return (
-        <Badge variant="outline" className={badge + ' capitalize'} >
+        <Badge variant="outline" className={badge + ' capitalize'}>
           {status}
         </Badge>
       )
@@ -85,18 +89,18 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: 'role',
     header: 'Role',
-    filterFn: (row, id, value) => {
-      if (!value?.length) return true
-      return value.includes(row.getValue(id))
-    },
+    filterFn: includesArrayFilter,
     cell: ({ row }) => {
       const role = row.getValue('role') as string
       const option = roles.find((r) => r.value === role)
       const Icon = option?.icon
+
       return (
         <div className="flex items-center gap-1.5">
           {Icon && <Icon className="size-3.5 text-muted-foreground" />}
-          <span className="capitalize">{option?.label ?? role}</span>
+          <span className="capitalize">
+            {option?.label ?? role}
+          </span>
         </div>
       )
     },
@@ -104,11 +108,6 @@ export const columns: ColumnDef<User>[] = [
   {
     id: 'actions',
     cell: DataTableRowActions,
-    // cell: (props) => (
-    //   <div className="w-fit">
-    //     <DataTableRowActions {...props} />
-    //   </div>
-    // ),
   },
 ]
 
@@ -136,6 +135,7 @@ export function DataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
+    getFacetedRowModel: getFacetedRowModel(),
     state: {
       sorting,
       columnFilters,

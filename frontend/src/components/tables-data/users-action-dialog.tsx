@@ -208,6 +208,17 @@ export function UsersActionDialog({
                         className='col-span-3'
                         disabled={isEdit}
                         {...field}
+                        onChange={(e) => {
+                          let value = e.target.value
+
+                          value = value.replace(/\s/g, '')
+
+                          if (!isEdit) {
+                            value = value.toLowerCase()
+                          }
+
+                          field.onChange(value)
+                        }}
                       />
                     </FormControl>
                     <FormMessage className='col-span-4 col-start-3' />
@@ -221,7 +232,7 @@ export function UsersActionDialog({
                   <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
                     <FormLabel className='col-span-2 text-end'>Role</FormLabel>
                     <SelectDropdown
-                      defaultValue={field.value || 'Unassigned'}
+                      defaultValue={field.value || 'unassigned'}
                       onValueChange={field.onChange}
                       placeholder='Select a role'
                       className='col-span-3'

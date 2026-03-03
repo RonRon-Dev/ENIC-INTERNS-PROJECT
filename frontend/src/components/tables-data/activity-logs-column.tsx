@@ -33,9 +33,14 @@ import { activityTypes } from '@/data/const'
 import { roles } from '@/data/const'
 
 const roleOptions = roles.map(({ label, value, icon }) => ({
-  label,
+  label: label.charAt(0).toUpperCase() + label.slice(1),
   value,
   icon,
+}))
+
+const activityTypeOptions = Array.from(activityTypes.keys()).map((key) => ({
+  label: key.charAt(0).toUpperCase() + key.slice(1),
+  value: key,
 }))
 
 export const columns: ColumnDef<ActivityLog>[] = [
@@ -58,6 +63,9 @@ export const columns: ColumnDef<ActivityLog>[] = [
     header: 'Name',
     accessorFn: (row) => `${row.user.name}`,
     enableHiding: false,
+    cell: ({ row }) => (
+      <div className="capitalize">{row.original.user.name}</div>
+    ),
   },
   {
     id: 'role',
@@ -81,14 +89,19 @@ export const columns: ColumnDef<ActivityLog>[] = [
     },
   },
   {
+    id: 'type',
     accessorKey: 'type',
     header: 'Type',
+    filterFn: (row, id, value) => {
+      if (!value?.length) return true
+      return value.includes(row.getValue(id))
+    },
     cell: ({ row }) => {
       const type = row.getValue('type') as string
       const badge = activityTypes.get(type as ActivityLog['type'])
 
       return (
-        <Badge variant="outline" className={badge + ' capitalize'} >
+        <Badge variant="outline" className={badge + ' capitalize'}>
           {type}
         </Badge>
       )
@@ -100,7 +113,7 @@ export const columns: ColumnDef<ActivityLog>[] = [
     accessorFn: (row) => row.description,
     cell: ({ row }) => (
       <div className="max-w-[150px] line-clamp-1">
-        {row.original.description}
+        {row.original.description.charAt(0).toUpperCase() + row.original.description.slice(1)}
       </div>
     ),
   },
@@ -168,14 +181,19 @@ export function DataTable<TData, TValue>({
       <DataTableToolbar
         table={table}
         searchPlaceholder='Search activity logs...'
-      // searchKey='username'
-      filters={[
-        {
-          columnId: 'role',
-          title: 'Role',
-          options: roleOptions,
-        },
-      ]}
+        // searchKey='username'
+        filters={[
+          {
+            columnId: 'role',
+            title: 'Role',
+            options: roleOptions,
+          },
+          {
+            columnId: 'type',
+            title: 'Type',
+            options: activityTypeOptions,
+          },
+        ]}
       />
 
       <div className="overflow-hidden rounded-md border">
