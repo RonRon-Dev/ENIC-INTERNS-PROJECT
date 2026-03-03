@@ -1,4 +1,4 @@
-import { UsersActionDialog, UsersDeleteDialog } from './users-action-dialog'
+import { UsersActionDialog, UsersDeactivateDialog, UsersActivateDialog, UsersApproveDialog, UsersRejectDialog } from './users-action-dialog'
 import { useUsers } from '@/components/tables-data/users-provider'
 import { UsersInviteDialog } from './users-invite-dialog'
 import { UsersAddRoleDialog } from './users-add-role-dialog'
@@ -33,11 +33,44 @@ export function UsersDialogs() {
             currentRow={currentRow}
           />
 
-          <UsersDeleteDialog
-            key={`user-delete-${currentRow.id}`}
-            open={open === 'delete'}
+          <UsersDeactivateDialog
+            key={`user-deactivate-${currentRow.id}`}
+            open={open === 'deactivate'}
             onOpenChange={() => {
-              setOpen('delete')
+              setOpen('deactivate')
+              setTimeout(() => {
+                setCurrentRow(null)
+              }, 500)
+            }}
+            currentRow={currentRow}
+          />
+
+          <UsersActivateDialog
+            key={`user-activate-${currentRow.id}`}
+            open={open === 'activate'}
+            onOpenChange={() => {
+              setOpen('activate')
+              setTimeout(() => {
+                setCurrentRow(null)
+              }, 500)
+            }}
+            currentRow={currentRow}
+          />
+
+          <UsersApproveDialog
+            open={open === 'approve'}
+            onOpenChange={() => {
+              setOpen('approve')
+              setTimeout(() => {
+                setCurrentRow(null)
+              }, 500)
+            }}
+            currentRow={currentRow}
+          />
+          <UsersRejectDialog
+            open={open === 'reject'}
+            onOpenChange={() => {
+              setOpen('reject')
               setTimeout(() => {
                 setCurrentRow(null)
               }, 500)

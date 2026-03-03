@@ -1,10 +1,9 @@
-import { z } from 'zod'
 import React, { useState } from 'react'
 import useDialogState from '@/hooks/use-dialog-state'
 import { type User } from '@/data/schema'
 
 
-type UsersDialogType = 'add' | 'edit' | 'delete' | 'role' 
+type UsersDialogType = 'add' | 'edit' | 'deactivate' | 'activate' | 'role' | 'approve' | 'reject'
 
 type UsersContextType = {
   open: UsersDialogType | null
