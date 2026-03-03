@@ -33,13 +33,16 @@ import { activityTypes } from '@/data/const'
 import { roles } from '@/data/const'
 
 const roleOptions = roles.map(({ label, value, icon }) => ({
-  label: label.charAt(0).toUpperCase() + label.slice(1),
-  value,
+  label: label
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase()), value,
   icon,
 }))
 
 const activityTypeOptions = Array.from(activityTypes.keys()).map((key) => ({
-  label: key.charAt(0).toUpperCase() + key.slice(1),
+  label: key
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase()),
   value: key,
 }))
 
