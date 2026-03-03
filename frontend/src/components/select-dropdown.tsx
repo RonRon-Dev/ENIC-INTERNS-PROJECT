@@ -8,13 +8,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import type { ReactNode } from 'react'
 
 type SelectDropdownProps = {
   onValueChange?: (value: string) => void
   defaultValue: string | undefined
   placeholder?: string
   isPending?: boolean
-  items: { label: string; value: string }[] | undefined
+  items: { label: ReactNode; value: string }[] | undefined  // ← string → ReactNode
   disabled?: boolean
   className?: string
   isControlled?: boolean

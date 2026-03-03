@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/sidebar";
 
 export function NavMain({
-  items,
+  items, label,
 }: {
   items: {
     title: string;
@@ -33,13 +33,14 @@ export function NavMain({
       title: string;
       url: string;
     }[];
-  }[];
+  }[],
+  label: string;
 }) {
   const location = useLocation();
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Tools</SidebarGroupLabel>
+      <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => {
           const isParentActive = location.pathname === item.url;

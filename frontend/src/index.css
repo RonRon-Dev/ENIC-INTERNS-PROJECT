@@ -83,6 +83,11 @@
   box-shadow: 0 0 100px hsl(var(--primary));
 }
 
+::selection {
+  background-color: black;
+  color: white;
+}
+
 @font-face {
   font-family: "Poppins";
   src: url("/fonts/poppins/poppins-latin-600-normal.woff2") format("woff2"),
