@@ -10,7 +10,7 @@ import { Toaster } from "./components/ui/sonner"
 createRoot(document.getElementById("root")!).render(
 
   <StrictMode>
-    <Toaster duration={5000} />
+    <Toaster duration={5000} position="top-right"/>
     <BrowserRouter>
       <App />
     </BrowserRouter>
