@@ -28,7 +28,7 @@ import { Badge } from "@/components/ui/badge"
 import { DataTablePagination } from "../data-table-components/data-table-pagination"
 import { DataTableToolbar } from "../data-table-components/data-table-toolbar"
 import { DataTableColumnHeader } from "../data-table-components/data-table-header"
-import { DataTableRowActions } from "./users-data-table-row-actions"
+import { DataTableRowActions } from "../users/users-data-table-row-actions"
 import { type User } from '@/data/schema'
 export type { User }
 import { userTypes, roles } from '@/data/const'

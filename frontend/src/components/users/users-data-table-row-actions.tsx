@@ -8,8 +8,8 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { type User } from './users-column'
-import { useUsers } from './users-provider'
+import { type User } from '../tables-data/users-column'
+import { useUsers } from '@/components/users/users-provider'
 import { type CellContext } from '@tanstack/react-table'
 
 type DataTableRowActionsProps = CellContext<User, unknown>

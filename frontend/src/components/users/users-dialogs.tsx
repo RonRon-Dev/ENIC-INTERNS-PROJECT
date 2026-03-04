@@ -1,6 +1,6 @@
-import { UsersActionDialog, UsersDeactivateDialog, UsersActivateDialog, UsersApproveDialog, UsersRejectDialog } from './users-action-dialog'
-import { useUsers } from '@/components/tables-data/users-provider'
-import { UsersAddRoleDialog } from './users-add-role-dialog'
+import { UsersActionDialog, UsersDeactivateDialog, UsersActivateDialog, UsersApproveDialog, UsersRejectDialog } from '@/components/users/users-action-dialog'
+import { useUsers } from '@/components/users/users-provider'
+import { UsersAddRoleDialog } from '@/components/users/users-add-role-dialog'
 
 export function UsersDialogs() {
   const { open, setOpen, currentRow, setCurrentRow } = useUsers()

@@ -3,9 +3,9 @@ import { DataTable, columns } from "@/components/tables-data/users-column";
 import type { User } from "@/components/tables-data/users-column"
 import { ShieldCheck, UserCheck, UserCog, Users2 } from "lucide-react";
 import { useEffect, useState } from "react"
-import { UsersDialogs } from '@/components/tables-data/users-dialogs'
-import { UsersProvider } from '@/components/tables-data/users-provider'
-import { UsersPrimaryButtons } from "@/components/tables-data/users-primary-buttons";
+import { UsersDialogs } from '@/components/users/users-dialogs'
+import { UsersProvider } from '@/components/users/users-provider'
+import { UsersPrimaryButtons } from "@/components/users/users-primary-buttons";
 import { users } from "@/data/users"
 import { Skeleton } from "@/components/ui/skeleton";
 
