@@ -65,18 +65,30 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
         // ✅ log WHY it fails (look at your terminal output)
         options.Events = new JwtBearerEvents
+{
+    // ✅ READ token from HttpOnly cookie
+    OnMessageReceived = context =>
+    {
+        var token = context.Request.Cookies["accessToken"];
+        if (!string.IsNullOrEmpty(token))
         {
-            OnAuthenticationFailed = context =>
-            {
-                Console.WriteLine("JWT AUTH FAILED: " + context.Exception.Message);
-                return Task.CompletedTask;
-            },
-            OnChallenge = context =>
-            {
-                Console.WriteLine("JWT CHALLENGE: " + context.Error + " | " + context.ErrorDescription);
-                return Task.CompletedTask;
-            }
-        };
+            context.Token = token;
+        }
+        return Task.CompletedTask;
+    },
+
+    OnAuthenticationFailed = context =>
+    {
+        Console.WriteLine("JWT AUTH FAILED: " + context.Exception.Message);
+        return Task.CompletedTask;
+    },
+
+    OnChallenge = context =>
+    {
+        Console.WriteLine("JWT CHALLENGE: " + context.Error + " | " + context.ErrorDescription);
+        return Task.CompletedTask;
+    }
+};
     });
 
 builder.Services.AddAuthorization();
