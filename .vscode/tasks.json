@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Start Frontend",
+      "label": "Frontend",
       "type": "shell",
       "command": "npm run dev",
       "options": {
@@ -15,7 +15,7 @@
       }
     },
     {
-      "label": "Start Backend",
+      "label": "Backend",
       "type": "shell",
       "command": "dotnet watch run",
       "options": {
@@ -29,7 +29,7 @@
     },
     {
       "label": "Start Dev",
-      "dependsOn": ["Start Frontend", "Start Backend"],
+      "dependsOn": ["Frontend", "Backend"],
       "dependsOrder": "parallel",
       "group": {
         "kind": "build",
