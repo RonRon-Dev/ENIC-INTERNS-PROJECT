@@ -151,7 +151,6 @@ export default function GeneralHomePage() {
       tool.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const { user } = useAuth();
   const firstName = user?.name?.split(" ")[0] ?? "User";
 
   return (
@@ -159,12 +158,24 @@ export default function GeneralHomePage() {
       {/* Header */}
       <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-light italic">
-            Welcome back, <span className="font-black">Mr. Charles!</span>
-          </h1>
-          <p className="ml-1 text-muted-foreground">
-            Eurolink Network International Corporation
-          </p>
+          {loading ? (
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-9 w-72" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+          ) : (
+            <>
+              <h1 className="text-3xl font-light italic">
+                Welcome back,{" "}
+                <span className="font-black">
+                  {firstName + '!'}
+                </span>
+              </h1>
+              <p className="ml-1 text-muted-foreground">
+                Eurolink Network International Corporation
+              </p>
+            </>
+          )}
         </div>
 
         <div className="relative w-full md:max-w-sm">
@@ -207,7 +218,7 @@ export default function GeneralHomePage() {
                   "flex items-center gap-4 p-5 transition-all duration-200 rounded-xl min-w-[30vh] group relative",
                   tool.isAccessible
                     ? "hover:bg-muted/60 cursor-pointer hover:border-gray-500"
-                    : "opacity-60 grayscale cursor-not-allowed bg-muted/5 border-dashed",
+                    : "opacity-60 grayscale cursor-not-allowed bg-muted/5 border-dashed"
                 )}
               >
                 <div
@@ -215,7 +226,7 @@ export default function GeneralHomePage() {
                     "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-colors duration-200 relative",
                     tool.isAccessible
                       ? "bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground"
-                      : "bg-muted/50 text-muted-foreground/30",
+                      : "bg-muted/50 text-muted-foreground/30"
                   )}
                 >
                   <tool.icon className="h-6 w-6" />
