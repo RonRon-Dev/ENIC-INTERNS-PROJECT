@@ -13,7 +13,7 @@ export default function ProtectedRoute({
 }: ProtectedRouteProps) {
   const auth = useAuth();
 
-  if (auth.loading) return <div>Loading...</div>;
+  // if (auth.loading) return <div>Loading...</div>;
 
   // Login Authetication
   if (!auth.isAuthenticated) {
