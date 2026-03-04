@@ -26,15 +26,10 @@ import {
 import { logout } from "@/services/auth";
 import { useAuth } from "@/auth-context";
 import { useNavigate } from "react-router-dom";
-import type { User } from "./tables-data/users-column";
 
-type NavUserProps = {
-  user: User
-}
-
-export function NavUser({ user }: NavUserProps) {
+export function NavUser() {
   const { isMobile } = useSidebar();
-  const { setUser } = useAuth();
+  const { user, setUser } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -43,7 +38,7 @@ export function NavUser({ user }: NavUserProps) {
     navigate("/login");
   };
 
-  if (!user) return null; // render nothing if not logged in
+  if (!user) return null;
 
   const initials = user.name
     .split(" ")
@@ -68,7 +63,7 @@ export function NavUser({ user }: NavUserProps) {
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{user.name}</span>
                 <span className="truncate text-xs capitalize">
-                  {user.role}
+                  {user.roleName}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
@@ -91,7 +86,7 @@ export function NavUser({ user }: NavUserProps) {
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{user.name}</span>
                   <span className="truncate text-xs capitalize">
-                    {user.role}
+                    {user.roleName}
                   </span>
                 </div>
               </div>
