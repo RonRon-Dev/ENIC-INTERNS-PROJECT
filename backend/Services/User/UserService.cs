@@ -3,6 +3,7 @@ using backend.Data;
 using backend.Models;
 using backend.Dtos.Request.User;
 using backend.Dtos.Response.User;
+using backend.Dtos.Response.Auth;
 using backend.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using BCrypt.Net;
@@ -23,6 +24,8 @@ public class UserService(AppDbContext context) : IUserService
                     u.Role != null ? new RoleResponse { Id = u.Role.Id, Name = u.Role.Name } : null,
             })
             .ToListAsync();
+
+    // Getting a single user by ID with their role, but not including sensitive information like password hash.
     public async Task<UserResponse?> GetUserByIdAsync(int id) =>
         await context.Users
             .Include(u => u.Role)
@@ -36,9 +39,8 @@ public class UserService(AppDbContext context) : IUserService
             })
             .FirstOrDefaultAsync();
 
-
     //Registration of admin
-    public async Task<List<UserResponse>> GetPendingRegistrationsAsync() =>
+    public async Task<List<UserResponse>> GetUserRequestsAsync() =>
         await context.Users
             .Include(u => u.Role)
             .Where(u => !u.IsVerified)
@@ -50,39 +52,6 @@ public class UserService(AppDbContext context) : IUserService
                 Role = u.Role != null ? new RoleResponse { Id = u.Role.Id, Name = u.Role.Name } : null,
             })
             .ToListAsync();
-    public async Task<(bool Success, string Message)> ApproveRegistrationAsync(ApproveRegistrationRequest request)
-    {
-        if (request.UserId <= 0)
-            return (false, "UserId is required.");
-
-        if (request.RoleId <= 0)
-            return (false, "RoleId is required.");
-
-        var user = await context.Users.FirstOrDefaultAsync(u => u.Id == request.UserId);
-        if (user is null)
-            return (false, "User not found.");
-
-        var role = await context.Roles.FirstOrDefaultAsync(r => r.Id == request.RoleId);
-        if (role is null)
-            return (false, "Role not found.");
-
-        user.RoleId = role.Id;
-        user.IsVerified = true;
-
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = user.Id,
-            UserName = user.UserName,
-            ActivityType = "User Management",
-            Description = $"Registration Approved - Role Assigned: {role.Name}",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserId, request.RoleId }),
-            IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
-        });
-
-        await context.SaveChangesAsync();
-        return (true, $"User approved and assigned role: {role.Name}");
-    }
 
     public async Task<List<RoleResponse>> GetRolesAsync() =>
         await context.Roles
@@ -90,133 +59,214 @@ public class UserService(AppDbContext context) : IUserService
             .Select(r => new RoleResponse { Id = r.Id, Name = r.Name })
             .ToListAsync();
 
-    // Getting a single user by ID with their role, but not including sensitive information like password hash.
-    // public async Task<UserResponse?> GetUserByIdAsync(int id) =>
-    //     await context
-    //         .Users.Where(u => u.Id == id)
-    //         .Select(u => new UserResponse
-    //         {
-    //             Id = u.Id,
-    //             Name = u.Name,
-    //             UserName = u.UserName,
-    //             Role =
-    //                 u.Role != null ? new RoleResponse { Id = u.Role.Id, Name = u.Role.Name } : null,
-    //         })
-    //         .FirstOrDefaultAsync();
-
     // Creating a new user with the provided information and a hashed password. The role is assigned based on the RoleId provided in the request.
-     public async Task<UserResponse> CreateUserAsync(CreateUserRequest user)
+    public async Task<CreateUserResponse> CreateUserAsync(CreateUserRequest request, int currentUser)
     {
-        // Basic implementation. Adjust validations to your needs.
-        if (string.IsNullOrWhiteSpace(user.UserName) || string.IsNullOrWhiteSpace(user.Password))
-            throw new ArgumentException("UserName and Password are required.");
-
-        var exists = await context.Users.AnyAsync(u => u.UserName == user.UserName);
+        // var authUser = await 
+        var exists = await context.Users.AnyAsync(u => u.UserName.ToLower() == request.UserName);
         if (exists)
-            throw new InvalidOperationException("Username already exists.");
+            throw new ArgumentException("Username already exists.");
 
-        var role = await context.Roles.FirstOrDefaultAsync(r => r.Id == user.RoleId);
-        if (role is null)
-            throw new InvalidOperationException("Role not found.");
+        var rawPassword = GenerateTempPassword(10);
+        var password = BCrypt.Net.BCrypt.HashPassword(rawPassword, 10);
 
-        var hashed = BCrypt.Net.BCrypt.HashPassword(user.Password, 10);
+        var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
 
-        var entity = new Users
+        var newUser = new Users
         {
-            Name = user.Name,
-            UserName = user.UserName,
-            PasswordHash = hashed,
-            RoleId = role.Id,
-            IsVerified = true, // created by admin typically means approved
-            ForcePasswordChange = false
+            Name = request.Name,
+            UserName = request.UserName,
+            PasswordHash = password,
+            RoleId = request.RoleId,
+            CreatedAt = DateTime.UtcNow,
+            IsVerified = true, 
+            ForcePasswordChange = true,
         };
 
-        context.Users.Add(entity);
+        context.Users.Add(newUser);
 
-        context.ActivityLogs.Add(new ActivityLogs
+        var log = new ActivityLogs
         {
-            UserId = 0,
-            UserName = user.UserName,
+            UserId = authUser.Id,
+            UserName = authUser.UserName,
             ActivityType = "User Management",
             Description = "Admin Created User",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { user.Name, user.UserName, user.RoleId }),
+            Payload = System.Text.Json.JsonSerializer.Serialize(request),
             IsSuccess = true,
             Timestamp = DateTime.UtcNow,
-        });
+        };
+
+        context.ActivityLogs.Add(log);
 
         await context.SaveChangesAsync();
 
-        return new UserResponse
+        return new CreateUserResponse
         {
-            Id = entity.Id,
-            Name = entity.Name,
-            UserName = entity.UserName,
-            Role = new RoleResponse { Id = role.Id, Name = role.Name }
+            Success = true,
+            Message = "User created successfully.",
+            TempPassword = rawPassword,
         };
     }
 
     // This method should be UpdateRoleAsync, ,to be updated
-     public async Task<bool> UpdateUserAsync(int id, UpdateUserRequest user)
+    public async Task<UpdateUserResponse> AssignRoleAsync(int id, UpdateUserRequest request, int currentUser)
     {
-        var entity = await context.Users.FirstOrDefaultAsync(u => u.Id == id);
-        if (entity is null) return false;
+        var entity = await context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Id == id);
 
-        // Update allowed fields (adjust based on your UpdateUserRequest)
-        if (!string.IsNullOrWhiteSpace(user.Name))
-            entity.Name = user.Name;
+        if (entity is null) 
+            return new UpdateUserResponse
+            {
+                Success = false,
+                Message = "User not found.",
+            };
 
-        if (!string.IsNullOrWhiteSpace(user.UserName))
-            entity.UserName = user.UserName;
+        var pastRole = entity.Role is null ? "No Role" : entity.Role.Name;
+        var role = await context.Roles.
+            FirstOrDefaultAsync(r => r.Id == request.RoleId);
+        if (role is null) 
+            return new UpdateUserResponse
+            {
+                Success = false,
+                Message = "Role not found.",
+            };
+        entity.RoleId = role.Id;
 
-        // If role update is part of UpdateUserRequest
-        if (user.RoleId > 0)
-        {
-            var role = await context.Roles.FirstOrDefaultAsync(r => r.Id == user.RoleId);
-            if (role is null) return false;
-            entity.RoleId = role.Id;
-        }
+        var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
 
         context.ActivityLogs.Add(new ActivityLogs
         {
-            UserId = entity.Id,
-            UserName = entity.UserName,
+            UserId = authUser.Id,
+            UserName = authUser.UserName,
             ActivityType = "User Management",
-            Description = "User Updated",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { id, user.Name, user.UserName, user.RoleId }),
+            Description = "Assigned Role to User",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { entity.Name, entity.UserName, PastRole = pastRole,  Role = role.Name }),
             IsSuccess = true,
             Timestamp = DateTime.UtcNow,
         });
 
         await context.SaveChangesAsync();
-        return true;
+        return new UpdateUserResponse
+        {
+            Success = true,
+            Message = "Assgined New Role to User Successfully.",
+        };
     }
-
     
-    public async Task<bool> DeleteUserAsync(int id)
+    public async Task<UpdateUserResponse> EnableUserAsync(int id, int currentUser)
     {
         var user = await context.Users.FirstOrDefaultAsync(u => u.Id == id);
-        if (user is null) return false;
+        if (user is null) 
+            return new UpdateUserResponse
+            {
+                Success = false,
+                Message = "User not found.",
+            };
 
-        context.Users.Remove(user);
+        user.IsActive = true;
+
+        var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
 
         context.ActivityLogs.Add(new ActivityLogs
         {
-            UserId = id,
-            UserName = user.UserName,
+            UserId = authUser.Id,
+            UserName = authUser.UserName,
             ActivityType = "User Management",
-            Description = "User Deleted",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { id }),
+            Description = "Enabled User",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { user.Name, user.UserName }),
             IsSuccess = true,
             Timestamp = DateTime.UtcNow,
         });
 
         await context.SaveChangesAsync();
-        return true;
+
+        return new UpdateUserResponse
+        {
+            Success = true,
+            Message = "User enabled successfully.",
+        };
     }
 
+    public async Task<UpdateUserResponse> DisableUserAsync(int id, int currentUser)
+    {
+        var user = await context.Users.FirstOrDefaultAsync(u => u.Id == id);
+        if (user is null) 
+            return new UpdateUserResponse
+            {
+                Success = false,
+                Message = "User not found.",
+            };
+
+        user.IsActive = false;
+
+        var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
+
+        context.ActivityLogs.Add(new ActivityLogs
+        {
+            UserId = authUser.Id,
+            UserName = authUser.UserName,
+            ActivityType = "User Management",
+            Description = "Disabled User",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { user.Name, user.UserName }),
+            IsSuccess = true,
+            Timestamp = DateTime.UtcNow,
+        });
+
+        await context.SaveChangesAsync();
+
+        return new UpdateUserResponse
+        {
+            Success = true,
+            Message = "User disabled successfully.",
+        };
+    }
+
+    public async Task<UpdateUserResponse> ApproveRegistrationAsync(ApproveRegistrationRequest request, int currentUser)
+    {
+        var user = await context.Users.FirstOrDefaultAsync(u => u.Id == request.UserId);
+
+        if (user is null)
+            return new UpdateUserResponse
+            {
+                Success = false,
+                Message = "User not found.",
+            };
+
+        var role = await context.Roles.FirstOrDefaultAsync(r => r.Id == request.RoleId);
+        if (role is null)
+            return new UpdateUserResponse
+            {
+                Success = false,
+                Message = "Role not found.",
+            };
+
+        user.RoleId = role.Id;
+        user.IsVerified = true;
+
+        var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
+
+        context.ActivityLogs.Add(new ActivityLogs
+        {
+            UserId = authUser.Id,
+            UserName = authUser.UserName,
+            ActivityType = "User Management",
+            Description = "Admin Approved Registration",
+            Payload = System.Text.Json.JsonSerializer.Serialize(request),
+            IsSuccess = true,
+            Timestamp = DateTime.UtcNow,
+        });
+
+        await context.SaveChangesAsync();
+        return new UpdateUserResponse
+        {
+            Success = true,
+            Message = "User Registration Approved Successfully.",
+        };
+    }
 
     // ADMIN: approves reset, generates TEMP PASSWORD (code), sets ForcePasswordChange = true
-    public async Task<ResetPasswordResponse> ApproveResetPasswordAsync(ApproveResetPasswordRequest request)
+    public async Task<ResetPasswordResponse> ApproveResetPasswordAsync(ApproveResetPasswordRequest request, int currentUser)
     {
         var username = (request.UserName ?? "").Trim();
         if (string.IsNullOrWhiteSpace(username))
@@ -247,7 +297,8 @@ public class UserService(AppDbContext context) : IUserService
                 TemporaryPassword = "",
             };
 
-        var code = GenerateResetCode(10);
+        var code = GenerateTempPassword(10);
+        var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
 
         // TEMP password becomes active password (so login works)
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(code, 10);
@@ -256,8 +307,8 @@ public class UserService(AppDbContext context) : IUserService
 
         context.ActivityLogs.Add(new ActivityLogs
         {
-            UserId = user.Id,
-            UserName = user.UserName,
+            UserId = authUser.Id,
+            UserName = authUser.UserName,
             ActivityType = "PasswordReset",
             Description = "Admin Approved Reset (Temp Password Generated)",
             Payload = System.Text.Json.JsonSerializer.Serialize(new { username = user.UserName }),
@@ -278,7 +329,7 @@ public class UserService(AppDbContext context) : IUserService
 
     // Deleting a user by ID. This should also handle any related data cleanup if necessary (e.g., activity logs).
 
-    private static string GenerateResetCode(int length)
+    private static string GenerateTempPassword(int length)
     {
         const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         var bytes = RandomNumberGenerator.GetBytes(length);
@@ -287,6 +338,4 @@ public class UserService(AppDbContext context) : IUserService
             result[i] = chars[bytes[i] % chars.Length];
         return new string(result);
     }
-
-
 }

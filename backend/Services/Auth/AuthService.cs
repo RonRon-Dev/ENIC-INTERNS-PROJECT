@@ -197,7 +197,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             UserName = user.UserName,
             ActivityType = "Authentication",
             Description = "User Login Successful",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
+            Payload = System.Text.Json.JsonSerializer.Serialize(request),
             IsSuccess = true,
             Timestamp = DateTime.UtcNow,
         });
