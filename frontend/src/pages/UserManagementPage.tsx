@@ -64,6 +64,11 @@ export function SkeletonTable() {
           <Skeleton className="h-4 w-20" /> */}
         </div>
       ))}
+      <div className="flex w-full gap-2">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="ml-auto h-8 w-32" />
+        <Skeleton className="h-8 w-32" />
+      </div>
     </div>
   )
 }
