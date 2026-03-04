@@ -23,73 +23,23 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { PasswordInput } from '@/components/password-input'
 import { SelectDropdown } from '@/components/select-dropdown'
 import { AlertTriangle, Check, Copy, UserCheck, UserX } from 'lucide-react'
 import { roles } from '@/data/const'
 import { type User } from '@/data/schema'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Textarea } from '../ui/textarea'
+import { Checkbox } from '../ui/checkbox'
 
 const formSchema = z
   .object({
     name: z.string().min(1, 'Name is required.'),
     username: z.string().min(1, 'Username is required.'),
-    password: z.string().transform((pwd) => pwd.trim()),
     role: z.string().min(1, 'Role is required.'),
-    confirmPassword: z.string().transform((pwd) => pwd.trim()),
     isEdit: z.boolean(),
+    isResetPassword: z.boolean(),
   })
-  .refine(
-    (data) => {
-      if (data.isEdit && !data.password) return true
-      return data.password.length > 0
-    },
-    {
-      message: 'Password is required.',
-      path: ['password'],
-    }
-  )
-  .refine(
-    ({ isEdit, password }) => {
-      if (isEdit && !password) return true
-      return password.length >= 8
-    },
-    {
-      message: 'Password must be at least 8 characters long.',
-      path: ['password'],
-    }
-  )
-  .refine(
-    ({ isEdit, password }) => {
-      if (isEdit && !password) return true
-      return /[a-z]/.test(password)
-    },
-    {
-      message: 'Password must contain at least one lowercase letter.',
-      path: ['password'],
-    }
-  )
-  .refine(
-    ({ isEdit, password }) => {
-      if (isEdit && !password) return true
-      return /\d/.test(password)
-    },
-    {
-      message: 'Password must contain at least one number.',
-      path: ['password'],
-    }
-  )
-  .refine(
-    ({ isEdit, password, confirmPassword }) => {
-      if (isEdit && !password) return true
-      return password === confirmPassword
-    },
-    {
-      message: "Passwords don't match.",
-      path: ['confirmPassword'],
-    }
-  )
 type UserForm = z.infer<typeof formSchema>
 
 type UserActionDialogProps = {
@@ -108,29 +58,15 @@ export function UsersActionDialog({
     mode: 'onChange',
     resolver: zodResolver(formSchema),
     defaultValues: isEdit
-      ? {
-        ...currentRow,
-        password: '',
-        confirmPassword: '',
-        isEdit,
-      }
-      : {
-        name: '',
-        username: '',
-        role: '',
-        password: '',
-        confirmPassword: '',
-        isEdit,
-      },
+      ? { ...currentRow, isEdit, isResetPassword: false }
+      : { name: '', username: '', role: '', isEdit, isResetPassword: false },
   })
 
   const onSubmit = (values: UserForm) => {
     form.reset()
-    showSubmittedData(values)
+    showSubmittedData(values, isEdit ? 'edit' : 'create')
     onOpenChange(false)
   }
-  
-  const isPasswordTouched = !!form.formState.dirtyFields.password
   const fullName = form.watch("name");
 
   useEffect(() => {
@@ -193,7 +129,8 @@ export function UsersActionDialog({
                     <FormControl>
                       <Input
                         placeholder='John Doe'
-                        className='col-span-4 capitalize'
+                        className={'col-span-4 capitalize' + (isEdit ? ' bg-muted/50' : '')}
+                        readOnly={isEdit}
                         // autoComplete='off'
                         {...field}
                       // value={fullName}
@@ -269,52 +206,37 @@ export function UsersActionDialog({
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name='password'
-                render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
-                    <FormLabel className='col-span-2 text-end'>
-                      Password
-                    </FormLabel>
-                    <FormControl>
-                      <PasswordInput
-                        placeholder='e.g., S3cur3P@ssw0rd'
-                        className='col-span-4'
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage className='col-span-4 col-start-3' />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='confirmPassword'
-                render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
-                    <FormLabel className='col-span-2 text-end'>
-                      Confirm Password
-                    </FormLabel>
-                    <FormControl>
-                      <PasswordInput
-                        disabled={!isPasswordTouched}
-                        placeholder='e.g., S3cur3P@ssw0rd'
-                        className='col-span-4'
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage className='col-span-4 col-start-3' />
-                  </FormItem>
-                )}
-              />
+
+              {isEdit && (
+                <FormField
+                  control={form.control}
+                  name='isResetPassword'
+                  render={({ field }) => (
+                    <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
+                      <FormLabel className='col-span-2 text-end'>Reset Password</FormLabel>
+                      <FormControl>
+                        <div className='col-span-3 flex items-center gap-2'>
+                          <Checkbox
+                            id='reset-password'
+                            checked={field.value}
+                            onCheckedChange={(checked) => field.onChange(!!checked)}
+                          />
+                          <label htmlFor='reset-password' className='text-sm cursor-pointer text-muted-foreground'>
+                            Set a new password
+                          </label>
+                        </div>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              )}
             </form>
           </Form>
         </div>
         <DialogFooter>
-          <Button type='submit' form='user-form' disabled={!form.formState.isValid || !form.formState.isDirty}
+          <Button type='submit' form='user-form' disabled={isEdit && (!form.formState.isValid || !form.formState.isDirty)}
           >
-            Save changes
+            {isEdit ? 'Save changes' : 'Create user'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -339,7 +261,7 @@ export function UsersDeactivateDialog({
     if (value.trim() !== currentRow.username) return
 
     onOpenChange(false)
-    showSubmittedData(currentRow, 'The following user has been deactivated:')
+    showSubmittedData(currentRow, 'deactivate')
   }
 
   return (
@@ -408,7 +330,7 @@ export function UsersActivateDialog({
     if (value.trim() !== currentRow.username) return
 
     onOpenChange(false)
-    showSubmittedData(currentRow, 'The following user has been activated:')
+    showSubmittedData(currentRow, 'activate')
   }
 
   return (
@@ -473,7 +395,7 @@ export function UsersApproveDialog({
 }: UserApproveDialogProps) {
   const handleApprove = () => {
     onOpenChange(false)
-    showSubmittedData(currentRow, 'The following user has been approved:')
+    showSubmittedData(currentRow, 'approve')
   }
 
   const form = useForm<UserForm>({
@@ -485,7 +407,7 @@ export function UsersApproveDialog({
 
   const onSubmit = (values: UserForm) => {
     form.reset()
-    showSubmittedData(values)
+    showSubmittedData(values, 'approve')
     onOpenChange(false)
   }
 
@@ -510,7 +432,7 @@ export function UsersApproveDialog({
         <div className='space-y-4'>
           <p>
             Are you sure you want to approve{' '}
-            <span className='font-bold'>{currentRow.username}</span>?
+            <span className='font-bold'>{currentRow.name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}</span> with username <span className='font-bold'>{currentRow.username}</span>?
             <br />
             This will grant them access to the system.
           </p>
@@ -577,7 +499,7 @@ export function UsersRejectDialog({
 
   const handleReject = () => {
     onOpenChange(false)
-    showSubmittedData({ ...currentRow, reason }, 'The following user has been rejected:')
+    showSubmittedData({ ...currentRow, reason }, 'reject')
   }
 
   return (
@@ -603,7 +525,8 @@ export function UsersRejectDialog({
             <br />
             This action will deny their access to the system.
           </p>
-          <Input
+          <Textarea
+            className='h-20'
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder='Reason for rejection'

@@ -67,9 +67,8 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
 
   const onSubmit = (values: UserAddRoleForm) => {
     form.reset()
-    showSubmittedData(values)
+    showSubmittedData(values, 'addrole')
     onOpenChange(false)
-    toast.success("Role added successfully.")
   }
 
   return (

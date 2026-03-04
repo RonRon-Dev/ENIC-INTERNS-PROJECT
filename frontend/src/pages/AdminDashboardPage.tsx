@@ -9,15 +9,15 @@ export default function Dashboard() {
     const [data, setData] = useState<ActivityLog[]>([])
     const [loading, setLoading] = useState(true)
 
-    // useEffect(() => {
-    //     async function loadData() {
-    //         const logs = await userlogs()
-    //         setData(logs)
-    //         setLoading(false)
-    //     }
+    useEffect(() => {
+        async function loadData() {
+            const logs = await userlogs()
+            setData(logs)
+            // setLoading(false)
+        }
 
-    //     loadData()
-    // }, [])
+        loadData()
+    }, [])
 
     useEffect(() => {
         const timer = setTimeout(() => setLoading(false), 1200);
