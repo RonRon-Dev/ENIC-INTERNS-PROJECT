@@ -44,7 +44,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
       }
     } catch (error: any) {
       const res = error.response?.data;
-      
+
       if (!res) {
         setServerError("Something went wrong");
         return;
@@ -62,7 +62,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
       if (res.message) {
         setServerError(res.message);
       }
-    } 
+    }
   };
 
   return (
@@ -79,18 +79,18 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
       </div>
 
       {!isSent ? (
-        <form 
-          onSubmit={handleSubmit(onSubmit)} 
+        <form
+          onSubmit={handleSubmit(onSubmit)}
           className="flex flex-col gap-6"
         >
           <FieldGroup>
             <Field>
               <FieldLabel>System Username</FieldLabel>
-              <Input 
+              <Input
                 // Spread the register function to connect the input with react-hook-form
                 {...register("username")}
-                type="text" 
-                placeholder="eg. j.luna" 
+                type="text"
+                placeholder="eg. j.luna"
               />
               <FieldDescription>
                 Enter the username associated with your MIS account.

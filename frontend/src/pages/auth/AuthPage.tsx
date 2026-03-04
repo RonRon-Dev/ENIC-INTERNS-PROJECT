@@ -21,7 +21,7 @@ export default function AuthPage() {
           "transition absolute top-6 left-6 md:top-10 md:left-10 z-[60] flex items-center gap-2 font-medium duration-500",
           isLeftView
             ? "translate-x-0 opacity-100"
-            : "translate-x-[-10vw] opacity-0"
+            : "translate-x-[-10vw] opacity-0",
         )}
       >
         <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
@@ -35,7 +35,7 @@ export default function AuthPage() {
           "transition absolute top-6 right-6 md:top-10 md:right-10 z-[60] flex items-center gap-2 font-medium duration-500",
           mode === "signup"
             ? "translate-x-0 opacity-100"
-            : "translate-x-[10vw] opacity-0"
+            : "translate-x-[10vw] opacity-0",
         )}
       >
         <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
@@ -53,7 +53,7 @@ export default function AuthPage() {
               "w-full max-w-sm transition-all duration-500 ease-in-out",
               isLeftView
                 ? "opacity-100"
-                : "opacity-20 pointer-events-none blur-sm"
+                : "opacity-20 pointer-events-none blur-sm",
             )}
           >
             {mode === "forgot" ? (
@@ -76,7 +76,7 @@ export default function AuthPage() {
               "w-full max-w-md transition-all duration-500 ease-in-out",
               mode === "signup"
                 ? "opacity-100"
-                : "opacity-20 pointer-events-none blur-sm"
+                : "opacity-20 pointer-events-none blur-sm",
             )}
           >
             <SignupForm onToggle={() => setMode("login")} />
@@ -87,7 +87,7 @@ export default function AuthPage() {
       <div
         className={cn(
           "absolute top-0 h-full w-1/2 hidden lg:block transition-transform duration-700 cubic-bezier(0.4, 0, 0.2, 1) z-50 p-5",
-          isLeftView ? "translate-x-full" : "translate-x-0"
+          isLeftView ? "translate-x-full" : "translate-x-0",
         )}
       >
         <div className="relative h-full w-full overflow-hidden shadow-2xl rounded-xl flex flex-col items-center">
@@ -107,12 +107,12 @@ export default function AuthPage() {
           >
             {/* Responsive Header & Subtitle */}
             <div className="flex flex-col items-center space-y-0 md:space-y-1">
-              <h2 className="text-2xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold tracking-tight font-poppins leading-tight">
+              <h2 className="text-2xl xs:text-xl sm:text-2xl md:text-3xl lg:text-3xl font-semibold tracking-tight font-poppins leading-tight">
                 {isLeftView
                   ? "One Portal. Every Tool. Unified."
                   : "We Link the World."}
               </h2>
-              <p className="text-sm sm:text-base md:text-lg font-medium text-white max-w-md lg:max-w-xl leading-relaxed">
+              <p className="text-sm xs:text-xs sm:text-base md:text-lg font-medium text-white max-w-md lg:max-w-xl leading-relaxed">
                 {isLeftView
                   ? "Log in to access and manage your tools and account"
                   : "Eurolink Network International Corporation"}
@@ -122,7 +122,7 @@ export default function AuthPage() {
             {/* Responsive Middle Graphic */}
             <div className="flex flex-1 items-center justify-center w-full max-w-[85%] lg:max-w-[95%] my-8">
               <img
-                src={isLeftView ? "/ui-preview.svg" : "/ui-preview.svg"}
+                src={isLeftView ? "/ui-preview-1.svg" : "/ui-preview-2.svg"}
                 alt="System Graphic"
                 className="w-full h-auto max-h-[40vh] md:max-h-[50vh] object-contain animate-pulse-slow"
               />
@@ -130,15 +130,15 @@ export default function AuthPage() {
 
             {/* Responsive Bottom Logo */}
             <div className="flex flex-col items-center gap-4">
-              <div className="h-8 sm:h-10 md:h-12 w-auto flex items-center justify-center">
+              <div className="h-6 sm:h-8 md:h-12 w-auto flex items-center justify-center">
                 <img
-                  src="/ENICMIS.svg"
+                  src="/enic-internal-system.svg"
                   alt="ENIC-MIS Logo"
                   className="h-full w-auto object-contain"
                 />
               </div>
               <div className="flex flex-col items-center space-y-1">
-                <p className="text-[10px] sm:text-[12px] font-bold text-white/60">
+                <p className="text-[10px] sm:text-[12px] font-medium text-white/60">
                   2026 All Rights Reserved.
                 </p>
               </div>
@@ -149,4 +149,3 @@ export default function AuthPage() {
     </div>
   );
 }
-

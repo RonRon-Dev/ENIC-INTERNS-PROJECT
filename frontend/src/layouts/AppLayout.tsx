@@ -16,10 +16,13 @@ import React from "react";
 
 import { useEffect } from "react";
 import NProgress from "@/lib/nprogress";
+import { SearchProvider } from "@/components/search-provider";
+import { Search } from "@/components/search";
 
 export default function AppLayout() {
   const location = useLocation();
   const pathnames = location.pathname.split("/").filter(Boolean);
+  const isHome = location.pathname === "/home";
 
   const breadcrumbNameMap: Record<string, string> = {
     home: "Home",
@@ -50,7 +53,7 @@ export default function AppLayout() {
 
   return (
     <>
-      {
+      <SearchProvider>
         <SidebarProvider
           style={{ "--sidebar-width": "19rem" } as React.CSSProperties}
         >
@@ -93,6 +96,7 @@ export default function AppLayout() {
                   })}
                 </BreadcrumbList>
               </Breadcrumb>
+              {!isHome && <Search className="ml-auto mr-20" />}
             </header>
             {/* Page Content */}
             <div className="flex flex-1 flex-col gap-4 px-[100px] pt-10">
@@ -100,7 +104,7 @@ export default function AppLayout() {
             </div>
           </SidebarInset>
         </SidebarProvider>
-      }
+      </SearchProvider>
     </>
   );
 }

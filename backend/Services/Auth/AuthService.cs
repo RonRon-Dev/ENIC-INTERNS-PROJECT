@@ -29,6 +29,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
                 Name = null,
                 UserName = null,
                 NameIdentifier = null,
+                RoleName = null,
                 ForcePasswordChange = false
             };
 
@@ -37,6 +38,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             Name = user.Name,
             UserName = user.UserName,
             NameIdentifier = user.Id.ToString(),
+            RoleName = user.Role?.Name,
             ForcePasswordChange = user.ForcePasswordChange
         };
     }

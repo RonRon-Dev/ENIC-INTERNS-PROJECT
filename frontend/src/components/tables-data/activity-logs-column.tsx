@@ -32,20 +32,6 @@ export type { ActivityLog }
 import { activityTypes } from '@/data/const'
 import { roles } from '@/data/const'
 
-const roleOptions = roles.map(({ label, value, icon }) => ({
-  label: label
-    .toLowerCase()
-    .replace(/\b\w/g, (char) => char.toUpperCase()), value,
-  icon,
-}))
-
-const activityTypeOptions = Array.from(activityTypes.keys()).map((key) => ({
-  label: key
-    .toLowerCase()
-    .replace(/\b\w/g, (char) => char.toUpperCase()),
-  value: key,
-}))
-
 export const columns: ColumnDef<ActivityLog>[] = [
   {
     accessorKey: 'username',
@@ -178,6 +164,20 @@ export function DataTable<TData, TValue>({
       columnFilters,
     },
   })
+
+  const roleOptions = roles.map(({ label, value, icon }) => ({
+    label: label
+      .toLowerCase()
+      .replace(/\b\w/g, (char) => char.toUpperCase()), value,
+    icon,
+  }))
+
+  const activityTypeOptions = Array.from(activityTypes.keys()).map((key) => ({
+    label: key
+      .toLowerCase()
+      .replace(/\b\w/g, (char) => char.toUpperCase()),
+    value: key,
+  }))
 
   return (
     <div>

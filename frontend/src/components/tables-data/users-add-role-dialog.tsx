@@ -24,6 +24,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { roles } from '@/data/const'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 const existingRoleValues = roles.map((r) => r.value)
 
@@ -66,7 +67,7 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
 
   const onSubmit = (values: UserAddRoleForm) => {
     form.reset()
-    showSubmittedData(values)
+    showSubmittedData(values, 'addrole')
     onOpenChange(false)
   }
 
@@ -101,7 +102,7 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
                 <FormItem>
                   <FormLabel>Role Name</FormLabel>
                   <FormControl>
-                    <Input placeholder='eg: editor' {...field} />
+                    <Input placeholder='eg: Admin' {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -115,7 +116,7 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
                   <FormLabel>Icon</FormLabel>
                   <FormControl>
                     <div className='grid grid-cols-5 gap-2'>
-                      {availableIcons.map(({ label, value, icon: Icon }) => (
+                      {availableIcons.map(({ value, icon: Icon }) => (
                         <Button
                           key={value.toLowerCase()}
                           type='button'

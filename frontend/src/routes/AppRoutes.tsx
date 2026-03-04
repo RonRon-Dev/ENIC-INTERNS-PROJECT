@@ -8,40 +8,43 @@ import AuthPage from "@/pages/auth/AuthPage";
 import UserManagementPage from "@/pages/UserManagementPage";
 import SubToolTestPage from "@/pages/tools/subtools/SubToolPage";
 import ProtectedRoute from "./ProtectedRoutes";
-// import { ForgotPasswordForm } from "@/pages/auth/ForgotPasswordForm";
 
 export default function AppRoutes() {
   return (
     <Routes>
       {/* Default Landing */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<Navigate to="/home" replace />} />
 
-      {/* Public Routes */}
+      {/* Public Route */}
       <Route path="/login" element={<AuthPage />} />
 
-    
-      {/* <Route
-        path="/test"
-        element={
-          <ForgotPasswordForm
-            onBack={() => {
-              console.log("Navigation back triggered from test route");
-               useNavigate() 
-            }}
-          />
-        }
-      /> */}
-
       {/* Protected Application Layout */}
-      <Route element={
-        // Wrap the AppLayout with ProtectedRoute to ensure authentication is checked before rendering
-        <ProtectedRoute>
-          <AppLayout />
-        </ProtectedRoute>
-      }>
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route path="/home" element={<GeneralHomePage />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/users" element={<UserManagementPage />} />
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Superadmin", "Admin"]}>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute allowedRoles={["Superadmin", "Admin"]}>
+              <UserManagementPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Nested Inventory Routes */}
         <Route path="/inventory">
@@ -53,8 +56,8 @@ export default function AppRoutes() {
         <Route path="/operations" element={<OperationsToolPage />} />
       </Route>
 
-      {/* Fall back */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/home" replace />} />
     </Routes>
   );
 }

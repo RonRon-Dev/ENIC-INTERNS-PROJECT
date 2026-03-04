@@ -146,7 +146,7 @@ export function DataTable<TData, TValue>({
     <div>
       <DataTableToolbar
         table={table}
-        searchPlaceholder='Filter username...'
+        searchPlaceholder='Search user table...'
         // searchKey='username'
         filters={[
           {

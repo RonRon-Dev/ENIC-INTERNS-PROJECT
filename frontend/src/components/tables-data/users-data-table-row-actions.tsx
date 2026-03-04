@@ -1,6 +1,4 @@
-import { MoreHorizontal } from 'lucide-react'
-import { type Row } from '@tanstack/react-table'
-import { Trash2, UserPen } from 'lucide-react'
+import { MoreHorizontal, Trash2, UserCheck, UserPen, UserX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -18,6 +16,9 @@ type DataTableRowActionsProps = CellContext<User, unknown>
 
 export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const { setOpen, setCurrentRow } = useUsers()
+  const isPending = row.original.status === 'pending'
+  const isDeactivated = row.original.status === 'deactivated'
+
   return (
     <>
       <DropdownMenu modal={false}>
@@ -31,30 +32,75 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end' className='w-[160px]'>
-          <DropdownMenuItem
-            onClick={() => {
-              setCurrentRow(row.original)
-              setOpen('edit')
-            }}
-          >
-            Edit
-            <DropdownMenuShortcut>
-              <UserPen size={16} />
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => {
-              setCurrentRow(row.original)
-              setOpen('delete')
-            }}
-            className='text-red-500 focus:text-red-600 data-[state=open]:bg-red-100'
-          >
-            Delete
-            <DropdownMenuShortcut>
-              <Trash2 size={16} />
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
+          {isPending ? (
+            <>
+              <DropdownMenuItem
+                onClick={() => {
+                  setCurrentRow(row.original)
+                  setOpen('approve')
+                }}
+                className='text-green-600 focus:text-green-700'
+              >
+                Approve
+                <DropdownMenuShortcut>
+                  <UserCheck size={16} />
+                </DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setCurrentRow(row.original)
+                  setOpen('reject')
+                }}
+                className='text-red-500 focus:text-red-600'
+              >
+                Reject
+                <DropdownMenuShortcut>
+                  <UserX size={16} />
+                </DropdownMenuShortcut>
+              </DropdownMenuItem>
+            </>
+          ) : (
+            <>
+              <DropdownMenuItem
+                onClick={() => {
+                  setCurrentRow(row.original)
+                  setOpen('edit')
+                }}
+              >
+                Edit
+                <DropdownMenuShortcut>
+                  <UserPen size={16} />
+                </DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              { isDeactivated ? (
+              <DropdownMenuItem
+                onClick={() => {
+                  setCurrentRow(row.original)
+                  setOpen('activate')
+                }}
+                className='text-green-600 focus:text-green-700'
+              >
+                Activate
+                <DropdownMenuShortcut>
+                  <UserCheck size={16} />
+                </DropdownMenuShortcut>
+              </DropdownMenuItem>
+               ) : (<DropdownMenuItem
+                onClick={() => {
+                  setCurrentRow(row.original)
+                  setOpen('deactivate')
+                }}
+                className='text-red-500 focus:text-red-600'
+              >
+                Deactivate
+                <DropdownMenuShortcut>
+                  <Trash2 size={16} />
+                </DropdownMenuShortcut>
+              </DropdownMenuItem>
+            )}
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </>

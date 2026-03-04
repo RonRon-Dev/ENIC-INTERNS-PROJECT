@@ -60,7 +60,11 @@ export function NavGroup({ title, items }: NavGroupProps) {
 }
 
 function NavBadge({ children }: { children: ReactNode }) {
-  return <Badge className='rounded-full px-1 py-0 text-xs'>{children}</Badge>
+  return (
+    <Badge className='rounded-full px-1 py-0 text-xs group-data-[active=true]/sub:bg-white group-data-[active=true]/sub:text-primary'>
+      {children}
+    </Badge>
+  )
 }
 
 function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
@@ -72,6 +76,7 @@ function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
         isActive={checkIsActive(href, item)}
         tooltip={item.title}
         variant={"custom"}
+        className='group/sub'
       >
         <Link to={item.url} onClick={() => setOpenMobile(false)}>
           {item.icon && <item.icon />}
@@ -94,7 +99,7 @@ function SidebarMenuCollapsible({
   return (
     <Collapsible
       asChild
-      defaultOpen={checkIsActive(href, item, true)}
+      defaultOpen={checkIsActive(href, item)}
       className='group/collapsible'
     >
       <SidebarMenuItem>
@@ -113,10 +118,10 @@ function SidebarMenuCollapsible({
                 <SidebarMenuSubButton
                   asChild
                   isActive={checkIsActive(href, subItem)}
-                  className='duration-300 ease-in-out data-[active=true]:bg-gray-800 data-[active=true]:text-white hover:bg-muted/50 cursor-pointer'
+                  className='group/sub duration-300 ease-in-out data-[active=true]:bg-primary data-[active=true]:text-white hover:bg-muted/50 cursor-pointer'
                 >
                   <Link to={subItem.url} onClick={() => setOpenMobile(false)}>
-                    {subItem.icon && <subItem.icon />}  
+                    {subItem.icon && <subItem.icon />}
                     <span>{subItem.title}</span>
                     {subItem.badge && <NavBadge>{subItem.badge}</NavBadge>}
                   </Link>
@@ -176,12 +181,12 @@ function SidebarMenuCollapsedDropdown({
   )
 }
 
-function checkIsActive(href: string, item: NavItem, mainNav = false) {
-  if ("url" in item) {
-    return href === item.url || href.startsWith(item.url)
+function checkIsActive(href: string, item: NavItem) {
+  if ("url" in item && item.url) {
+    return href === item.url || href.startsWith(item.url as string)
   }
 
-  if ("items" in item) {
+  if ("items" in item && Array.isArray(item.items)) {
     return item.items.some((i) => href === i.url)
   }
 
