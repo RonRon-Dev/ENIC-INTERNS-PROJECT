@@ -115,7 +115,16 @@ export function LoginForm({
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <p className="w-full justify-between flex items-center">
+                  <FormLabel>Password</FormLabel>
+                  <button
+                    type="button"
+                    onClick={onToggleForgot}
+                    className="text-muted-foreground underline underline-offset-4 hover:text-primary text-sm"
+                  >
+                    Forgot password?
+                  </button>
+                </p>
                 <FormControl>
                   <PasswordInput
                     placeholder="e.g., S3cur3P@ssw0rd"

@@ -7,63 +7,109 @@ import { UsersDialogs } from '@/components/tables-data/users-dialogs'
 import { UsersProvider } from '@/components/tables-data/users-provider'
 import { UsersPrimaryButtons } from "@/components/tables-data/users-primary-buttons";
 import { users } from "@/data/users"
+import { Skeleton } from "@/components/ui/skeleton";
+
+const statConfig = [
+  {
+    label: "Total Users",
+    icon: Users2,
+    getValue: (data: User[]) => data.length,
+  },
+  {
+    label: "Pending",
+    icon: UserCog,
+    getValue: (data: User[]) => data.filter((u) => u.status === "pending").length,
+  },
+  {
+    label: "Active Users",
+    icon: UserCheck,
+    getValue: (data: User[]) => data.filter((u) => u.status === "active").length,
+  },
+  {
+    label: "Assigned Users",
+    icon: ShieldCheck,
+    getValue: (data: User[]) => data.filter((u) => u.role !== "guest").length,
+  },
+]
+
+function StatCardSkeleton() {
+  return (
+    <Card className="flex p-5 rounded-xl flex-col gap-2">
+      <div className="flex items-center gap-2 mb-1">
+        <Skeleton className="h-4 w-4 rounded" />
+        <Skeleton className="h-4 w-24" />
+      </div>
+      <Skeleton className="h-8 w-12" />
+    </Card>
+  )
+}
+
+function TableSkeleton() {
+  return (
+    <div className="space-y-2">
+      <Skeleton className="h-10 w-full rounded-lg" />
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full rounded-lg" />
+      ))}
+    </div>
+  )
+}
 
 function UserManagementContent() {
   const [data, setData] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // useEffect(() => {
+  //   users().then((result) => {
+  //     setData(result)
+  //     setLoading(false)
+  //   })
+  // }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     users().then(setData)
   }, [])
 
-  const totalUsers = data.length
-  const pendingUsers = data.filter((u) => u.status === "pending").length
-  const activeUsers = data.filter((u) => u.status === "active").length
-  const assignedUsers = data.filter((u) => u.role !== "guest").length
 
   return (
     <>
+      {/* Stat Cards */}
       <div className="grid auto-rows-min gap-4 md:grid-cols-4">
-        <Card className="flex p-5 transition-all duration-200 rounded-xl group relative flex-col">
-          <div className="flex items-center gap-2 mb-2">
-            <Users2 className="size-4" />
-            <p className="text-sm font-medium">Total Users</p>
-          </div>
-          <CardTitle className="text-2xl tracking-wide">{totalUsers}</CardTitle>
-        </Card>
-        <Card className="flex p-5 transition-all duration-200 rounded-xl group relative flex-col">
-          <div className="flex items-center gap-2 mb-2">
-            <UserCog className="size-4" />
-            <p className="text-sm font-medium">Pending</p>
-          </div>
-          <CardTitle className="text-2xl tracking-wide">{pendingUsers}</CardTitle>
-        </Card>
-        <Card className="flex p-5 transition-all duration-200 rounded-xl group relative flex-col">
-          <div className="flex items-center gap-2 mb-2">
-            <UserCheck className="size-4" />
-            <p className="text-sm font-medium">Active Users</p>
-          </div>
-          <CardTitle className="text-2xl tracking-wide">{activeUsers}</CardTitle>
-        </Card>
-        <Card className="flex p-5 transition-all duration-200 rounded-xl group relative flex-col">
-          <div className="flex items-center gap-2 mb-2">
-            <ShieldCheck className="size-4" />
-            <p className="text-sm font-medium">Assigned Users</p>
-          </div>
-          <CardTitle className="text-2xl tracking-wide">{assignedUsers}</CardTitle>
-        </Card>
+        {loading
+          ? Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
+          : statConfig.map(({ label, icon: Icon, getValue }) => (
+            <Card key={label} className="flex p-5 transition-all duration-200 rounded-xl flex-col">
+              <div className="flex items-center gap-2 mb-2">
+                <Icon className="size-4" />
+                <p className="text-sm font-medium">{label}</p>
+              </div>
+              <CardTitle className="text-2xl tracking-wide">{getValue(data)}</CardTitle>
+            </Card>
+          ))}
       </div>
-      <div className='flex flex-wrap items-end justify-between gap-2 mt-4'>
+
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-2 mt-4">
         <div>
-          <h2 className='text-2xl font-bold tracking-tight'>User List</h2>
-          <p className='text-muted-foreground'>
-            Manage your users and their roles here.
-          </p>
+          <h2 className="text-2xl font-bold tracking-tight">User List</h2>
+          <p className="text-muted-foreground">Manage your users and their roles here.</p>
         </div>
         <UsersPrimaryButtons />
       </div>
+
+      {/* Table */}
       <div>
-        <DataTable columns={columns} data={data} />
+        {loading
+          ? <TableSkeleton />
+          : <DataTable columns={columns} data={data} />
+        }
       </div>
+
       <UsersDialogs />
     </>
   )
