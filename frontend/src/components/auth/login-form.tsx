@@ -142,7 +142,7 @@ export function LoginForm({
 
           <Button
             type="submit"
-            className="w-full"
+            className="w-full disabled:opacity-100 !mt-10"
             disabled={!form.formState.isValid || form.formState.isSubmitting}
           >
             Login
