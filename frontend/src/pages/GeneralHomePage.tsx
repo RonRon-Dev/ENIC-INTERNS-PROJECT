@@ -97,40 +97,40 @@ function ToolSkeleton() {
   );
 }
 
-type ToolCardProps = (typeof tools)[number];
+// type ToolCardProps = (typeof tools)[number];
 
-function ToolCard({ title, description, icon: Icon, isAccessible }: ToolCardProps) {
-  return (
-    <Card
-      className={cn(
-        "flex items-center gap-4 p-5 transition-all duration-200 rounded-xl group relative",
-        isAccessible
-          ? "hover:bg-muted/60 cursor-pointer hover:border-gray-500"
-          : "opacity-60 grayscale cursor-not-allowed bg-muted/5 border-dashed",
-      )}
-    >
-      <div
-        className={cn(
-          "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-colors duration-200 relative",
-          isAccessible
-            ? "bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground"
-            : "bg-muted/50 text-muted-foreground/30",
-        )}
-      >
-        <Icon className="h-6 w-6" />
-        {!isAccessible && (
-          <div className="absolute -top-1 -right-1 bg-background rounded-full p-0.5 border shadow-sm">
-            <Lock className="size-3 text-muted-foreground" />
-          </div>
-        )}
-      </div>
-      <div className="flex flex-col flex-1 min-w-0">
-        <CardTitle className="text-base font-bold truncate">{title}</CardTitle>
-        <CardDescription className="text-sm line-clamp-1">{description}</CardDescription>
-      </div>
-    </Card>
-  );
-}
+// function ToolCard({ title, description, icon: Icon, isAccessible }: ToolCardProps) {
+//   return (
+//     <Card
+//       className={cn(
+//         "flex items-center gap-4 p-5 transition-all duration-200 rounded-xl group relative",
+//         isAccessible
+//           ? "hover:bg-muted/60 cursor-pointer hover:border-gray-500"
+//           : "opacity-60 grayscale cursor-not-allowed bg-muted/5 border-dashed",
+//       )}
+//     >
+//       <div
+//         className={cn(
+//           "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-colors duration-200 relative",
+//           isAccessible
+//             ? "bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground"
+//             : "bg-muted/50 text-muted-foreground/30",
+//         )}
+//       >
+//         <Icon className="h-6 w-6" />
+//         {!isAccessible && (
+//           <div className="absolute -top-1 -right-1 bg-background rounded-full p-0.5 border shadow-sm">
+//             <Lock className="size-3 text-muted-foreground" />
+//           </div>
+//         )}
+//       </div>
+//       <div className="flex flex-col flex-1 min-w-0">
+//         <CardTitle className="text-base font-bold truncate">{title}</CardTitle>
+//         <CardDescription className="text-sm line-clamp-1">{description}</CardDescription>
+//       </div>
+//     </Card>
+//   );
+// }
 
 export default function GeneralHomePage() {
   const { user } = useAuth();
