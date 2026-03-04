@@ -196,7 +196,7 @@ export default function SignupForm({ onToggle }: { onToggle: () => void }) {
           <Button
             type="submit"
             className="w-full mt-2 disabled:opacity-100 !mt-10"
-            disabled={!form.formState.isValid || form.formState.isSubmitting}
+            // disabled={!form.formState.isValid || form.formState.isSubmitting}
           >
             Submit Request
           </Button>
