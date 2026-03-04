@@ -99,7 +99,7 @@ function SidebarMenuCollapsible({
   return (
     <Collapsible
       asChild
-      defaultOpen={checkIsActive(href, item, true)}
+      defaultOpen={checkIsActive(href, item)}
       className='group/collapsible'
     >
       <SidebarMenuItem>
@@ -182,11 +182,11 @@ function SidebarMenuCollapsedDropdown({
 }
 
 function checkIsActive(href: string, item: NavItem) {
-  if ("url" in item) {
-    return href === item.url || href.startsWith(item.url)
+  if ("url" in item && item.url) {
+    return href === item.url || href.startsWith(item.url as string)
   }
 
-  if ("items" in item) {
+  if ("items" in item && Array.isArray(item.items)) {
     return item.items.some((i) => href === i.url)
   }
 
