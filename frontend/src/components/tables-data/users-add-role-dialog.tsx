@@ -69,13 +69,7 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
     form.reset()
     showSubmittedData(values)
     onOpenChange(false)
-    toast.error("Failed to save.", {
-      action: {
-        label: "Retry",
-        // onClick: () => handleSubmit(),
-      },
-    })
-
+    toast.success("Role added successfully.")
   }
 
   return (
