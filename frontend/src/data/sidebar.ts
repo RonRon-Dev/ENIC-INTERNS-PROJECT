@@ -1,92 +1,67 @@
-import {
-  BadgeDollarSign,
-  BotIcon,
-  CirclePile,
-  HandshakeIcon,
-  HardHat,
-  Home,
-  LayoutDashboard,
-  User2Icon,
-} from "lucide-react";
-import type { SidebarData } from "./schema";
+import type { SidebarData, UserRole } from "./schema";
+import { toolsData } from "./tools";
 
-export const sidebarData: SidebarData = {
-  user: {
-    id: "728ed521",
-    name: "Enic Developer",
-    username: "enicdev",
-    status: "active",
-    role: "superadmin",
-  },
+const castRoles = (roles?: string[]): UserRole[] => (roles ?? []) as UserRole[];
 
-  navGroups: [
+function generateNavGroups(): SidebarData["navGroups"] {
+  // Home / Dashboard / Users
+  const homeTool = toolsData.find((t) => t.title === "Home");
+  const dashboardTool = toolsData.find((t) => t.title === "Dashboard");
+  const usersTool = toolsData.find((t) => t.title === "Users");
+
+  return [
     {
       items: [
         {
-          title: "Home",
-          url: "/home",
-          icon: Home,
+          title: homeTool?.title ?? "Home",
+          url: homeTool?.url ?? "/home",
+          icon: homeTool?.icon ?? undefined,
+          description: homeTool?.description ?? "",
+          allowedRoles: castRoles(homeTool?.allowedRoles),
         },
       ],
     },
     {
       title: "Management",
-      items: [
-        {
-          title: "Dashboard",
-          url: "/dashboard",
-          icon: LayoutDashboard,
-          allowedRoles: ["admin", "superadmin"], 
-        },
-        {
-          title: "Users",
-          url: "/users",
-          icon: User2Icon,
-          allowedRoles: ["admin", "superadmin"], 
-        },
-      ],
+      items: [dashboardTool, usersTool].filter(Boolean).map((tool) => ({
+        title: tool!.title,
+        url: tool!.url ?? "#",
+        icon: tool!.icon ?? undefined,
+        description: tool!.description ?? "",
+        allowedRoles: castRoles(tool!.allowedRoles),
+      })),
     },
     {
       title: "Modules",
-      items: [
-        {
-          title: "Inventory & Assets",
-          icon: CirclePile,
-          items: [
-            { title: "Subtool 1", url: "/inventory/subtool_1" },
-            { title: "Subtool 2", url: "/inventory/subtool_2" },
-            { title: "Subtool 3", url: "#" },
-          ],
-        },
-        {
-          title: "Operations",
-          icon: HardHat,
-          items: [
-            { title: "Subtool 1", url: "#" },
-            { title: "Subtool 2", url: "#" },
-          ],
-        },
-        {
-          title: "Finance",
-          icon: BadgeDollarSign,
-          items: [{ title: "Subtool 1", url: "#" }],
-        },
-        {
-          title: "Marketing",
-          icon: HandshakeIcon,
-          items: [{ title: "Subtool 1", url: "#" }],
-        },
-      ],
+      items: toolsData
+        .filter(
+          (tool) =>
+            !["Home", "Dashboard", "User Management"].includes(tool.title)
+        )
+        .map((tool) => ({
+          title: tool.title,
+          icon: tool.icon ?? undefined,
+          description: tool.description ?? "",
+          allowedRoles: castRoles(tool.allowedRoles),
+          items:
+            tool.subtools?.map((sub) => ({
+              title: sub.title,
+              url: sub.url ?? "#",
+              description: sub.description ?? tool.description ?? "",
+              allowedRoles: castRoles(sub.allowedRoles),
+            })) ?? [],
+        })),
     },
-    {
-      title: "Automation",
-      items: [
-        {
-          title: "AI Assistant",
-          url: "#",
-          icon: BotIcon,
-        },
-      ],
-    },
-  ],
+  ];
+}
+
+export const sidebarData: SidebarData = {
+  user: {
+    id: "",
+    name: "",
+    username: "",
+    status: "active",
+    role: "superadmin",
+  },
+  navGroups: generateNavGroups(),
 };

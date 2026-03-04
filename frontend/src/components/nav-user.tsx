@@ -26,14 +26,10 @@ import {
 import { logout } from "@/services/auth";
 import { useAuth } from "@/auth-context";
 import { useNavigate } from "react-router-dom";
-import type { User } from "@/data/schema"
 
-type NavUserProps = {
-  user: User
-}
-export function NavUser({ user }: NavUserProps) { 
+export function NavUser() {
   const { isMobile } = useSidebar();
-  const { setUser } = useAuth();
+  const { user, setUser } = useAuth(); // dynamically get user from context
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -44,6 +40,7 @@ export function NavUser({ user }: NavUserProps) {
 
   if (!user) return null;
 
+  // Compute user initials
   const initials = user.name
     .split(" ")
     .map((n) => n[0])
@@ -67,7 +64,7 @@ export function NavUser({ user }: NavUserProps) {
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{user.name}</span>
                 <span className="truncate text-xs capitalize">
-                  {user.role}
+                  {user.roleName}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
@@ -90,7 +87,7 @@ export function NavUser({ user }: NavUserProps) {
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{user.name}</span>
                   <span className="truncate text-xs capitalize">
-                    {user.role}
+                    {user.roleName}
                   </span>
                 </div>
               </div>

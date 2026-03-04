@@ -50,11 +50,13 @@ type BaseNavItem = {
 type NavLink = BaseNavItem & {
   url: LinkProps["to"];
   items?: never;
+  description?: string;
 };
 
 type NavCollapsible = BaseNavItem & {
   items: (BaseNavItem & { url: LinkProps["to"] })[];
   url?: never;
+  description?: string;
 };
 
 type NavItem = NavLink | NavCollapsible;

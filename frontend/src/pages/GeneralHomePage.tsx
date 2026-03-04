@@ -5,85 +5,10 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  BadgeDollarSignIcon,
-  Building,
-  CirclePile,
-  FileDigit,
-  FolderOpen,
-  GitGraph,
-  HandshakeIcon,
-  HardHat,
-  Link,
-  Settings,
-  Search,
-  Lock,
-} from "lucide-react";
+import { Search, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth-context";
-
-const tools = [
-  {
-    title: "Accounting Automation",
-    description: "Automate journal entries and financial workflows.",
-    icon: BadgeDollarSignIcon,
-    isAccessible: true,
-  },
-  {
-    title: "Inventory Management",
-    description: "Track stock levels and warehouse movement.",
-    icon: CirclePile,
-    isAccessible: true,
-  },
-  {
-    title: "Operations Center",
-    description: "Monitor daily operational performance.",
-    icon: HardHat,
-    isAccessible: true,
-  },
-  {
-    title: "HR Management",
-    description: "Manage employees, attendance, and records.",
-    icon: HandshakeIcon,
-    isAccessible: true,
-  },
-  {
-    title: "Reports & Analytics",
-    description: "Generate insights and export reports.",
-    icon: GitGraph,
-    isAccessible: true,
-  },
-  {
-    title: "Procurement",
-    description: "Handle purchase orders and vendor tracking.",
-    icon: Building,
-    isAccessible: true,
-  },
-  {
-    title: "CRM",
-    description: "Manage clients and customer relationships.",
-    icon: Link,
-    isAccessible: true,
-  },
-  {
-    title: "Project Management",
-    description: "Track milestones and project progress.",
-    icon: FolderOpen,
-    isAccessible: false,
-  },
-  {
-    title: "System Settings",
-    description: "Configure platform preferences and controls.",
-    icon: Settings,
-    isAccessible: false,
-  },
-  {
-    title: "Audit Logs",
-    description: "Review system activities and changes.",
-    icon: FileDigit,
-    isAccessible: false,
-  },
-] as const;
+import { toolsData } from "@/data/tools";
 
 function ToolSkeleton() {
   return (
@@ -97,46 +22,9 @@ function ToolSkeleton() {
   );
 }
 
-// type ToolCardProps = (typeof tools)[number];
-
-// function ToolCard({ title, description, icon: Icon, isAccessible }: ToolCardProps) {
-//   return (
-//     <Card
-//       className={cn(
-//         "flex items-center gap-4 p-5 transition-all duration-200 rounded-xl group relative",
-//         isAccessible
-//           ? "hover:bg-muted/60 cursor-pointer hover:border-gray-500"
-//           : "opacity-60 grayscale cursor-not-allowed bg-muted/5 border-dashed",
-//       )}
-//     >
-//       <div
-//         className={cn(
-//           "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-colors duration-200 relative",
-//           isAccessible
-//             ? "bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground"
-//             : "bg-muted/50 text-muted-foreground/30",
-//         )}
-//       >
-//         <Icon className="h-6 w-6" />
-//         {!isAccessible && (
-//           <div className="absolute -top-1 -right-1 bg-background rounded-full p-0.5 border shadow-sm">
-//             <Lock className="size-3 text-muted-foreground" />
-//           </div>
-//         )}
-//       </div>
-//       <div className="flex flex-col flex-1 min-w-0">
-//         <CardTitle className="text-base font-bold truncate">{title}</CardTitle>
-//         <CardDescription className="text-sm line-clamp-1">{description}</CardDescription>
-//       </div>
-//     </Card>
-//   );
-// }
-
 export default function GeneralHomePage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-
-  // const loading = !user;
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -144,6 +32,35 @@ export default function GeneralHomePage() {
     return () => clearTimeout(timer);
   }, []);
 
+  const tools = toolsData.flatMap((tool) => {
+    if (["Home", "Dashboard", "User Management"].includes(tool.title))
+      return [];
+
+    if (tool.subtools && Array.isArray(tool.subtools)) {
+      return tool.subtools.map((sub) => ({
+        title: sub.title,
+        description: sub.description ?? tool.description ?? "",
+        icon: tool.icon ?? null,
+        isAccessible: user
+          ? !sub.allowedRoles ||
+            sub.allowedRoles
+              .map((r) => r.toLowerCase())
+              .includes(user.roleName?.toLowerCase() ?? "")
+          : false,
+      }));
+    }
+    return {
+      title: tool.title,
+      description: tool.description ?? "",
+      icon: tool.icon ?? null,
+      isAccessible: user
+        ? !tool.allowedRoles ||
+          tool.allowedRoles
+            .map((r) => r.toLowerCase())
+            .includes(user.roleName?.toLowerCase() ?? "")
+        : false,
+    };
+  });
 
   const filteredTools = tools.filter(
     (tool) =>
@@ -166,10 +83,7 @@ export default function GeneralHomePage() {
           ) : (
             <>
               <h1 className="text-3xl font-light italic">
-                Welcome back,{" "}
-                <span className="font-black">
-                  {firstName + '!'}
-                </span>
+                Welcome back, <span className="font-black">{firstName}!</span>
               </h1>
               <p className="ml-1 text-muted-foreground">
                 Eurolink Network International Corporation
@@ -190,6 +104,7 @@ export default function GeneralHomePage() {
         </div>
       </div>
 
+      {/* Tools Grid */}
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div className="text-muted-foreground text-sm">
@@ -201,12 +116,13 @@ export default function GeneralHomePage() {
           </div>
           {!loading && searchQuery && (
             <p className="text-xs text-muted-foreground italic">
-              Found {filteredTools.length} result{filteredTools.length !== 1 ? "s" : ""} for &ldquo;{searchQuery}&rdquo;
+              Found {filteredTools.length} result
+              {filteredTools.length !== 1 ? "s" : ""} for &ldquo;{searchQuery}
+              &rdquo;
             </p>
           )}
         </div>
 
-        {/* Tools Grid */}
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
           {loading ? (
             Array.from({ length: 9 }).map((_, i) => <ToolSkeleton key={i} />)
@@ -229,7 +145,7 @@ export default function GeneralHomePage() {
                       : "bg-muted/50 text-muted-foreground/30"
                   )}
                 >
-                  <tool.icon className="h-6 w-6" />
+                  {tool.icon && <tool.icon className="h-6 w-6" />}
                   {!tool.isAccessible && (
                     <div className="absolute -top-1 -right-1 bg-background rounded-full p-0.5 border shadow-sm">
                       <Lock className="size-3 text-muted-foreground" />
@@ -237,7 +153,6 @@ export default function GeneralHomePage() {
                   )}
                 </div>
 
-                {/* Content */}
                 <div className="flex flex-col flex-1 min-w-0">
                   <CardTitle className="text-base font-bold truncate">
                     {tool.title}
