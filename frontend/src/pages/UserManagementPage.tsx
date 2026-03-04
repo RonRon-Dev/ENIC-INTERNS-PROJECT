@@ -44,16 +44,30 @@ function StatCardSkeleton() {
   )
 }
 
-function TableSkeleton() {
+export function SkeletonTable() {
   return (
-    <div className="space-y-2">
-      <Skeleton className="h-10 w-full rounded-lg" />
-      {Array.from({ length: 8 }).map((_, i) => (
-        <Skeleton key={i} className="h-12 w-full rounded-lg" />
+    <div className="flex w-full flex-col gap-2 py-3">
+      <div className="flex w-full gap-2">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-8 w-32" />
+      </div>
+
+      {Array.from({ length: 10 }).map((_, index) => (
+        <div className="flex gap-4" key={index}>
+          <Skeleton className="h-8 flex-1" />
+          <Skeleton className="h-8 flex-1" />
+          <Skeleton className="h-8 flex-1" />
+          <Skeleton className="h-8 flex-1" />
+          <Skeleton className="h-8 flex-1" />
+          {/* <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-20" /> */}
+        </div>
       ))}
     </div>
   )
 }
+
 
 function UserManagementContent() {
   const [data, setData] = useState<User[]>([])
@@ -105,7 +119,7 @@ function UserManagementContent() {
       {/* Table */}
       <div>
         {loading
-          ? <TableSkeleton />
+          ? <SkeletonTable />
           : <DataTable columns={columns} data={data} />
         }
       </div>
