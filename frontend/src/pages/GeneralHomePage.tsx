@@ -68,6 +68,10 @@ export default function GeneralHomePage() {
       tool.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const sortedTools = filteredTools.sort((a, b) => {
+    return (b.isAccessible ? 1 : 0) - (a.isAccessible ? 1 : 0);
+  });
+
   const firstName = user?.name?.split(" ")[0] ?? "User";
 
   return (
@@ -105,77 +109,58 @@ export default function GeneralHomePage() {
       </div>
 
       {/* Tools Grid */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div className="text-muted-foreground text-sm">
-            {loading ? (
-              <Skeleton className="h-4 w-40" />
-            ) : (
-              "Select a tool to continue."
-            )}
-          </div>
-          {!loading && searchQuery && (
-            <p className="text-xs text-muted-foreground italic">
-              Found {filteredTools.length} result
-              {filteredTools.length !== 1 ? "s" : ""} for &ldquo;{searchQuery}
-              &rdquo;
-            </p>
-          )}
-        </div>
-
-        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
-          {loading ? (
-            Array.from({ length: 9 }).map((_, i) => <ToolSkeleton key={i} />)
-          ) : filteredTools.length > 0 ? (
-            filteredTools.map((tool, index) => (
-              <Card
-                key={index}
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+        {loading ? (
+          Array.from({ length: 9 }).map((_, i) => <ToolSkeleton key={i} />)
+        ) : sortedTools.length > 0 ? (
+          sortedTools.map((tool, index) => (
+            <Card
+              key={index}
+              className={cn(
+                "flex items-center gap-4 p-5 transition-all duration-200 rounded-xl min-w-[30vh] group relative",
+                tool.isAccessible
+                  ? "hover:bg-muted/60 cursor-pointer hover:border-gray-500"
+                  : "opacity-60 grayscale cursor-not-allowed bg-muted/5 border-dashed"
+              )}
+            >
+              <div
                 className={cn(
-                  "flex items-center gap-4 p-5 transition-all duration-200 rounded-xl min-w-[30vh] group relative",
+                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-colors duration-200 relative",
                   tool.isAccessible
-                    ? "hover:bg-muted/60 cursor-pointer hover:border-gray-500"
-                    : "opacity-60 grayscale cursor-not-allowed bg-muted/5 border-dashed"
+                    ? "bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground"
+                    : "bg-muted/50 text-muted-foreground/30"
                 )}
               >
-                <div
-                  className={cn(
-                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-colors duration-200 relative",
-                    tool.isAccessible
-                      ? "bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground"
-                      : "bg-muted/50 text-muted-foreground/30"
-                  )}
-                >
-                  {tool.icon && <tool.icon className="h-6 w-6" />}
-                  {!tool.isAccessible && (
-                    <div className="absolute -top-1 -right-1 bg-background rounded-full p-0.5 border shadow-sm">
-                      <Lock className="size-3 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
+                {tool.icon && <tool.icon className="h-6 w-6" />}
+                {!tool.isAccessible && (
+                  <div className="absolute -top-1 -right-1 bg-background rounded-full p-0.5 border shadow-sm">
+                    <Lock className="size-3 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
 
-                <div className="flex flex-col flex-1 min-w-0">
-                  <CardTitle className="text-base font-bold truncate">
-                    {tool.title}
-                  </CardTitle>
-                  <CardDescription className="text-sm line-clamp-1">
-                    {tool.description}
-                  </CardDescription>
-                </div>
-              </Card>
-            ))
-          ) : (
-            <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed rounded-2xl bg-muted/20">
-              <p className="text-muted-foreground">No matching tools found.</p>
-              <Button
-                variant="link"
-                className="mt-2 text-primary"
-                onClick={() => setSearchQuery("")}
-              >
-                Clear search results
-              </Button>
-            </div>
-          )}
-        </div>
+              <div className="flex flex-col flex-1 min-w-0">
+                <CardTitle className="text-base font-bold truncate">
+                  {tool.title}
+                </CardTitle>
+                <CardDescription className="text-sm line-clamp-1">
+                  {tool.description}
+                </CardDescription>
+              </div>
+            </Card>
+          ))
+        ) : (
+          <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed rounded-2xl bg-muted/20">
+            <p className="text-muted-foreground">No matching tools found.</p>
+            <Button
+              variant="link"
+              className="mt-2 text-primary"
+              onClick={() => setSearchQuery("")}
+            >
+              Clear search results
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

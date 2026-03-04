@@ -7,7 +7,7 @@ function generateNavGroups(): SidebarData["navGroups"] {
   // Home / Dashboard / Users
   const homeTool = toolsData.find((t) => t.title === "Home");
   const dashboardTool = toolsData.find((t) => t.title === "Dashboard");
-  const usersTool = toolsData.find((t) => t.title === "Users");
+  const usersTool = toolsData.find((t) => t.title === "User Management");
 
   return [
     {
