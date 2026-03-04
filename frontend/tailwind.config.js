@@ -5,9 +5,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        // 'font-sans' will now use your local static Inter files
         sans: ['"Inter"', "sans-serif"],
-        // 'font-poppins' remains for your specific portal headers
         poppins: ['"Poppins"', "sans-serif"],
       },
       borderRadius: {

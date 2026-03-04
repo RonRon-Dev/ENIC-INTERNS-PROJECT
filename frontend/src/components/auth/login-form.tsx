@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -7,8 +6,26 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { login } from "@/services/auth";
 import { useAuth } from "@/auth-context";
 import { useNavigate } from "react-router-dom";
-import { loginSchema } from "@/validations";
-import type { LoginRequest } from "@/validations";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { PasswordInput } from "@/components/password-input";
+import { z } from "zod";
+
+const formSchema = z.object({
+  username: z.string().min(1, "Username is required."),
+  password: z
+    .string()
+    .transform((pwd) => pwd.trim())
+    .refine((pwd) => pwd.length > 0, { message: "Password is required." }),
+});
+
+type UserForm = z.infer<typeof formSchema>;
 
 export function LoginForm({
   onToggleSignup,
@@ -19,18 +36,18 @@ export function LoginForm({
 }) {
   const { refreshUser } = useAuth();
   const navigate = useNavigate();
-  
-  const {
-    register,
-    handleSubmit,
-    setError,
-    formState: { errors },
-  } = useForm<LoginRequest>({
-    resolver: zodResolver(loginSchema),
-  });
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const onSubmit = async (data: LoginRequest) => {
+  const form = useForm<UserForm>({
+    mode: "onChange",
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
+
+  const onSubmit = async (data: UserForm) => {
     try {
       setServerError(null);
       const response = await login(data);
@@ -48,17 +65,15 @@ export function LoginForm({
         return;
       }
 
-      // Handle field-level errors
       if (res.errors) {
         Object.entries(res.errors).forEach(([key, value]) => {
-          setError(key as keyof LoginRequest, {
+          form.setError(key as keyof UserForm, {
             type: "server",
             message: value as string,
           });
         });
       }
 
-      // Handle general message
       if (res.message) {
         setServerError(res.message);
       }
@@ -66,10 +81,7 @@ export function LoginForm({
   };
 
   return (
-    <form
-      className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500"
-      onSubmit={handleSubmit(onSubmit)}
-    >
+    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col items-center gap-1 text-center">
         <h1 className="text-2xl font-bold tracking-tight">
           Login to your account
@@ -78,45 +90,76 @@ export function LoginForm({
           Enter your credentials below
         </p>
       </div>
-      <FieldGroup>
-        <Field>
-          <FieldLabel>Username</FieldLabel>
-          <Input
-            {...register("username")}
-            type="text"
-            placeholder="eg. j.luna"
+
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="space-y-4"
+        >
+          <FormField
+            control={form.control}
+            name="username"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Username</FormLabel>
+                <FormControl>
+                  <Input placeholder="eg. j.luna" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-          <p className="text-red-500 text-sm">{errors.username?.message}</p>
-        </Field>
-        <Field>
-          <div className="flex items-center justify-between">
-            <FieldLabel>Password</FieldLabel>
+
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <p className="w-full justify-between flex items-center">
+                  <FormLabel>Password</FormLabel>
+                  <button
+                    type="button"
+                    onClick={onToggleForgot}
+                    className="underline underline-offset-4 text-sm"
+                  >
+                    Forgot password?
+                  </button>
+                </p>
+                <FormControl>
+                  <PasswordInput
+                    placeholder="e.g., S3cur3P@ssw0rd"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {serverError && (
+            <p className="text-destructive text-sm">{serverError}</p>
+          )}
+
+          <Button
+            type="submit"
+            className="w-full disabled:opacity-100 !mt-10"
+            // disabled={!form.formState.isValid || form.formState.isSubmitting}
+          >
+            Login
+          </Button>
+
+          <p className="text-center text-sm">
+            New here?{" "}
             <button
               type="button"
-              onClick={onToggleForgot}
-              className="text-xs underline underline-offset-4 hover:text-primary transition-colors"
+              onClick={onToggleSignup}
+              className="font-semibold underline underline-offset-4 hover:text-primary"
             >
-              Forgot password?
+              Sign up
             </button>
-          </div>
-          <Input {...register("password")} type="password" />
-          <p className="text-red-500 text-sm">{errors.password?.message}</p>
-        </Field>
-        <p className="text-red-500 text-sm">{serverError}</p>
-        <Button type="submit" className="w-full">
-          Login
-        </Button>
-        <p className="text-center text-sm">
-          New here?{" "}
-          <button
-            type="button"
-            onClick={onToggleSignup}
-            className="font-semibold underline underline-offset-4 hover:text-primary"
-          >
-            Sign up
-          </button>
-        </p>
-      </FieldGroup>
-    </form>
+          </p>
+        </form>
+      </Form>
+    </div>
   );
 }
