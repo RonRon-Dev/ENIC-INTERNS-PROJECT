@@ -1,3 +1,5 @@
+"use client";
+
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/auth-context";
 import { UnauthorisedError } from "@/components/errors/401";
@@ -13,16 +15,17 @@ export default function ProtectedRoute({
 }: ProtectedRouteProps) {
   const auth = useAuth();
 
+  // Wait for auth to load if needed
   // if (auth.loading) return <div>Loading...</div>;
 
-  // Login Authetication
+  // Authentication check
   if (!auth.isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  // Role Restrictions
+  // Role-based restriction
   if (allowedRoles && !allowedRoles.includes(auth.user?.roleName ?? "")) {
-    return <UnauthorisedError />;
+    return <UnauthorisedError />; // Or redirect: <Navigate to="/home" replace />
   }
 
   return <>{children}</>;

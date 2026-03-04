@@ -7,8 +7,8 @@ import {
   Home,
   LayoutDashboard,
   User2Icon,
-} from "lucide-react"
-import type { SidebarData } from "./schema"
+} from "lucide-react";
+import type { SidebarData } from "./schema";
 
 export const sidebarData: SidebarData = {
   user: {
@@ -36,11 +36,13 @@ export const sidebarData: SidebarData = {
           title: "Dashboard",
           url: "/dashboard",
           icon: LayoutDashboard,
+          allowedRoles: ["admin", "superadmin"], 
         },
         {
           title: "Users",
           url: "/users",
           icon: User2Icon,
+          allowedRoles: ["admin", "superadmin"], 
         },
       ],
     },
@@ -67,16 +69,12 @@ export const sidebarData: SidebarData = {
         {
           title: "Finance",
           icon: BadgeDollarSign,
-          items: [
-            { title: "Subtool 1", url: "#" },
-          ],
+          items: [{ title: "Subtool 1", url: "#" }],
         },
         {
           title: "Marketing",
           icon: HandshakeIcon,
-          items: [
-            { title: "Subtool 1", url: "#" },
-          ],
+          items: [{ title: "Subtool 1", url: "#" }],
         },
       ],
     },
@@ -91,4 +89,4 @@ export const sidebarData: SidebarData = {
       ],
     },
   ],
-}
+};
