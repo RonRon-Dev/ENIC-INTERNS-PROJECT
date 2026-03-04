@@ -120,7 +120,7 @@ export function LoginForm({
                   <button
                     type="button"
                     onClick={onToggleForgot}
-                    className="text-muted-foreground underline underline-offset-4 hover:text-primary text-sm"
+                    className="underline underline-offset-4 text-sm"
                   >
                     Forgot password?
                   </button>

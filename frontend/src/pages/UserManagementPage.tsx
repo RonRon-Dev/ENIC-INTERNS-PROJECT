@@ -46,11 +46,11 @@ function StatCardSkeleton() {
 
 export function SkeletonTable() {
   return (
-    <div className="flex w-full flex-col gap-2 py-3">
+    <div className="flex w-full flex-col gap-3 py-3">
       <div className="flex w-full gap-2">
-        <Skeleton className="h-8 w-32" />
-        <Skeleton className="h-8 w-32" />
-        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-6 w-56" />
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="h-6 w-32" />
       </div>
 
       {Array.from({ length: 10 }).map((_, index) => (
@@ -65,9 +65,9 @@ export function SkeletonTable() {
         </div>
       ))}
       <div className="flex w-full gap-2">
-        <Skeleton className="h-8 w-32" />
-        <Skeleton className="ml-auto h-8 w-32" />
-        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="ml-auto h-6 w-32" />
+        <Skeleton className="h-6 w-32" />
       </div>
     </div>
   )

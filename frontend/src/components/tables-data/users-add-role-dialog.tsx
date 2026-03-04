@@ -24,6 +24,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { roles } from '@/data/const'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 const existingRoleValues = roles.map((r) => r.value)
 
@@ -68,6 +69,13 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
     form.reset()
     showSubmittedData(values)
     onOpenChange(false)
+    toast.error("Failed to save.", {
+      action: {
+        label: "Retry",
+        // onClick: () => handleSubmit(),
+      },
+    })
+
   }
 
   return (
