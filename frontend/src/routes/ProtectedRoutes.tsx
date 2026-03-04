@@ -24,7 +24,7 @@ export default function ProtectedRoute({
   }
 
   // Role-based restriction
-  if (allowedRoles?.includes(auth.user?.roleName ?? "")) {
+  if (!allowedRoles == allowedRoles?.includes(auth.user?.roleName ?? "")) {
     return <UnauthorisedError />; // Or redirect: <Navigate to="/home" replace />
   }
 
