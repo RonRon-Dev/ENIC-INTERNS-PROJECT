@@ -11,6 +11,7 @@ using backend.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
+
 namespace backend.Services.Auth;
 
 public class AuthService(AppDbContext context, IConfiguration configuration) : IAuthService
@@ -57,6 +58,19 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             };
         }
 
+        var guestRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Guest");
+        if (guestRole is null)
+        {
+            return new AuthResponse
+            {
+                Success = false,
+                Message = "Guest role not found. Seed roles first.",
+                AccessToken = null!,
+                RefreshToken = null!,
+                ForcePasswordChange = false
+            };
+        }
+
         var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password, 10);
 
         var user = new Users
@@ -64,6 +78,10 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             Name = request.Name,
             UserName = request.UserName,
             PasswordHash = hashedPassword,
+
+            IsVerified = false,
+            RoleId = guestRole.Id,
+            ForcePasswordChange = false,
         };
 
         context.Users.Add(user);
@@ -83,8 +101,8 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             UserId = user.Id,
             UserName = user.UserName,
             ActivityType = "Authentication",
-            Description = "User Registration",
-            Payload = System.Text.Json.JsonSerializer.Serialize(request),
+            Description = "User Registration (Pending Approval)",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { request.Name, request.UserName }),
             IsSuccess = true,
             Timestamp = DateTime.UtcNow,
         });
@@ -104,13 +122,38 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     // Login
     public async Task<AuthResponse?> LoginAsync(LoginRequest request)
     {
-        var user = await context.Users.FirstOrDefaultAsync(u => u.UserName == request.UserName);
+        var user = await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.UserName == request.UserName);
         if (user == null)
         {
             return new AuthResponse
             {
                 Success = false,
                 Message = "User not found",
+                AccessToken = null!,
+                RefreshToken = null!,
+                ForcePasswordChange = false
+            };
+        }
+
+        if (!user.IsVerified)
+        {
+            context.ActivityLogs.Add(new ActivityLogs
+            {
+                UserId = user.Id,
+                UserName = user.UserName,
+                ActivityType = "Authentication",
+                Description = "User Login Blocked - Pending Approval",
+                Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
+                IsSuccess = false,
+                Timestamp = DateTime.UtcNow,
+            });
+
+            await context.SaveChangesAsync();
+
+            return new AuthResponse
+            {
+                Success = false,
+                Message = "Account pending approval. Please contact your administrator.",
                 AccessToken = null!,
                 RefreshToken = null!,
                 ForcePasswordChange = false
@@ -130,7 +173,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
                 UserName = user.UserName,
                 ActivityType = "Authentication",
                 Description = "User Login Failed",
-                Payload = System.Text.Json.JsonSerializer.Serialize(request),
+                Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
                 IsSuccess = false,
                 Timestamp = DateTime.UtcNow,
             });
@@ -154,15 +197,15 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             UserName = user.UserName,
             ActivityType = "Authentication",
             Description = "User Login Successful",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
+            Payload = System.Text.Json.JsonSerializer.Serialize(request),
             IsSuccess = true,
             Timestamp = DateTime.UtcNow,
         });
 
         await context.SaveChangesAsync();
 
-        // include role for token
-        user = await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.UserName == request.UserName);
+        // // include role for token
+        // user = await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.UserName == request.UserName);
 
         return new AuthResponse
         {
@@ -241,17 +284,21 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     public async Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordRequest request)
     {
         var username = (request.UserName ?? "").Trim();
-        /* if (string.IsNullOrWhiteSpace(username))
+
+        if (string.IsNullOrWhiteSpace(username))
+        {
             return new ForgotPasswordResponse
             {
                 Success = false,
                 Message = "Username is required.",
-            }; */
+            };
+        }
 
-        var user = await context.Users.FirstOrDefaultAsync(
-            u => u.UserName.ToLower() == username.ToLower());
+        var user = await context.Users
+            .Include(u => u.UserRequests)
+            .FirstOrDefaultAsync(u => u.UserName.ToLower() == username.ToLower());
 
-        // Do not reveal if user exists
+        // Don't reveal if user exists
         if (user is null)
         {
             return new ForgotPasswordResponse
@@ -261,9 +308,9 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             };
         }
 
-        // mark as requested for admin queue
-        /* user.PasswordResetRequested = true;
-        user.PasswordResetRequestedAtUtc = DateTime.UtcNow; */
+        // Ensure collection exists
+        user.UserRequests ??= new List<UserRequests>();
+
         user.UserRequests.Add(new UserRequests
         {
             RequestType = "Reset Password",
@@ -277,7 +324,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             UserName = user.UserName,
             ActivityType = "Reset Password Request",
             Description = "Reset Password Request (Pending Admin Approval)",
-            Payload = System.Text.Json.JsonSerializer.Serialize(request),
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
             IsSuccess = true,
             Timestamp = DateTime.UtcNow,
         });
@@ -349,35 +396,43 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     // -------------------------
 
     private string GenerateToken(Users user)
+{
+    var issuer = configuration["AppSettings:Issuer"];
+    var audience = configuration["AppSettings:Audience"];
+    var secret = configuration["AppSettings:Token"];
+
+    if (string.IsNullOrWhiteSpace(issuer))
+        throw new InvalidOperationException("AppSettings:Issuer is missing.");
+    if (string.IsNullOrWhiteSpace(audience))
+        throw new InvalidOperationException("AppSettings:Audience is missing.");
+    if (string.IsNullOrWhiteSpace(secret))
+        throw new InvalidOperationException("AppSettings:Token is missing.");
+
+    var claims = new List<Claim>
     {
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.Name, user.UserName),
-            new Claim(ClaimTypes.GivenName, user.Name),
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim("ForcePasswordChange", user.ForcePasswordChange.ToString())
-        };
+        new Claim(ClaimTypes.Name, user.UserName),
+        new Claim(ClaimTypes.GivenName, user.Name),
+        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new Claim("ForcePasswordChange", user.ForcePasswordChange.ToString())
+    };
 
-        if (user.Role != null)
-            claims.Add(new Claim(ClaimTypes.Role, user.Role.Name));
+    if (user.Role != null && !string.IsNullOrWhiteSpace(user.Role.Name))
+        claims.Add(new Claim(ClaimTypes.Role, user.Role.Name));
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
-            configuration.GetValue<string>("AppSettings:Token")!
-        ));
+    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
+    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
 
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
+    var token = new JwtSecurityToken(
+        issuer: issuer,
+        audience: audience,
+        claims: claims,
+        notBefore: DateTime.UtcNow,
+        expires: DateTime.UtcNow.AddDays(1), 
+        signingCredentials: creds
+    );
 
-        var tokenDescriptor = new JwtSecurityToken(
-            issuer: configuration.GetValue<string>("AppSettings:Issuer"),
-            audience: configuration.GetValue<string>("AppSettings:Audience"),
-            claims: claims,
-            expires: DateTime.Now.AddDays(1),
-            signingCredentials: creds
-        );
-
-        return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
-    }
-
+    return new JwtSecurityTokenHandler().WriteToken(token);
+}
     private async Task<Users?> ValidateRefreshTokenAsync(int userId, string refreshToken)
     {
         var user = await context.Users.FindAsync(userId);
