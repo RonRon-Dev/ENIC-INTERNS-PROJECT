@@ -82,8 +82,7 @@ export function SkeletonTable() {
       </div>
     </div>
   )
-}
-
+} 
 
 function UserManagementContent() {
   const [data, setData] = useState<User[]>([])
