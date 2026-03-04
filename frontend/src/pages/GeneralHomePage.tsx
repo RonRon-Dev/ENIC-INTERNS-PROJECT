@@ -148,32 +148,23 @@ export default function GeneralHomePage() {
   const filteredTools = tools.filter(
     (tool) =>
       tool.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tool.description.toLowerCase().includes(searchQuery.toLowerCase()),
+      tool.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const { user } = useAuth();
+  const firstName = user?.name?.split(" ")[0] ?? "User";
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          {loading ? (
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-9 w-72" />
-              <Skeleton className="h-4 w-48" />
-            </div>
-          ) : (
-            <>
-              <h1 className="text-3xl font-light italic">
-                Welcome back,{" "}
-                <span className="font-black">
-                  {user?.name ? `${user.name.split(" ")[0]}!` : "there!"}
-                </span>
-              </h1>
-              <p className="ml-1 text-muted-foreground">
-                Eurolink Network International Corporation
-              </p>
-            </>
-          )}
+          <h1 className="text-3xl font-light italic">
+            Welcome back, <span className="font-black">Mr. Charles!</span>
+          </h1>
+          <p className="ml-1 text-muted-foreground">
+            Eurolink Network International Corporation
+          </p>
         </div>
 
         <div className="relative w-full md:max-w-sm">
@@ -209,7 +200,43 @@ export default function GeneralHomePage() {
           {loading ? (
             Array.from({ length: 9 }).map((_, i) => <ToolSkeleton key={i} />)
           ) : filteredTools.length > 0 ? (
-            filteredTools.map((tool) => <ToolCard key={tool.title} {...tool} />)
+            filteredTools.map((tool, index) => (
+              <Card
+                key={index}
+                className={cn(
+                  "flex items-center gap-4 p-5 transition-all duration-200 rounded-xl min-w-[30vh] group relative",
+                  tool.isAccessible
+                    ? "hover:bg-muted/60 cursor-pointer hover:border-gray-500"
+                    : "opacity-60 grayscale cursor-not-allowed bg-muted/5 border-dashed",
+                )}
+              >
+                <div
+                  className={cn(
+                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-colors duration-200 relative",
+                    tool.isAccessible
+                      ? "bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground"
+                      : "bg-muted/50 text-muted-foreground/30",
+                  )}
+                >
+                  <tool.icon className="h-6 w-6" />
+                  {!tool.isAccessible && (
+                    <div className="absolute -top-1 -right-1 bg-background rounded-full p-0.5 border shadow-sm">
+                      <Lock className="size-3 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className="flex flex-col flex-1 min-w-0">
+                  <CardTitle className="text-base font-bold truncate">
+                    {tool.title}
+                  </CardTitle>
+                  <CardDescription className="text-sm line-clamp-1">
+                    {tool.description}
+                  </CardDescription>
+                </div>
+              </Card>
+            ))
           ) : (
             <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed rounded-2xl bg-muted/20">
               <p className="text-muted-foreground">No matching tools found.</p>
