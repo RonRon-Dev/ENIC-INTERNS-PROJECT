@@ -53,17 +53,28 @@ export function SkeletonTable() {
         <Skeleton className="h-6 w-32" />
       </div>
 
-      {Array.from({ length: 10 }).map((_, index) => (
-        <div className="flex gap-4" key={index}>
+      <div className="border rounded-md w-full flex flex-col gap-2 py-4">
+        <div className="border-b flex gap-4 p-4 pt-0">
           <Skeleton className="h-8 flex-1" />
           <Skeleton className="h-8 flex-1" />
           <Skeleton className="h-8 flex-1" />
           <Skeleton className="h-8 flex-1" />
           <Skeleton className="h-8 flex-1" />
-          {/* <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-4 w-20" /> */}
         </div>
-      ))}
+        <Skeleton className="h-8 flex-1" />
+        {Array.from({ length: 10 }).map((_, index) => (
+          <div className="flex gap-4 px-4" key={index}>
+            <Skeleton className="h-8 flex-1" />
+            <Skeleton className="h-8 flex-1" />
+            <Skeleton className="h-8 flex-1" />
+            <Skeleton className="h-8 flex-1" />
+            <Skeleton className="h-8 flex-1" />
+            {/* <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-20" /> */}
+          </div>
+        ))}
+      </div>
+
       <div className="flex w-full gap-2">
         <Skeleton className="h-6 w-32" />
         <Skeleton className="ml-auto h-6 w-32" />
