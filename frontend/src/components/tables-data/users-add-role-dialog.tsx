@@ -102,7 +102,7 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
                 <FormItem>
                   <FormLabel>Role Name</FormLabel>
                   <FormControl>
-                    <Input placeholder='eg: editor' {...field} />
+                    <Input placeholder='eg: Admin' {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

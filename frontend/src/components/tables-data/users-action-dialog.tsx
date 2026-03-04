@@ -95,6 +95,13 @@ export function UsersActionDialog({
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const [resetKey, setResetKey] = useState(0)
+
+  const handleReset = () => {
+    form.reset()
+    setResetKey((k) => k + 1)
+  }
+
   return (
     <Dialog
       open={open}
@@ -186,6 +193,7 @@ export function UsersActionDialog({
                   <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
                     <FormLabel className='col-span-2 text-end'>Role</FormLabel>
                     <SelectDropdown
+                      key={resetKey}
                       defaultValue={field.value}
                       onValueChange={field.onChange}
                       placeholder='Select a role'
@@ -234,7 +242,20 @@ export function UsersActionDialog({
           </Form>
         </div>
         <DialogFooter>
-          <Button type='submit' form='user-form' disabled={isEdit && (!form.formState.isValid || !form.formState.isDirty)}
+          {isEdit && (
+            <Button
+              type='button'
+              variant='outline'
+              disabled={!form.formState.isDirty}
+              onClick={handleReset}
+            >
+              Reset changes
+            </Button>
+          )}
+          <Button
+            type='submit'
+            form='user-form'
+            disabled={isEdit && (!form.formState.isValid || !form.formState.isDirty)}
           >
             {isEdit ? 'Save changes' : 'Create user'}
           </Button>
