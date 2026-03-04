@@ -12,8 +12,8 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260302064130_update5")]
-    partial class update5
+    [Migration("20260304055200_update101")]
+    partial class update101
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -137,6 +137,9 @@ namespace backend.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<bool>("ForcePasswordChange")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsApproved")
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsVerified")

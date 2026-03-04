@@ -3,6 +3,7 @@ using backend.Dtos.Response.User;
 using backend.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using backend.Extensions;
 
 namespace backend.Controllers.User;
 
@@ -10,52 +11,124 @@ namespace backend.Controllers.User;
 [ApiController]
 public class UserController(IUserService service) : ControllerBase
 {
+    [Authorize(Roles = "Admin,Superadmin")]
     [HttpGet]
     public async Task<ActionResult<List<UserResponse>>> GetAllUSers() =>
         Ok(await service.GetAllUsersAsync());
 
-    [HttpGet("{id}")]
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpGet("{id:int}")]
     public async Task<ActionResult<UserResponse>> GetUserById(int id)
     {
         var user = await service.GetUserByIdAsync(id);
-        return user is null ? NotFound("User not found") : Ok(value: user);
+        return user is null ? NotFound(new { message = "User not found" }) : Ok(user);
     }
 
-    /* [HttpPost]
-    public async Task<ActionResult<UserResponse>> CreateUser(CreateUserRequest
-    user)
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpGet("user-requests")]
+    public async Task<IActionResult> GetUserRequests()
     {
-      var createUser = await service.CreateUserAsync(user);
-      return CreatedAtAction(nameof(GetUserById), new { id = user.id },
-    createUser);
-    } */
+        var pending = await service.GetUserRequestsAsync();
+        return Ok(pending);
+    }
 
-    // ADMIN: approve reset -> generates temp password/code (admin sends via
-    // Viber) You can optionally protect this with [Authorize(Roles = "Admin")]
-    // once roles are stable.
-    [HttpPut("approve-reset-password")]
-    // [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> ApproveResetPasswordAsync(ApproveResetPasswordRequest request)
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpGet("roles")]
+    public async Task<ActionResult<List<RoleResponse>>> GetRoles() =>
+        Ok(await service.GetRolesAsync());
+
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpPost("create-user")]
+    public async Task<ActionResult<CreateUserResponse>> CreateUser(CreateUserRequest request)
     {
-        var response = await service.ApproveResetPasswordAsync(request);
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+        try
+        {
+            var currentUser = User.GetCurrentUser();
+            if (currentUser <= 0)
+                return Unauthorized(new { message = "Invalid user." });
+            var response = await service.CreateUserAsync(request, currentUser);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            ModelState.AddModelError("UserName", ex.Message);
+            return ValidationProblem(ModelState);
+        }
+    }
+
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpPut("assign-role/{id:int}")]
+    public async Task<ActionResult<UpdateUserResponse>> AssignRole(int id, UpdateUserRequest request)
+    {
+        /* if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+        try
+        { */
+            var currentUser = User.GetCurrentUser();
+            if (currentUser <= 0)
+                return Unauthorized(new { message = "Invalid user." });
+            var response = await service.AssignRoleAsync(id, request, currentUser);
+            return response.Success ? 
+                Ok(response) : 
+                BadRequest(response);
+        /* }
+        catch (ArgumentException ex)
+        {
+            ModelState.AddModelError("UserName", ex.Message);
+            return ValidationProblem(ModelState);
+        } */
+    }
+
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpPut("disable-user/{id:int}")]
+    public async Task<ActionResult<UpdateUserResponse>> DisableUser(int id)
+    {
+        throw new NotImplementedException();
+        /* var result = await service.DisableUserAsync(id);
+        return result
+            ? Ok(new { message = "User disabled successfully." })
+            : BadRequest(new { message = "Failed to disable user." }); */
+    }
+
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpPut("enable-user/{id:int}")]
+    public async Task<ActionResult<UpdateUserResponse>> EnableUser(int id)
+    {
+        throw new NotImplementedException();
+        /* var result = await service.EnableUserAsync(id);
+        return result
+            ? Ok(new { message = "User enabled successfully." })
+            : BadRequest(new { message = "Failed to enable user." }); */
+    }
+
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpPut("approve-registration")]
+    public async Task<ActionResult<UpdateUserResponse>> ApproveRegistration(ApproveRegistrationRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var currentUser = User.GetCurrentUser();
+        if (currentUser <= 0)
+            return Unauthorized(new { message = "Invalid user." });
+        var response = await service.ApproveRegistrationAsync(request, currentUser);
+
+        return response.Success ? Ok(response) : BadRequest(response);
+    }
+
+    // ADMIN: approve reset -> generates temp password/code 
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpPut("approve-reset-password")]
+    public async Task<ActionResult> ApproveResetPasswordAsync(ApproveResetPasswordRequest request)
+    {
+        var currentUser = User.GetCurrentUser();
+        if (currentUser <= 0)
+            return Unauthorized(new { message = "Invalid user." });
+        var response = await service.ApproveResetPasswordAsync(request, currentUser);
         return response.Success
             ? Ok(new { message = response.Message })
             : BadRequest(new { message = response.Message });
     }
-
-    /* // USER: after login (when ForcePasswordChange=true), user resets password
-    [Authorize]
-    [HttpPost("reset-password")]
-    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request)
-    {
-        // This comes from JWT claim: ClaimTypes.Name (you set it in GenerateToken)
-        var username = User.Identity?.Name;
-
-        if (string.IsNullOrWhiteSpace(username))
-            return Unauthorized(new { message = "Invalid token." });
-
-        var (ok, message) = await service.ResetPasswordAsync(username, request);
-        return ok ? Ok(new { message }) : BadRequest(new { message });
-    } */
-
 }
