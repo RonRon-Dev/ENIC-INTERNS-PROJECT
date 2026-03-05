@@ -12,8 +12,8 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260305020427_newmigrations")]
-    partial class newmigrations
+    [Migration("20260305062224_newmigrate")]
+    partial class newmigrate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

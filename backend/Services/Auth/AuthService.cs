@@ -151,15 +151,17 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             });
 
             await context.SaveChangesAsync();
-
-            return new AuthResponse
+            if (!user.IsVerified)
             {
-                Success = false,
-                Message = "Account pending approval. Please contact your administrator.",
-                AccessToken = null!,
-                RefreshToken = null!,
-                ForcePasswordChange = false
-            };
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "Account pending approval. Please contact your administrator.",
+                    AccessToken = null!,
+                    RefreshToken = null!,
+                    ForcePasswordChange = false
+                };
+            }
         }
 
         // If an admin issued a temporary password, it is stored in PasswordHash,

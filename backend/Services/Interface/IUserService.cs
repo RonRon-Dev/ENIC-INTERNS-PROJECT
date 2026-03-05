@@ -23,4 +23,6 @@ public interface IUserService
   Task<UpdateUserResponse> ApproveRegistrationAsync(ApproveRegistrationRequest request, int currentUser);
 
   Task<ResetPasswordResponse>ApproveResetPasswordAsync(ApproveResetPasswordRequest request, int currentUser);
+  Task<List<UserRequestResponse>> GetUserRequestsAsync(string status = "Pending");
+  Task<UserStatsResponse> GetUserStatsAsync();
 }

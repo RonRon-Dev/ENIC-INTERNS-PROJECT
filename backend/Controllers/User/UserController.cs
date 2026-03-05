@@ -26,10 +26,10 @@ public class UserController(IUserService service) : ControllerBase
 
     [Authorize(Roles = "Admin,Superadmin")]
     [HttpGet("user-requests")]
-    public async Task<IActionResult> GetUserRequests()
+    public async Task<IActionResult> GetUserRequests([FromQuery] string status = "Pending")
     {
-        var pending = await service.GetUserRequestsAsync();
-        return Ok(pending);
+        var requests = await service.GetUserRequestsAsync(status);
+        return Ok(requests);
     }
 
     [Authorize(Roles = "Admin,Superadmin")]
@@ -81,26 +81,35 @@ public class UserController(IUserService service) : ControllerBase
         } */
     }
 
+    [Authorize(Roles="Admin,Superadmin")]
+    [HttpGet("stats")]
+    public async Task<ActionResult> GetUserStats()
+    {
+        var stats = await service.GetUserStatsAsync();
+        return Ok(stats);
+
+    }
+    
     [Authorize(Roles = "Admin,Superadmin")]
     [HttpPut("disable-user/{id:int}")]
     public async Task<ActionResult<UpdateUserResponse>> DisableUser(int id)
     {
-        throw new NotImplementedException();
-        /* var result = await service.DisableUserAsync(id);
-        return result
-            ? Ok(new { message = "User disabled successfully." })
-            : BadRequest(new { message = "Failed to disable user." }); */
+        var currentUser = User.GetCurrentUser();
+        if (currentUser <= 0)
+            return Unauthorized(new { message = "Invalid user." });
+        var response = await service.DisableUserAsync(id, currentUser);
+        return response.Success ? Ok(response) : BadRequest(response);
     }
 
     [Authorize(Roles = "Admin,Superadmin")]
     [HttpPut("enable-user/{id:int}")]
     public async Task<ActionResult<UpdateUserResponse>> EnableUser(int id)
     {
-        throw new NotImplementedException();
-        /* var result = await service.EnableUserAsync(id);
-        return result
-            ? Ok(new { message = "User enabled successfully." })
-            : BadRequest(new { message = "Failed to enable user." }); */
+        var currentUser = User.GetCurrentUser();
+        if (currentUser <= 0)
+            return Unauthorized(new { message = "Invalid user." });
+        var response = await service.EnableUserAsync(id, currentUser);
+        return response.Success ? Ok(response) : BadRequest(response);
     }
 
     [Authorize(Roles = "Admin,Superadmin")]
@@ -128,7 +137,8 @@ public class UserController(IUserService service) : ControllerBase
             return Unauthorized(new { message = "Invalid user." });
         var response = await service.ApproveResetPasswordAsync(request, currentUser);
         return response.Success
-            ? Ok(new { message = response.Message })
+            ? Ok(new { message = response.Message, temporaryPassword = response.TemporaryPassword })
             : BadRequest(new { message = response.Message });
     }
+    
 }
