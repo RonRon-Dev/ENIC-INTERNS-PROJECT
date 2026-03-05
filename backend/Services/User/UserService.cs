@@ -139,8 +139,9 @@ public class UserService(AppDbContext context) : IUserService
         {
             UserId = authUser.Id,
             UserName = authUser.UserName,
-            ActivityType = "User Management",
-            Description = "Assigned Role to User",
+            ActivityType = "Privilege", // will change to um later on
+            Description = $"Role assigned: {role.Name}",
+            //Description = "Assigned Role to User",
             Payload = System.Text.Json.JsonSerializer.Serialize(new { entity.Name, entity.UserName, PastRole = pastRole,  Role = role.Name }),
             IsSuccess = true,
             Timestamp = DateTime.UtcNow,
@@ -309,7 +310,7 @@ public class UserService(AppDbContext context) : IUserService
         {
             UserId = authUser.Id,
             UserName = authUser.UserName,
-            ActivityType = "PasswordReset",
+            ActivityType = "Account Management",
             Description = "Admin Approved Reset (Temp Password Generated)",
             Payload = System.Text.Json.JsonSerializer.Serialize(new { username = user.UserName }),
             IsSuccess = true,

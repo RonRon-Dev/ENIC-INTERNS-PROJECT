@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react"
+<<<<<<< Updated upstream
 import { DataTable, useColumns } from '@/components/tables-data/activity-logs-column'
 import { userlogs } from "@/data/userlogs"
+=======
+import { columns, DataTable } from "@/components/tables-data/activity-logs-column"
+import { activityLogsApi } from "@/services/activity-logs"
+>>>>>>> Stashed changes
 import type { ActivityLog } from "@/data/schema"
 import { SkeletonTable } from "@/pages/UserManagementPage"
 import { LogsProvider } from "@/components/logs/logs-provider"
@@ -14,18 +19,18 @@ function DashboardContent() {
 
     useEffect(() => {
         async function loadData() {
-            const logs = await userlogs()
-            setData(logs)
-            // setLoading(false)
+            try {
+                const res = await activityLogsApi.getAll(200)
+                setData(res.data)
+            } catch (err) {
+                console.error("Failed to load activity logs:", err)
+            } finally {
+                setLoading(false)
+            }
         }
 
         loadData()
     }, [])
-
-    useEffect(() => {
-        const timer = setTimeout(() => setLoading(false), 1200);
-        return () => clearTimeout(timer);
-    }, []);
 
     return (
         <>

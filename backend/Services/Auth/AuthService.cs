@@ -102,7 +102,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         {
             UserId = user.Id,
             UserName = user.UserName,
-            ActivityType = "Authentication",
+            ActivityType = "Privilege", // change to account managamanet later on
             Description = "User Registration (Pending Approval)",
             Payload = System.Text.Json.JsonSerializer.Serialize(new { request.Name, request.UserName }),
             IsSuccess = true,
@@ -199,7 +199,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             UserName = user.UserName,
             ActivityType = "Authentication",
             Description = "User Login Successful",
-            Payload = System.Text.Json.JsonSerializer.Serialize(request),
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
             IsSuccess = true,
             Timestamp = DateTime.UtcNow,
         });
@@ -245,7 +245,8 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             UserName = user.UserName,
             ActivityType = "Authentication",
             Description = "User Logout",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { user.UserName }),
+            Payload = "{}",
+            //Payload = System.Text.Json.JsonSerializer.Serialize(new { user.UserName }),
             IsSuccess = true,
             Timestamp = DateTime.UtcNow,
         });
