@@ -24,12 +24,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { SelectDropdown } from '@/components/select-dropdown'
 import { AlertTriangle, Check, Copy, UserCheck, UserX } from 'lucide-react'
-import { roles } from '@/data/const'
 import { type User } from '@/data/schema'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Textarea } from '../ui/textarea'
-import { Checkbox } from '../ui/checkbox'
 import { usersApi } from '@/services/users'
 import { useUsers } from './users-provider'
 
@@ -70,9 +68,20 @@ export function UsersActionDialog({
 
   const onSubmit = async (values: UserForm) => {
     if (isEdit) {
-      // Edit not yet wired to API
-      form.reset()
-      onOpenChange(false)
+      setIsSubmitting(true)
+      setError(null)
+      try {
+        const apiRole = apiRoles.find(r => r.name.toLowerCase() === values.role.toLowerCase())
+        if (!apiRole) { setError('Role not found.'); return }
+        await usersApi.assignRole(parseInt(currentRow!.id), apiRole.id)
+        refresh()
+        form.reset()
+        onOpenChange(false)
+      } catch (err: any) {
+        setError(err?.response?.data?.message ?? 'Failed to update user.')
+      } finally {
+        setIsSubmitting(false)
+      }
       return
     }
     setIsSubmitting(true)
@@ -226,16 +235,9 @@ export function UsersActionDialog({
                       onValueChange={field.onChange}
                       placeholder='Select a role'
                       className='col-span-3'
-                      items={roles.map(({ label, value, icon: Icon }) => ({
-                        label: (
-                          <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4" />
-                            <span>
-                              {label.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase())}
-                            </span>
-                          </div>
-                        ),
-                        value,
+                      items={apiRoles.map((r) => ({
+                        label: r.name.charAt(0).toUpperCase() + r.name.slice(1),
+                        value: r.name,
                       }))}
                     />
                     <FormMessage className='col-span-4 col-start-3' />
@@ -243,29 +245,6 @@ export function UsersActionDialog({
                 )}
               />
 
-              {isEdit && (
-                <FormField
-                  control={form.control}
-                  name='isResetPassword'
-                  render={({ field }) => (
-                    <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
-                      <FormLabel className='col-span-2 text-end'>Reset Password</FormLabel>
-                      <FormControl>
-                        <div className='col-span-3 flex items-center gap-2'>
-                          <Checkbox
-                            id='reset-password'
-                            checked={field.value}
-                            onCheckedChange={(checked) => field.onChange(!!checked)}
-                          />
-                          <label htmlFor='reset-password' className='text-sm cursor-pointer text-muted-foreground'>
-                            Set a new password
-                          </label>
-                        </div>
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              )}
             </form>
           </Form>
         </div>
@@ -589,7 +568,6 @@ export function UsersRejectDialog({
 
   const handleReject = () => {
     onOpenChange(false)
-    showSubmittedData({ ...currentRow, reason }, 'reject')
   }
 
   return (

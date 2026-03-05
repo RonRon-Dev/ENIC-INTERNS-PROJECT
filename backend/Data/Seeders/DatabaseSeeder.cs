@@ -14,7 +14,7 @@ public class DatabaseSeeder
             "Guest",
             "Admin",
             "Superadmin",
-            "Developer",
+            "Dev",
             "Operations",
             "Marketing",
             "Managers",
@@ -22,6 +22,14 @@ public class DatabaseSeeder
             "IT",
             "Others",
         };
+
+        // Rename legacy "Developer" role to "Dev" if it exists
+        var developerRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Developer");
+        if (developerRole != null)
+        {
+            developerRole.Name = "Dev";
+            await context.SaveChangesAsync();
+        }
 
         foreach (var roleName in roles)
         {

@@ -58,7 +58,8 @@ public class ActivityLogsController(AppDbContext context) : ControllerBase
                 !user.IsActive ? "deactivated" :
                 "active";
 
-            var role = user?.Role?.Name?.Trim().ToLower() ?? "guest";
+            var roleName = user?.Role?.Name?.Trim().ToLower() ?? "guest";
+            var role = roleName == "developer" ? "dev" : roleName;
 
             return new ActivityLogResponse
             {

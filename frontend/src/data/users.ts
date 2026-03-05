@@ -7,6 +7,12 @@ function mapStatus(isVerified: boolean, isActive: boolean): User['status'] {
   return 'active'
 }
 
+function mapRole(roleName: string): User['role'] {
+  const lower = roleName.toLowerCase()
+  if (lower === 'developer') return 'dev'
+  return lower as User['role']
+}
+
 export const users: () => Promise<User[]> = async () => {
   const res = await usersApi.getAll()
   return (res.data as any[]).map((u): User => ({
@@ -14,6 +20,6 @@ export const users: () => Promise<User[]> = async () => {
     name: u.name,
     username: u.userName,
     status: mapStatus(u.isVerified, u.isActive),
-    role: (u.role?.name ?? 'guest').toLowerCase() as User['role'],
+    role: mapRole(u.role?.name ?? 'guest'),
   }))
 }

@@ -105,7 +105,7 @@ function UserManagementContent() {
         name: u.name,
         username: u.userName,
         status: (!u.isVerified ? 'pending' : !u.isActive ? 'deactivated' : 'active') as User['status'],
-        role: (u.role?.name ?? 'guest').toLowerCase() as User['role'],
+        role: ((u.role?.name ?? 'guest').toLowerCase() === 'developer' ? 'dev' : (u.role?.name ?? 'guest').toLowerCase()) as User['role'],
       }))
       setData(mappedUsers)
       setStats(statsRes.data)
@@ -135,7 +135,7 @@ function UserManagementContent() {
       name: req.name,
       username: req.userName,
       status: 'pending',
-      role: (req.currentRole?.name ?? 'guest').toLowerCase() as User['role'],
+      role: ((req.currentRole?.name ?? 'guest').toLowerCase() === 'developer' ? 'dev' : (req.currentRole?.name ?? 'guest').toLowerCase()) as User['role'],
     }
     setCurrentRow(row)
     setOpen(req.requestType === 'Account Registration' ? 'approve' : 'approveReset')
