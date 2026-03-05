@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,6 +14,7 @@ import { toolsData, hasAccess } from "@/data/tools";
 import type { ElementType } from "react";
 import type { UserRole } from "@/data/schema";
 import { Badge } from "@/components/ui/badge";
+import { useDialog } from "@/components/dialogs/dialog-provider";
 
 type ToolCard = {
   title: string;
@@ -53,11 +54,22 @@ export default function GeneralHomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const now = useClock();
+  const { setOpen } = useDialog()
 
+  const hasOpened = useRef(false)
+
+  // loading timer — runs normally, no guard needed
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1200);
-    return () => clearTimeout(timer);
-  }, []);
+    const timer = setTimeout(() => setLoading(false), 1200)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // dialog — guarded against double-mount
+  useEffect(() => {
+    if (hasOpened.current) return
+    hasOpened.current = true
+    setOpen('passwordReset')
+  }, [setOpen])
 
   const userRole = user?.roleName?.toLowerCase() as UserRole | undefined;
   const firstName = user?.name?.split(" ")[0] ?? "User";
@@ -304,8 +316,8 @@ export default function GeneralHomePage() {
                   clickable
                     ? "cursor-pointer hover:bg-accent hover:border-accent-foreground/20 hover:shadow-sm"
                     : tool.isAccessible
-                    ? "cursor-default"
-                    : "opacity-50 cursor-not-allowed bg-muted/20 border-dashed"
+                      ? "cursor-default"
+                      : "opacity-50 cursor-not-allowed bg-muted/20 border-dashed"
                 )}
               >
                 <div

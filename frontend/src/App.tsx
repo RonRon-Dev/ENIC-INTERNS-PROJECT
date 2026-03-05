@@ -1,8 +1,9 @@
-// App.tsx
 import AppRoutes from "./routes/AppRoutes";
 import "./index.css"
 import { AuthProvider } from "./auth-context";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { DialogProvider } from "@/components/dialogs/dialog-provider";
+import { Dialogs } from "@/components/dialogs/dialogs";
 
 export default function App() {
   const isMobile = useIsMobile();
@@ -23,7 +24,10 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <AppRoutes />
+      <DialogProvider>
+        <AppRoutes />
+        <Dialogs />
+      </DialogProvider>
     </AuthProvider>
   );
 }

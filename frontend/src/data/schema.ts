@@ -52,13 +52,13 @@ type BaseNavItem = {
   allowedRoles?: UserRole[];
 };
 
-type NavLink = BaseNavItem & {
+export type NavLink = BaseNavItem & {
   url: LinkProps["to"];
   items?: never;
   description?: string;
 };
 
-type NavCollapsible = BaseNavItem & {
+export type NavCollapsible = BaseNavItem & {
   items: (BaseNavItem & { url: LinkProps["to"]; description?: string })[];
   url?: never;
   description?: string;

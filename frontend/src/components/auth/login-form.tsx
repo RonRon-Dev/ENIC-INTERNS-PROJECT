@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { login } from "@/services/auth";
 import { useAuth } from "@/auth-context";
-import { useNavigate } from "react-router-dom";
 import {
   Form,
   FormControl,
@@ -17,6 +16,7 @@ import {
 import { PasswordInput } from "@/components/password-input";
 import { z } from "zod";
 import NProgress from "@/lib/nprogress";
+import { useNavigate } from "react-router-dom";
 
 const formSchema = z.object({
   username: z.string().min(1, "Username is required."),
@@ -53,12 +53,14 @@ export function LoginForm({
       NProgress.start()
       setServerError(null);
       const response = await login(data);
-      await refreshUser();
-      navigate("/home");
+      await refreshUser()
+      navigate('/home')
+
       if (!response.success) {
         setServerError(response.message);
         return;
       }
+
     } catch (error: any) {
       const res = error.response?.data;
 
