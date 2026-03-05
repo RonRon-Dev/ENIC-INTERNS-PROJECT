@@ -1,10 +1,8 @@
 "use client";
-
 import * as React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { NavUser } from "@/components/nav-user";
 import { NavGroup } from "@/components/nav-group";
-
 import {
   Sidebar,
   SidebarContent,
@@ -14,8 +12,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-
-import { sidebarData } from "@/data/sidebar";
+import { buildNavGroups } from "@/data/sidebar";
 import { users } from "@/data/users";
 import { useAuth } from "@/auth-context";
 import { Atom } from "lucide-react";
@@ -25,6 +22,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [pendingCount, setPendingCount] = useState(0);
   const { user } = useAuth();
 
+  // Fetch pending user badge count
   useEffect(() => {
     users().then((data) => {
       const count = data.filter((u) => u.status === "pending").length;
@@ -32,31 +30,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     });
   }, []);
 
-  // Filter nav items based on allowedRoles
-  const filteredNavGroups = sidebarData.navGroups
-    .map((group) => ({
+  // Build nav groups filtered by the live user role
+  const filteredNavGroups = useMemo(() => {
+    const role = user?.roleName?.toLowerCase() as UserRole | undefined;
+    const groups = buildNavGroups(role);
+
+    // Inject pending badge on /users item
+    return groups.map((group) => ({
       ...group,
-      items: group.items
-        .filter(
-          (item) =>
-            !item.allowedRoles ||
-            (user?.roleName &&
-              item.allowedRoles
-                .map((r: UserRole) => r.toLowerCase())
-                .includes(user.roleName.toLowerCase()))
-        )
-        .map((item) => {
-          // Add badge for /users
-          if ("url" in item && item.url === "/users") {
-            return {
-              ...item,
-              badge: pendingCount > 0 ? String(pendingCount) : undefined,
-            };
-          }
-          return item;
-        }),
-    }))
-    .filter((group) => group.items.length > 0);
+      items: group.items.map((item) => {
+        if ("url" in item && item.url === "/users" && pendingCount > 0) {
+          return { ...item, badge: String(pendingCount) };
+        }
+        return item;
+      }),
+    }));
+  }, [user?.roleName, pendingCount]);
 
   return (
     <Sidebar variant="inset" {...props}>

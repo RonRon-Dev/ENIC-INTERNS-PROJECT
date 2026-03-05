@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Search, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth-context";
-import { toolsData } from "@/data/tools";
+import { toolsData, hasAccess } from "@/data/tools";
+import type { UserRole } from "@/data/schema";
 
 function ToolSkeleton() {
   return (
@@ -22,8 +24,11 @@ function ToolSkeleton() {
   );
 }
 
+const EXCLUDED = ["Home", "Dashboard", "User Management"];
+
 export default function GeneralHomePage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -32,45 +37,49 @@ export default function GeneralHomePage() {
     return () => clearTimeout(timer);
   }, []);
 
-  const tools = toolsData.flatMap((tool) => {
-    if (["Home", "Dashboard", "User Management"].includes(tool.title))
-      return [];
+  const userRole = user?.roleName?.toLowerCase() as UserRole | undefined;
 
-    if (tool.subtools && Array.isArray(tool.subtools)) {
-      return tool.subtools.map((sub) => ({
-        title: sub.title,
-        description: sub.description ?? tool.description ?? "",
-        icon: tool.icon ?? null,
-        isAccessible: user
-          ? !sub.allowedRoles ||
-            sub.allowedRoles
-              .map((r) => r.toLowerCase())
-              .includes(user.roleName?.toLowerCase() ?? "")
-          : false,
-      }));
-    }
-    return {
-      title: tool.title,
-      description: tool.description ?? "",
-      icon: tool.icon ?? null,
-      isAccessible: user
-        ? !tool.allowedRoles ||
-          tool.allowedRoles
-            .map((r) => r.toLowerCase())
-            .includes(user.roleName?.toLowerCase() ?? "")
-        : false,
-    };
-  });
+  const tools = useMemo(() => {
+    return toolsData
+      .filter((tool) => !EXCLUDED.includes(tool.title))
+      .flatMap((tool) => {
+        // Tool has subtools — expand into individual cards
+        if (tool.subtools && tool.subtools.length > 0) {
+          return tool.subtools.map((sub) => ({
+            title: sub.title,
+            description: sub.description ?? tool.description ?? "",
+            icon: tool.icon ?? null,
+            url: sub.url,
+            isAccessible: hasAccess(
+              userRole,
+              sub.allowedRoles ?? tool.allowedRoles
+            ),
+          }));
+        }
 
-  const filteredTools = tools.filter(
-    (tool) =>
-      tool.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tool.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+        // Leaf tool
+        return [
+          {
+            title: tool.title,
+            description: tool.description ?? "",
+            icon: tool.icon ?? null,
+            url: tool.url ?? null,
+            isAccessible: hasAccess(userRole, tool.allowedRoles),
+          },
+        ];
+      });
+  }, [userRole]);
 
-  const sortedTools = filteredTools.sort((a, b) => {
-    return (b.isAccessible ? 1 : 0) - (a.isAccessible ? 1 : 0);
-  });
+  const sortedTools = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return tools
+      .filter(
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q)
+      )
+      .sort((a, b) => Number(b.isAccessible) - Number(a.isAccessible));
+  }, [tools, searchQuery]);
 
   const firstName = user?.name?.split(" ")[0] ?? "User";
 
@@ -116,10 +125,15 @@ export default function GeneralHomePage() {
           sortedTools.map((tool, index) => (
             <Card
               key={index}
+              onClick={() =>
+                tool.isAccessible && tool.url && navigate(tool.url)
+              }
               className={cn(
                 "flex items-center gap-4 p-5 transition-all duration-200 rounded-xl min-w-[30vh] group relative",
-                tool.isAccessible
+                tool.isAccessible && tool.url
                   ? "hover:bg-muted/60 cursor-pointer hover:border-gray-500"
+                  : tool.isAccessible
+                  ? "cursor-default" // accessible but no url yet
                   : "opacity-60 grayscale cursor-not-allowed bg-muted/5 border-dashed"
               )}
             >

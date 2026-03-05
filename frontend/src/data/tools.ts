@@ -11,13 +11,20 @@ import {
 } from "lucide-react";
 import type { UserRole } from "./schema";
 
+export interface SubTool {
+  title: string;
+  url: string;
+  description?: string;
+  allowedRoles?: UserRole[];
+}
+
 export interface Tool {
   title: string;
   url?: string;
   description?: string;
   icon?: ElementType;
-  allowedRoles: UserRole[];
-  subtools?: Tool[];
+  allowedRoles?: UserRole[];
+  subtools?: SubTool[];
 }
 
 export const toolsData: Tool[] = [
@@ -26,7 +33,6 @@ export const toolsData: Tool[] = [
     url: "/home",
     icon: Home,
     description: "Welcome dashboard and main landing page",
-    allowedRoles: ["superadmin", "admin", "guest"],
   },
   {
     title: "Dashboard",
@@ -52,11 +58,11 @@ export const toolsData: Tool[] = [
         title: "Asset List",
         url: "/inventory/assets",
         description: "View and edit all assets",
-        allowedRoles: ["superadmin", "admin"],
+        allowedRoles: ["superadmin", "admin", "operations"],
       },
       {
         title: "Add New Asset",
-        url: "/inventory/assets/new",
+        url: "/inventory/new_assets",
         description: "Add a new asset to the system",
         allowedRoles: ["superadmin", "admin"],
       },
@@ -136,3 +142,16 @@ export const toolsData: Tool[] = [
     allowedRoles: ["superadmin", "admin"],
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Helper — check if a role has access to a tool or subtool
+// Pass undefined allowedRoles → open to all authenticated users
+// ---------------------------------------------------------------------------
+export function hasAccess(
+  userRole: UserRole | undefined,
+  allowedRoles: UserRole[] | undefined
+): boolean {
+  if (!userRole) return false;
+  if (!allowedRoles || allowedRoles.length === 0) return true;
+  return allowedRoles.includes(userRole.toLowerCase() as UserRole);
+}

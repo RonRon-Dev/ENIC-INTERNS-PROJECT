@@ -31,6 +31,7 @@ const existingRoleValues = roles.map((r) => r.value)
 const availableIcons = [
   { label: 'User', value: 'user', icon: User },
   { label: 'Shield', value: 'shield', icon: Shield },
+  
   { label: 'ShieldCheck', value: 'shieldcheck', icon: ShieldCheck },
   { label: 'UserCheck', value: 'usercheck', icon: UserCheck },
   { label: 'Code', value: 'code', icon: Code },

@@ -31,109 +31,122 @@ import { type ActivityLog } from '@/data/schema'
 export type { ActivityLog }
 import { activityTypes } from '@/data/const'
 import { roles } from '@/data/const'
+import { useLogs } from '@/components/logs/logs-provider'
 
-export const columns: ColumnDef<ActivityLog>[] = [
-  {
-    accessorKey: 'username',
-    header: ({ column }) => (
-      <div className="ml-3">
-        <DataTableColumnHeader column={column} title="Username" />
-      </div>
-    ),
-    cell: ({ row }) => (
-      <div className="flex items-center">
-        <div className="ml-5">{row.original.user.username}</div>
-      </div>
-    ),
-    enableHiding: false,
-  },
-  {
-    id: 'name',
-    header: 'Name',
-    accessorFn: (row) => `${row.user.name}`,
-    enableHiding: false,
-    cell: ({ row }) => (
-      <div className="capitalize">{row.original.user.name}</div>
-    ),
-  },
-  {
-    id: 'role',
-    header: 'Role',
-    accessorFn: (row) => row.user.role,
-    filterFn: (row, id, value) => {
-      if (!value?.length) return true
-      return value.includes(row.getValue(id))
-    },
-    cell: ({ row }) => {
-      const role = row.getValue('role') as string
-      const option = roles.find((r) => r.value === role)
-      const Icon = option?.icon
+export function useColumns() {
+  const { setOpen, setCurrentRow } = useLogs()
 
-      return (
-        <div className="flex items-center gap-1.5">
-          {Icon && <Icon className="size-3.5 text-muted-foreground" />}
-          <span className="capitalize">{option?.label ?? role}</span>
+  const columns: ColumnDef<ActivityLog>[] = [
+    {
+      accessorKey: 'username',
+      header: ({ column }) => (
+        <div className="ml-3">
+          <DataTableColumnHeader column={column} title="Username" />
         </div>
-      )
+      ),
+      cell: ({ row }) => (
+        <div className="flex items-center">
+          <div className="ml-5">{row.original.user.username}</div>
+        </div>
+      ),
+      enableHiding: false,
     },
-  },
-  {
-    id: 'type',
-    accessorKey: 'type',
-    header: 'Type',
-    filterFn: (row, id, value) => {
-      if (!value?.length) return true
-      return value.includes(row.getValue(id))
+    {
+      id: 'name',
+      header: 'Name',
+      accessorFn: (row) => `${row.user.name}`,
+      enableHiding: false,
+      cell: ({ row }) => (
+        <div className="capitalize">{row.original.user.name}</div>
+      ),
     },
-    cell: ({ row }) => {
-      const type = row.getValue('type') as string
-      const badge = activityTypes.get(type as ActivityLog['type'])
+    {
+      id: 'role',
+      header: 'Role',
+      accessorFn: (row) => row.user.role,
+      filterFn: (row, id, value) => {
+        if (!value?.length) return true
+        return value.includes(row.getValue(id))
+      },
+      cell: ({ row }) => {
+        const role = row.getValue('role') as string
+        const option = roles.find((r) => r.value === role)
+        const Icon = option?.icon
 
-      return (
-        <Badge variant="outline" className={badge + ' capitalize'}>
-          {type}
-        </Badge>
-      )
+        return (
+          <div className="flex items-center gap-1.5">
+            {Icon && <Icon className="size-3.5 text-muted-foreground" />}
+            <span className="capitalize">{option?.label ?? role}</span>
+          </div>
+        )
+      },
     },
-  },
-  {
-    id: 'description',
-    header: 'Description',
-    accessorFn: (row) => row.description,
-    cell: ({ row }) => (
-      <div className="max-w-[150px] line-clamp-1">
-        {row.original.description.charAt(0).toUpperCase() + row.original.description.slice(1)}
-      </div>
-    ),
-  },
-  {
-    id: 'date',
-    header: 'Date',
-    accessorFn: (row) => {
-      const date = new Date(row.date + 'T00:00:00'); // prevent timezone shift
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
+    {
+      id: 'type',
+      accessorKey: 'type',
+      header: 'Type',
+      filterFn: (row, id, value) => {
+        if (!value?.length) return true
+        return value.includes(row.getValue(id))
+      },
+      cell: ({ row }) => {
+        const type = row.getValue('type') as string
+        const badge = activityTypes.get(type as ActivityLog['type'])
+
+        return (
+          <Badge variant="outline" className={badge + ' capitalize'}>
+            {type}
+          </Badge>
+        )
+      },
     },
-  },
-  {
-    id: 'time',
-    header: 'Time',
-    accessorFn: (row) => {
-      const [hourStr, minute] = row.time.split(':');
-      const hour = parseInt(hourStr, 10);
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      const hour12 = hour % 12 || 12;
-      return `${hour12}:${minute} ${ampm}`;
+    {
+      id: 'description',
+      header: 'Description',
+      accessorFn: (row) => row.description,
+      cell: ({ row }) => (
+        <button
+          className="max-w-[150px] truncate text-left underline underline-offset-4 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          onClick={() => {
+            setCurrentRow(row.original)
+            setOpen('desc')
+          }}
+        >
+          {row.original.description.charAt(0).toUpperCase() + row.original.description.slice(1)}
+        </button>
+      ),
     },
-  },
-  // {
-  //   id: 'actions',
-  //   cell: DataTableRowActions,
-  // },
-]
+    {
+      id: 'date',
+      header: 'Date',
+      accessorFn: (row) => {
+        const date = new Date(row.date + 'T00:00:00'); // prevent timezone shift
+        return date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+      },
+    },
+    {
+      id: 'time',
+      header: 'Time',
+      accessorFn: (row) => {
+        const [hourStr, minute] = row.time.split(':');
+        const hour = parseInt(hourStr, 10);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const hour12 = hour % 12 || 12;
+        return `${hour12}:${minute} ${ampm}`;
+      },
+    },
+    // {
+    //   id: 'actions',
+    //   cell: DataTableRowActions,
+    // },
+  ]
+
+  return columns
+}
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
