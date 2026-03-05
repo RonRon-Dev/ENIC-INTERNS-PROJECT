@@ -6,13 +6,16 @@ import { LucideAtom } from "lucide-react";
 import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
 import { LoginForm } from "@/components/auth/login-form";
 import SignupForm from "@/components/auth/signup-form";
+import { RequestReceiptForm } from "@/components/auth/request-receipt";
 
-type AuthMode = "login" | "signup" | "forgot";
+type AuthMode = "login" | "signup" | "forgot" | "receipt";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<AuthMode>("login");
+  const [signedUpUsername, setSignedUpUsername] = useState<string>("")
 
   const isLeftView = mode === "login" || mode === "forgot";
+  const isRightView = mode === "signup" || mode === "receipt";
 
   return (
     <div className="relative grid min-h-svh w-full lg:grid-cols-2 overflow-hidden bg-background">
@@ -33,7 +36,7 @@ export default function AuthPage() {
       <div
         className={cn(
           "transition absolute top-6 right-6 md:top-10 md:right-10 z-[60] flex items-center gap-2 font-medium duration-500",
-          mode === "signup"
+          isRightView
             ? "translate-x-0 opacity-100"
             : "translate-x-[10vw] opacity-0",
         )}
@@ -68,18 +71,31 @@ export default function AuthPage() {
         </div>
       </div>
 
-      {/* Right Slot: Signup */}
+      {/* Right Slot: Signup / Receipt */}
       <div className="flex flex-col">
         <div className="flex flex-1 items-center justify-center">
           <div
             className={cn(
               "w-full max-w-md transition-all duration-500 ease-in-out",
-              mode === "signup"
+              isRightView
                 ? "opacity-100"
                 : "opacity-20 pointer-events-none blur-sm",
             )}
           >
-            <SignupForm onToggle={() => setMode("login")} />
+            {mode === "receipt" ? (
+              <RequestReceiptForm
+                username={signedUpUsername}
+                onBack={() => setMode("login")}
+              />
+            ) : (
+              <SignupForm
+                onToggle={() => setMode("login")}
+                onToggleReceipt={(username) => {
+                  setSignedUpUsername(username)
+                  setMode("receipt")
+                }}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -91,7 +107,6 @@ export default function AuthPage() {
         )}
       >
         <div className="relative h-full w-full overflow-hidden shadow-2xl rounded-xl flex flex-col items-center">
-          {/* Background & Gradients */}
           <img
             src={isLeftView ? "/tektite_1.jpg" : "/tektite_2.jpg"}
             alt="MIS Background"
@@ -100,12 +115,10 @@ export default function AuthPage() {
           <div className="absolute inset-0 bg-gradient-to-b from-[#3c51c7]/100 via-[#3c51c7]/30 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/100 via-black/30 to-transparent" />
 
-          {/* Content Container */}
           <div
             key={mode}
             className="relative z-10 flex h-full w-full flex-col items-center justify-between py-[10vh] px-6 md:px-12 text-center text-white animate-in fade-in slide-in-from-bottom-8 duration-700"
           >
-            {/* Responsive Header & Subtitle */}
             <div className="flex flex-col items-center space-y-0 md:space-y-1">
               <h2 className="text-2xl xs:text-xl sm:text-2xl md:text-3xl lg:text-3xl font-semibold tracking-tight font-poppins leading-tight">
                 {isLeftView
@@ -119,7 +132,6 @@ export default function AuthPage() {
               </p>
             </div>
 
-            {/* Responsive Middle Graphic */}
             <div className="flex flex-1 items-center justify-center w-full max-w-[85%] lg:max-w-[95%] my-8">
               <img
                 src={isLeftView ? "/ui-preview-1.svg" : "/ui-preview-2.svg"}
@@ -128,7 +140,6 @@ export default function AuthPage() {
               />
             </div>
 
-            {/* Responsive Bottom Logo */}
             <div className="flex flex-col items-center gap-4">
               <div className="h-6 sm:h-8 md:h-12 w-auto flex items-center justify-center">
                 <img

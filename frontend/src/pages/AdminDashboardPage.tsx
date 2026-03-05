@@ -3,8 +3,8 @@ import { DataTable, useColumns } from '@/components/tables-data/activity-logs-co
 import { activityLogsApi } from "@/services/activity-logs"
 import type { ActivityLog } from "@/data/schema"
 import { SkeletonTable } from "@/pages/UserManagementPage"
-import { LogsProvider } from "@/components/logs/logs-provider"
-import { LogsDialogs } from "@/components/logs/logs-dialogs"
+import { LogsProvider } from "@/components/act-logs/logs-provider"
+import { LogsDialogs } from "@/components/act-logs/logs-dialogs"
 
 
 function DashboardContent() {

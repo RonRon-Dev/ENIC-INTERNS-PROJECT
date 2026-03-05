@@ -24,14 +24,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { roles } from '@/data/const'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
 
 const existingRoleValues = roles.map((r) => r.value)
 
 const availableIcons = [
   { label: 'User', value: 'user', icon: User },
   { label: 'Shield', value: 'shield', icon: Shield },
-  
+
   { label: 'ShieldCheck', value: 'shieldcheck', icon: ShieldCheck },
   { label: 'UserCheck', value: 'usercheck', icon: UserCheck },
   { label: 'Code', value: 'code', icon: Code },
@@ -46,6 +45,7 @@ const formSchema = z.object({
   name: z
     .string()
     .min(1, 'Role name is required.')
+    .transform((val) => val.toLowerCase().trim())
     .refine(
       (val) => !existingRoleValues.includes(val.toLowerCase() as typeof existingRoleValues[number]),
       { message: 'This role already exists.' }

@@ -1,5 +1,5 @@
-import { DescViewDialog } from '@/components/logs/logs-action-dialog'
-import { useLogs } from '@/components/logs/logs-provider'
+import { DescViewDialog } from '@/components/act-logs/logs-action-dialog'
+import { useLogs } from '@/components/act-logs/logs-provider'
 
 export function LogsDialogs() {
   const { open, setOpen, currentRow, setCurrentRow } = useLogs()
