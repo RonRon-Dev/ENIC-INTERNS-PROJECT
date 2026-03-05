@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react"
-<<<<<<< Updated upstream
 import { DataTable, useColumns } from '@/components/tables-data/activity-logs-column'
-import { userlogs } from "@/data/userlogs"
-=======
-import { columns, DataTable } from "@/components/tables-data/activity-logs-column"
 import { activityLogsApi } from "@/services/activity-logs"
->>>>>>> Stashed changes
 import type { ActivityLog } from "@/data/schema"
 import { SkeletonTable } from "@/pages/UserManagementPage"
 import { LogsProvider } from "@/components/logs/logs-provider"
