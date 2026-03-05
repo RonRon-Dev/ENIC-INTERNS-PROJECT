@@ -5,7 +5,6 @@ import api from "./api";
 //User Information and Permissions and Roles
 export const getIam = async () => {
   const response = await api.get("/auth/iam");
-  console.log("getIam response:", response.data);
   return response.data;
 }
 

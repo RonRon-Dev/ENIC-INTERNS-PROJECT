@@ -263,10 +263,15 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     }
 
     // Refresh token (your implemented version)
-    public async Task<AuthResponse?> RefreshTokenAsync(RefreshTokenRequest request)
+    public async Task<AuthResponse?> RefreshTokenAsync(string? refreshToken)
     {
-        var user = await ValidateRefreshTokenAsync(request.UserId, request.RefreshToken);
-        if (user == null) return null;
+        var user = await context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken &&
+                u.RefreshTokenExpiry > DateTime.UtcNow);
+
+        if (user is null)
+            return null;
 
         return new AuthResponse
         {
@@ -398,43 +403,44 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     // -------------------------
 
     private string GenerateToken(Users user)
-{
-    var issuer = configuration["AppSettings:Issuer"];
-    var audience = configuration["AppSettings:Audience"];
-    var secret = configuration["AppSettings:Token"];
-
-    if (string.IsNullOrWhiteSpace(issuer))
-        throw new InvalidOperationException("AppSettings:Issuer is missing.");
-    if (string.IsNullOrWhiteSpace(audience))
-        throw new InvalidOperationException("AppSettings:Audience is missing.");
-    if (string.IsNullOrWhiteSpace(secret))
-        throw new InvalidOperationException("AppSettings:Token is missing.");
-
-    var claims = new List<Claim>
     {
-        new Claim(ClaimTypes.Name, user.UserName),
-        new Claim(ClaimTypes.GivenName, user.Name),
-        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-        new Claim("ForcePasswordChange", user.ForcePasswordChange.ToString())
-    };
+        var issuer = configuration["AppSettings:Issuer"];
+        var audience = configuration["AppSettings:Audience"];
+        var secret = configuration["AppSettings:Token"];
 
-    if (user.Role != null && !string.IsNullOrWhiteSpace(user.Role.Name))
-        claims.Add(new Claim(ClaimTypes.Role, user.Role.Name));
+        if (string.IsNullOrWhiteSpace(issuer))
+            throw new InvalidOperationException("AppSettings:Issuer is missing.");
+        if (string.IsNullOrWhiteSpace(audience))
+            throw new InvalidOperationException("AppSettings:Audience is missing.");
+        if (string.IsNullOrWhiteSpace(secret))
+            throw new InvalidOperationException("AppSettings:Token is missing.");
 
-    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
-    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.Name, user.UserName),
+            new Claim(ClaimTypes.GivenName, user.Name),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim("ForcePasswordChange", user.ForcePasswordChange.ToString())
+        };
 
-    var token = new JwtSecurityToken(
-        issuer: issuer,
-        audience: audience,
-        claims: claims,
-        notBefore: DateTime.UtcNow,
-        expires: DateTime.UtcNow.AddDays(1), 
-        signingCredentials: creds
-    );
+        if (user.Role != null && !string.IsNullOrWhiteSpace(user.Role.Name))
+            claims.Add(new Claim(ClaimTypes.Role, user.Role.Name));
 
-    return new JwtSecurityTokenHandler().WriteToken(token);
-}
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
+
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
+            claims: claims,
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddDays(1), 
+            signingCredentials: creds
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
     private async Task<Users?> ValidateRefreshTokenAsync(int userId, string refreshToken)
     {
         var user = await context.Users.FindAsync(userId);

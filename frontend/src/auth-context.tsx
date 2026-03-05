@@ -30,14 +30,21 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 // Function to fetch the authenticated user's information from the server
 async function getAuthenticatedUser() {
-  const data = await getIam();
-  return {
-    name: data.name,
-    userName: data.userName,
-    nameIdentifier: data.nameIdentifier,
-    roleName: data.roleName,
-    forcePasswordChange: data.forcePasswordChange,
-  };
+  try {
+    const data = await getIam();
+    return {
+      name: data.name,
+      userName: data.userName,
+      nameIdentifier: data.nameIdentifier,
+      roleName: data.roleName,
+      forcePasswordChange: data.forcePasswordChange,
+    };
+  } catch (err: any) {
+    if (err.response?.status === 401) {
+      throw err;
+    }
+    throw err;
+  }
 }
 
 // Authentication provider component that wraps the app and provides authentication context
@@ -57,11 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = async () => {
     try {
       const data = await getAuthenticatedUser();
-
       console.log("Authenticated User:", data);
-      console.log("Role Received:", data.roleName);
-      console.log("Type of Role:", typeof data.roleName);
-
       setUser(data);
     } catch {
       setUser(null);
