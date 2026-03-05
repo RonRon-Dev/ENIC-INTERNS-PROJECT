@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { type ActivityLog } from '@/data/schema'
-import { roles, activityTypes } from '@/data/const'
+import { roles, activityTypes, userTypes } from '@/data/const'
 
 type DescViewDialogProps = {
     open: boolean
@@ -65,7 +65,7 @@ export function DescViewDialog({
                 {/* Description spans full width */}
                 <div className='space-y-1.5 py-1'>
                     <p className='text-xs font-semibold uppercase tracking-wider'>Description</p>
-                    <p className='text-sm text-muted-foreground leading-relaxed'>
+                    <p className='text-sm text-muted-foreground leading-relaxed min-h-20 bg-muted p-3 rounded-md'>
                         {currentRow.description.charAt(0).toUpperCase() + currentRow.description.slice(1)}
                     </p>
                 </div>
@@ -90,13 +90,7 @@ export function DescViewDialog({
                             <Field label='Status'>
                                 <Badge
                                     variant='outline'
-                                    className={
-                                        currentRow.user.status === 'active'
-                                            ? 'border-green-500 text-green-600'
-                                            : currentRow.user.status === 'pending'
-                                                ? 'border-yellow-500 text-yellow-600'
-                                                : 'border-destructive text-destructive'
-                                    }
+                                    className={userTypes.get(currentRow.user.status)}
                                 >
                                     {currentRow.user.status.charAt(0).toUpperCase() + currentRow.user.status.slice(1)}
                                 </Badge>

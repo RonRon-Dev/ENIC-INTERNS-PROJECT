@@ -1,5 +1,4 @@
-import { CheckCircle2, Clock, ShieldCheck, ChevronLeft, Check, Copy } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { CheckCircle2, Clock, ChevronLeft, Check, Copy } from "lucide-react";
 import { useState } from "react";
 
 interface RequestReceiptFormProps {
@@ -67,7 +66,7 @@ export function RequestReceiptForm({ onBack, username }: RequestReceiptFormProps
             Your request is pending review. Once approved, you can log in using your system username and the password you set.
           </p>
         </div>
-        
+
       </div>
       <button
         type="button"
