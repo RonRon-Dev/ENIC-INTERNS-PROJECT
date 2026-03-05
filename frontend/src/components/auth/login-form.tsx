@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/form";
 import { PasswordInput } from "@/components/password-input";
 import { z } from "zod";
+import NProgress from "@/lib/nprogress";
 
 const formSchema = z.object({
   username: z.string().min(1, "Username is required."),
@@ -49,6 +50,7 @@ export function LoginForm({
 
   const onSubmit = async (data: UserForm) => {
     try {
+      NProgress.start()
       setServerError(null);
       const response = await login(data);
       await refreshUser();
@@ -143,7 +145,7 @@ export function LoginForm({
           <Button
             type="submit"
             className="w-full disabled:opacity-100 !mt-10"
-            // disabled={!form.formState.isValid || form.formState.isSubmitting}
+          // disabled={!form.formState.isValid || form.formState.isSubmitting}
           >
             Login
           </Button>

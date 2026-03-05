@@ -31,7 +31,7 @@ import { type ActivityLog } from '@/data/schema'
 export type { ActivityLog }
 import { activityTypes } from '@/data/const'
 import { roles } from '@/data/const'
-import { useLogs } from '@/components/logs/logs-provider'
+import { useLogs } from '@/components/act-logs/logs-provider'
 
 export function useColumns() {
   const { setOpen, setCurrentRow } = useLogs()

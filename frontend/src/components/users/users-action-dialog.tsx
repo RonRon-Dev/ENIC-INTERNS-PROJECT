@@ -34,7 +34,7 @@ import { Checkbox } from '../ui/checkbox'
 
 const formSchema = z
   .object({
-    name: z.string().min(1, 'Name is required.'),
+    name: z.string().min(1, 'Name is required.').transform((val) => val.toLowerCase().trim()),
     username: z.string().min(1, 'Username is required.'),
     role: z.string().min(1, 'Role is required.'),
     isEdit: z.boolean(),
