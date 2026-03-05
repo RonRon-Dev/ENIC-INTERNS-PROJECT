@@ -66,10 +66,9 @@ export default function GeneralHomePage() {
 
   // dialog — guarded against double-mount
   useEffect(() => {
-    if (hasOpened.current) return
-    hasOpened.current = true
-    setOpen('passwordReset')
-  }, [setOpen])
+    const timer = setTimeout(() => setLoading(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
 
   const userRole = user?.roleName?.toLowerCase() as UserRole | undefined;
   const firstName = user?.name?.split(" ")[0] ?? "User";
