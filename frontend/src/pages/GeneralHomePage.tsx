@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Search, Lock, ChevronRight, Clock } from "lucide-react";
+import { Search, Lock, ChevronRight, Clock, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth-context";
 import { toolsData, hasAccess } from "@/data/tools";
@@ -135,85 +135,113 @@ export default function GeneralHomePage() {
   const accessibleCount = tools.filter((t: ToolCard) => t.isAccessible).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* ── Welcome Header ─────────────────────────────────────── */}
       <div className="rounded-xl border bg-card overflow-hidden">
-        {/* Row 1 — date/time bar */}
-        <div className="flex items-center justify-between px-6 py-2.5 border-b bg-muted/30">
-          {loading ? (
-            <Skeleton className="h-3 w-48" />
-          ) : (
-            <p className="text-xs text-muted-foreground">{formattedDate}</p>
-          )}
-          {!loading && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              <span className="font-mono tabular-nums">{formattedTime}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Row 2 — identity + search */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-6 py-4">
-          {/* Avatar + name + username */}
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted border text-xs font-semibold text-muted-foreground select-none">
+        {/* Main row */}
+        <div className="flex items-center justify-between px-7 py-5 gap-6">
+          {/* Left — initials + name block */}
+          <div className="flex items-center gap-6 min-w-0">
+            {/* Initials block */}
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border bg-muted text-sm font-bold text-foreground select-none tracking-wide">
               {loading ? (
-                <Skeleton className="h-10 w-10 rounded-lg" />
+                <Skeleton className="h-14 w-14 rounded-lg" />
               ) : (
                 initials
               )}
             </div>
-            <div className="flex flex-col gap-1">
+
+            {/* Name + role + username */}
+            <div className="flex flex-col gap-0 min-w-0">
               {loading ? (
                 <>
-                  <Skeleton className="h-4 w-40" />
-                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-6 w-52" />
+                  <Skeleton className="h-3 w-36" />
                 </>
               ) : (
                 <>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold leading-none">
-                      Welcome back, {firstName}
+                  <h2 className="text-xl font-semibold leading-tight tracking-tight truncate">
+                    Good{" "}
+                    {now.getHours() < 12
+                      ? "morning"
+                      : now.getHours() < 17
+                      ? "afternoon"
+                      : "evening"}
+                    , {firstName}
+                  </h2>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-muted-foreground ">
+                      @{username}
                     </span>
-                    <Badge
-                      variant="secondary"
-                      className="text-[10px] font-normal capitalize h-4 px-1.5"
+                    {/* <span className="text-muted-foreground/30 text-sm">|</span> */}
+                    {/* <Badge
+                      variant="outline"
+                      className="text-xs font-medium capitalize h-4 px-1.5 rounded-sm"
                     >
                       {role}
-                    </Badge>
+                    </Badge> */}
+                    {/* <span className="text-muted-foreground/30 text-xs">|</span> */}
+                    {/* <span className="text-xs text-muted-foreground hidden sm:inline">
+                      Eurolink Network International Corporation
+                    </span> */}
                   </div>
-                  <p className="text-xs text-muted-foreground leading-none">
-                    {username}
-                  </p>
                 </>
               )}
             </div>
           </div>
 
-          {/* Stats + search */}
-          <div className="flex items-center gap-4">
+          {/* Right — date/time + stats + search stacked cleanly */}
+          <div className="flex items-center gap-5 shrink-0">
+            {/* Date + time stacked */}
             {!loading && (
-              <>
-                <div className="flex items-center gap-3 text-muted-foreground shrink-0">
-                  <div className="flex flex-col items-center gap-0.5">
-                    <span className="text-sm font-semibold text-foreground leading-normal">
-                      {accessibleCount}
-                    </span>
-                    <span className="text-[10px]">accessible</span>
-                  </div>
-                  <Separator orientation="vertical" className="h-6" />
-                  <div className="flex flex-col items-center gap-0.5">
-                    <span className="text-sm font-semibold text-foreground leading-normal">
-                      {tools.length}
-                    </span>
-                    <span className="text-[10px]">total</span>
-                  </div>
+              <div className="hidden lg:flex flex-col gap-0 items-end">
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Calendar className="h-3 w-3 shrink-0" />
+                  <span>{formattedDate}</span>
                 </div>
-                <Separator orientation="vertical" className="h-6" />
-              </>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Clock className="h-3 w-3 shrink-0" />
+                  <span className="font-mono tabular-nums">
+                    {formattedTime}
+                  </span>
+                </div>
+              </div>
             )}
-            <div className="relative w-full sm:w-52">
+
+            {!loading && (
+              <Separator
+                orientation="vertical"
+                className="hidden lg:block h-10"
+              />
+            )}
+
+            {/* Stats */}
+            {/* {!loading && (
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className="text-lg font-bold tabular-nums leading-none text-foreground">
+                    {accessibleCount}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    accessible
+                  </span>
+                </div>
+                <Separator orientation="vertical" className="h-8" />
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className="text-lg font-bold tabular-nums leading-none text-foreground">
+                    {tools.length}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    total
+                  </span>
+                </div>
+              </div>
+            )} */}
+
+            {/* <Separator orientation="vertical" className="h-10" /> */}
+
+            {/* Search */}
+            <div className="relative w-lg">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
                 placeholder="Search tools..."
@@ -224,6 +252,19 @@ export default function GeneralHomePage() {
               />
             </div>
           </div>
+        </div>
+
+        {/* Bottom rule — section label */}
+        <div className="px-7 py-2 border-t bg-muted/20 flex items-center justify-between">
+          <p className="text-sm text-muted-foreground font-medium">
+            Select a tool
+          </p>
+          {!loading && (
+            <p className="text-sm text-muted-foreground">
+              {sortedTools.length} tool{sortedTools.length !== 1 ? "s" : ""}
+              {searchQuery ? ` for "${searchQuery}"` : ""} available
+            </p>
+          )}
         </div>
       </div>
 
@@ -270,7 +311,7 @@ export default function GeneralHomePage() {
               >
                 <div
                   className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150 mt-0.5",
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150",
                     tool.isAccessible
                       ? "bg-muted text-foreground group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary"
                       : "bg-muted/50 text-muted-foreground/30 border-dashed"
@@ -293,6 +334,7 @@ export default function GeneralHomePage() {
                     {tool.description}
                   </CardDescription>
                 </div>
+
                 {clickable && (
                   <ChevronRight className="h-4 w-4 text-muted-foreground/30 shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity" />
                 )}
