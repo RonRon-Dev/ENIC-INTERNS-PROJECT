@@ -142,7 +142,6 @@ export default function GeneralHomePage() {
       );
   }, [tools, searchQuery]);
 
-
   return (
     <div className="space-y-5">
       {/* ── Welcome Header ─────────────────────────────────────── */}
@@ -163,10 +162,10 @@ export default function GeneralHomePage() {
             {/* Name + role + username */}
             <div className="flex flex-col gap-0 min-w-0">
               {loading ? (
-                <>
+                <div className="flex flex-col gap-2">
                   <Skeleton className="h-6 w-52" />
                   <Skeleton className="h-3 w-36" />
-                </>
+                </div>
               ) : (
                 <>
                   <h2 className="text-xl font-semibold leading-tight tracking-tight truncate">
@@ -210,9 +209,7 @@ export default function GeneralHomePage() {
                 </div>
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Clock className="h-3 w-3 shrink-0" />
-                  <span className=" tabular-nums">
-                    {formattedTime}
-                  </span>
+                  <span className=" tabular-nums">{formattedTime}</span>
                 </div>
               </div>
             )}
