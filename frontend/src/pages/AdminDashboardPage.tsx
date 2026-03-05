@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react"
-import { columns, DataTable } from "@/components/tables-data/activity-logs-column"
+import { DataTable, useColumns } from '@/components/tables-data/activity-logs-column'
 import { userlogs } from "@/data/userlogs"
 import type { ActivityLog } from "@/data/schema"
 import { SkeletonTable } from "@/pages/UserManagementPage"
+import { LogsProvider } from "@/components/act-logs/logs-provider"
+import { LogsDialogs } from "@/components/act-logs/logs-dialogs"
 
 
-export default function Dashboard() {
+function DashboardContent() {
     const [data, setData] = useState<ActivityLog[]>([])
     const [loading, setLoading] = useState(true)
+    const columns = useColumns()
 
     useEffect(() => {
         async function loadData() {
@@ -33,6 +36,15 @@ export default function Dashboard() {
             <div>
                 {loading ? <SkeletonTable /> : <DataTable columns={columns} data={data} />}
             </div>
+            <LogsDialogs />
         </>
+    )
+}
+
+export default function AdminDashboardPage() {
+    return (
+        <LogsProvider>
+            <DashboardContent />
+        </LogsProvider>
     )
 }

@@ -1,24 +1,116 @@
+import { Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import Dashboard from "@/pages/AdminDashboardPage";
 import AppLayout from "@/layouts/AppLayout";
-import InventoryToolPage from "@/pages/tools/InventoryToolPage";
-import OperationsToolPage from "@/pages/tools/OperationsToolPage";
-import GeneralHomePage from "@/pages/GeneralHomePage";
 import AuthPage from "@/pages/auth/AuthPage";
-import UserManagementPage from "@/pages/UserManagementPage";
-import SubToolTestPage from "@/pages/tools/subtools/SubToolPage";
 import ProtectedRoute from "./ProtectedRoutes";
+import GeneralHomePage from "@/pages/GeneralHomePage";
+import DevelopmentToolPage from "@/pages/tools/DevelopmentToolPage";
+import { toolsData } from "@/data/tools";
+import { useAuth } from "@/auth-context";
+import type { Tool, SubTool } from "@/data/tools";
+import type { UserRole } from "@/data/schema";
 
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return null;
+  if (isAuthenticated) return <Navigate to="/home" replace />;
+  return <>{children}</>;
+}
+
+function PageComponent({ tool }: { tool: Tool | SubTool }) {
+  const Component = tool.component ?? DevelopmentToolPage;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
+          Loading…
+        </div>
+      }
+    >
+      <Component />
+    </Suspense>
+  );
+}
+
+function generateRoutes() {
+  const MANUAL = ["Home"];
+
+  return toolsData
+    .filter((tool) => !MANUAL.includes(tool.title))
+    .flatMap((tool) => {
+      // Collapsible tool with subtools
+      if (tool.subtools && tool.subtools.length > 0) {
+        const basePath = tool.subtools[0].url.split("/").slice(0, 2).join("/");
+
+        return (
+          <Route key={basePath} path={basePath}>
+            {tool.component && (
+              <Route
+                index
+                element={
+                  <ProtectedRoute
+                    allowedRoles={tool.allowedRoles as UserRole[]}
+                  >
+                    <PageComponent tool={tool} />
+                  </ProtectedRoute>
+                }
+              />
+            )}
+            {tool.subtools.map((sub) => {
+              const segment = sub.url.split("/").slice(2).join("/");
+              return (
+                <Route
+                  key={sub.url}
+                  path={segment}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={
+                        (sub.allowedRoles ?? tool.allowedRoles) as UserRole[]
+                      }
+                    >
+                      <PageComponent tool={sub} />
+                    </ProtectedRoute>
+                  }
+                />
+              );
+            })}
+          </Route>
+        );
+      }
+
+      // Leaf tool
+      if (!tool.url) return [];
+      return (
+        <Route
+          key={tool.url}
+          path={tool.url}
+          element={
+            <ProtectedRoute allowedRoles={tool.allowedRoles as UserRole[]}>
+              <PageComponent tool={tool} />
+            </ProtectedRoute>
+          }
+        />
+      );
+    });
+}
+
+// ---------------------------------------------------------------------------
+// AppRoutes
+// ---------------------------------------------------------------------------
 export default function AppRoutes() {
   return (
     <Routes>
-      {/* Default Landing */}
       <Route path="/" element={<Navigate to="/home" replace />} />
 
-      {/* Public Route */}
-      <Route path="/login" element={<AuthPage />} />
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <AuthPage />
+          </PublicRoute>
+        }
+      />
 
-      {/* Protected Application Layout */}
       <Route
         element={
           <ProtectedRoute>
@@ -27,36 +119,9 @@ export default function AppRoutes() {
         }
       >
         <Route path="/home" element={<GeneralHomePage />} />
-
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={["Superadmin", "Admin"]}>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/users"
-          element={
-            <ProtectedRoute allowedRoles={["Superadmin", "Admin"]}>
-              <UserManagementPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Nested Inventory Routes */}
-        <Route path="/inventory">
-          <Route index element={<InventoryToolPage />} />
-          <Route path="subtool_1" element={<SubToolTestPage />} />
-          <Route path="subtool_2" element={<SubToolTestPage />} />
-        </Route>
-
-        <Route path="/operations" element={<OperationsToolPage />} />
+        {generateRoutes()}
       </Route>
 
-      {/* Fallback */}
       <Route path="*" element={<Navigate to="/home" replace />} />
     </Routes>
   );

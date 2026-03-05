@@ -1,67 +1,91 @@
-import type { SidebarData, UserRole } from "./schema";
-import { toolsData } from "./tools";
+import type { NavGroup, UserRole } from "./schema";
+import { toolsData, hasAccess } from "./tools";
 
-const castRoles = (roles?: string[]): UserRole[] => (roles ?? []) as UserRole[];
+// ---------------------------------------------------------------------------
+// Build filtered nav groups for a given role.
+// Call this inside the sidebar component with the live user role.
+// ---------------------------------------------------------------------------
+export function buildNavGroups(userRole: UserRole | undefined): NavGroup[] {
+  const groups: NavGroup[] = [];
 
-function generateNavGroups(): SidebarData["navGroups"] {
-  // Home / Dashboard / Users
+  // ── Group 1: Home (always visible to authenticated users) ──────────────
   const homeTool = toolsData.find((t) => t.title === "Home");
-  const dashboardTool = toolsData.find((t) => t.title === "Dashboard");
-  const usersTool = toolsData.find((t) => t.title === "User Management");
-
-  return [
-    {
+  if (homeTool && hasAccess(userRole, homeTool.allowedRoles)) {
+    groups.push({
       items: [
         {
-          title: homeTool?.title ?? "Home",
-          url: homeTool?.url ?? "/home",
-          icon: homeTool?.icon ?? undefined,
-          description: homeTool?.description ?? "",
-          allowedRoles: castRoles(homeTool?.allowedRoles),
+          title: homeTool.title,
+          url: homeTool.url ?? "/home",
+          icon: homeTool.icon,
+          description: homeTool.description,
         },
       ],
-    },
-    {
-      title: "Management",
-      items: [dashboardTool, usersTool].filter(Boolean).map((tool) => ({
-        title: tool!.title,
-        url: tool!.url ?? "#",
-        icon: tool!.icon ?? undefined,
-        description: tool!.description ?? "",
-        allowedRoles: castRoles(tool!.allowedRoles),
-      })),
-    },
-    {
-      title: "Modules",
-      items: toolsData
-        .filter(
-          (tool) =>
-            !["Home", "Dashboard", "User Management"].includes(tool.title)
-        )
-        .map((tool) => ({
-          title: tool.title,
-          icon: tool.icon ?? undefined,
-          description: tool.description ?? "",
-          allowedRoles: castRoles(tool.allowedRoles),
-          items:
-            tool.subtools?.map((sub) => ({
-              title: sub.title,
-              url: sub.url ?? "#",
-              description: sub.description ?? tool.description ?? "",
-              allowedRoles: castRoles(sub.allowedRoles),
-            })) ?? [],
-        })),
-    },
-  ];
-}
+    });
+  }
 
-export const sidebarData: SidebarData = {
-  user: {
-    id: "",
-    name: "",
-    username: "",
-    status: "active",
-    role: "superadmin",
-  },
-  navGroups: generateNavGroups(),
-};
+  // ── Group 2: Management ────────────────────────────────────────────────
+  const managementTitles = ["Dashboard", "User Management"];
+  const managementItems = toolsData
+    .filter(
+      (t) => managementTitles.includes(t.title) && hasAccess(userRole, t.allowedRoles)
+    )
+    .map((t) => ({
+      title: t.title,
+      url: t.url ?? "#",
+      icon: t.icon,
+      description: t.description,
+      allowedRoles: t.allowedRoles,
+    }));
+
+  if (managementItems.length > 0) {
+    groups.push({ title: "Management", items: managementItems });
+  }
+
+  // ── Group 3: Modules (tools with subtools) ─────────────────────────────
+  const excludedTitles = ["Home", "Dashboard", "User Management"];
+  const moduleItems = toolsData
+    .filter(
+      (t) =>
+        !excludedTitles.includes(t.title) && hasAccess(userRole, t.allowedRoles)
+    )
+    .map((tool) => {
+      // Filter subtools the user can access
+      const visibleSubtools = (tool.subtools ?? []).filter((sub) =>
+        // Subtool inherits parent roles if its own allowedRoles is not set
+        hasAccess(userRole, sub.allowedRoles ?? tool.allowedRoles)
+      );
+
+      if (tool.url) {
+        // Leaf tool — NavLink
+        return {
+          title: tool.title,
+          url: tool.url,
+          icon: tool.icon,
+          description: tool.description,
+          allowedRoles: tool.allowedRoles,
+        };
+      }
+
+      // Collapsible tool — NavCollapsible
+      return {
+        title: tool.title,
+        icon: tool.icon,
+        description: tool.description,
+        allowedRoles: tool.allowedRoles,
+        items: visibleSubtools.map((sub) => ({
+          title: sub.title,
+          url: sub.url,
+          description: sub.description,
+          allowedRoles: sub.allowedRoles,
+        })),
+      };
+    })
+    // Drop collapsibles that have no visible children
+    .filter((item) => !("items" in item) || (item.items ?? []).length > 0);
+
+  if (moduleItems.length > 0) {
+    groups.push({ title: "Modules", items: moduleItems });
+  }
+
+  return groups;
+}

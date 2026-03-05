@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,16 +16,22 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { PasswordInput } from "@/components/password-input";
+import NProgress from "@/lib/nprogress";
 
-export default function SignupForm({ onToggle }: { onToggle: () => void }) {
+export default function SignupForm({
+  onToggle,
+  onToggleReceipt
+}: {
+  onToggle: () => void;
+  onToggleReceipt: (username: string) => void
+}) {
   const [serverError, setServerError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const form = useForm<SignupRequest>({
     mode: "onChange",
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      fullname: "",
+      fullname: "".toLowerCase().trim(),
       username: "",
       password: "",
       confirmPassword: "",
@@ -34,7 +39,6 @@ export default function SignupForm({ onToggle }: { onToggle: () => void }) {
   });
 
   const fullname = form.watch("fullname");
-  const username = form.watch("username");
 
   useEffect(() => {
     if (!fullname?.trim()) {
@@ -54,28 +58,20 @@ export default function SignupForm({ onToggle }: { onToggle: () => void }) {
     });
   }, [fullname, form]);
 
-  const copyUsername = async () => {
-    if (!username) return;
-    try {
-      await navigator.clipboard.writeText(username);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error("Copy failed", error);
-    }
-  };
-
   const onSubmit = async (data: SignupRequest) => {
     try {
+      NProgress.start()
       setServerError(null);
       const response = await signup(data);
       if (!response.success) {
         setServerError(response.message);
+        NProgress.done();
         return;
       }
-      onToggle();
+      onToggleReceipt(data.username);
     } catch (error: any) {
       const res = error.response?.data;
+
 
       if (!res) {
         setServerError("Something went wrong");
@@ -95,6 +91,8 @@ export default function SignupForm({ onToggle }: { onToggle: () => void }) {
         setServerError(res.message);
       }
     }
+
+    NProgress.done();
   };
 
   return (
@@ -129,24 +127,16 @@ export default function SignupForm({ onToggle }: { onToggle: () => void }) {
               <FormItem>
                 <FormLabel>System Username</FormLabel>
                 <FormControl>
-                  <div className="relative">
-                    <Input
-                      className="font-mono text-primary pr-10 cursor-default bg-muted/50"
-                      // readOnly
-                      {...field}
-                    />
-                    <button
-                      type="button"
-                      onClick={copyUsername}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-background rounded transition-colors"
-                    >
-                      {copied ? (
-                        <Check className="size-4 text-green-600" />
-                      ) : (
-                        <Copy className="size-4 text-muted-foreground" />
-                      )}
-                    </button>
-                  </div>
+                  <Input
+                    className="font-mono text-primary pr-10 cursor-default bg-muted/50"
+                    // readOnly
+                    {...field}
+                    onChange={(e) => {
+                      let value = e.target.value
+                      value = value.replace(/\s/g, '').toLowerCase()
+                      field.onChange(value)
+                    }}
+                  />
                 </FormControl>
                 <FormDescription>
                   Generated identifier for ENIC - MIS.
@@ -194,9 +184,9 @@ export default function SignupForm({ onToggle }: { onToggle: () => void }) {
           )}
 
           <Button
-            type="submit"
+            // type="submit"
             className="w-full disabled:opacity-100 !mt-10"
-            // disabled={!form.formState.isValid || form.formState.isSubmitting}
+          // disabled={!form.formState.isValid || form.formState.isSubmitting}
           >
             Submit Request
           </Button>
