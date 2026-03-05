@@ -1,8 +1,7 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, ChevronRight } from 'lucide-react'
 import { useSearch } from '@/components/search-provider'
-// import { useTheme } from '@/context/theme-provider'
 import {
   CommandDialog,
   CommandEmpty,
@@ -11,13 +10,21 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import { sidebarData } from '@/data/sidebar'
+import { buildNavGroups } from '@/data/sidebar'
+import { useAuth } from '@/auth-context'
+import type { UserRole } from '@/data/schema'
 import { ScrollArea } from './ui/scroll-area'
 
 export function CommandMenu() {
   const navigate = useNavigate()
-  // const { setTheme } = useTheme()
   const { open, setOpen } = useSearch()
+  const { user } = useAuth()
+
+  // Only show commands the current user has access to
+  const navGroups = useMemo(() => {
+    const role = user?.roleName?.toLowerCase() as UserRole | undefined
+    return buildNavGroups(role)
+  }, [user?.roleName])
 
   const runCommand = React.useCallback(
     (command: () => unknown) => {
@@ -33,16 +40,16 @@ export function CommandMenu() {
       <CommandList>
         <ScrollArea type='hover' className='h-72 pe-1'>
           <CommandEmpty>No results found.</CommandEmpty>
-          {sidebarData.navGroups.map((group) => (
-            <CommandGroup key={group.title} heading={group.title}>
+          {navGroups.map((group) => (
+            <CommandGroup key={group.title ?? 'root'} heading={group.title}>
               {group.items.map((navItem, i) => {
-                if (navItem.url)
+                if ('url' in navItem && navItem.url)
                   return (
                     <CommandItem
                       key={`${navItem.url}-${i}`}
                       value={navItem.title}
                       onSelect={() => {
-                        runCommand(() => navigate(navItem.url))
+                        runCommand(() => navigate(navItem.url as string))
                       }}
                     >
                       <div className='flex size-4 items-center justify-center'>
@@ -52,12 +59,12 @@ export function CommandMenu() {
                     </CommandItem>
                   )
 
-                return navItem.items?.map((subItem, i) => (
+                return navItem.items?.map((subItem, j) => (
                   <CommandItem
-                    key={`${navItem.title}-${subItem.url}-${i}`}
+                    key={`${navItem.title}-${subItem.url}-${j}`}
                     value={`${navItem.title}-${subItem.url}`}
                     onSelect={() => {
-                      runCommand(() => navigate(subItem.url))
+                      runCommand(() => navigate(subItem.url as string))
                     }}
                   >
                     <div className='flex size-4 items-center justify-center'>
@@ -69,20 +76,6 @@ export function CommandMenu() {
               })}
             </CommandGroup>
           ))}
-          {/* <CommandSeparator />
-          <CommandGroup heading='Theme'>
-            <CommandItem onSelect={() => runCommand(() => setTheme('light'))}>
-              <Sun /> <span>Light</span>
-            </CommandItem>
-            <CommandItem onSelect={() => runCommand(() => setTheme('dark'))}>
-              <Moon className='scale-90' />
-              <span>Dark</span>
-            </CommandItem>
-            <CommandItem onSelect={() => runCommand(() => setTheme('system'))}>
-              <Laptop />
-              <span>System</span>
-            </CommandItem>
-          </CommandGroup> */}
         </ScrollArea>
       </CommandList>
     </CommandDialog>

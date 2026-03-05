@@ -38,12 +38,18 @@ const userSchema = z.object({
 export type UserStatus = z.infer<typeof userStatusSchema>;
 export type User = z.infer<typeof userSchema>;
 export type ActivityType = z.infer<typeof activityTypeSchema>;
+
 export const userListSchema = z.array(userSchema);
+
+// ---------------------------------------------------------------------------
+// Nav / Sidebar types
+// ---------------------------------------------------------------------------
 
 type BaseNavItem = {
   title: string;
   badge?: string;
   icon?: React.ElementType;
+  /** Omit = visible to everyone who is authenticated */
   allowedRoles?: UserRole[];
 };
 
@@ -54,22 +60,26 @@ type NavLink = BaseNavItem & {
 };
 
 type NavCollapsible = BaseNavItem & {
-  items: (BaseNavItem & { url: LinkProps["to"] })[];
+  items: (BaseNavItem & { url: LinkProps["to"]; description?: string })[];
   url?: never;
   description?: string;
 };
 
-type NavItem = NavLink | NavCollapsible;
+export type NavItem = NavLink | NavCollapsible;
 
-type NavGroup = {
+export type NavGroup = {
   title?: string;
   items: NavItem[];
 };
 
-type SidebarData = {
+export type SidebarData = {
   user: User;
   navGroups: NavGroup[];
 };
+
+// ---------------------------------------------------------------------------
+// Activity log
+// ---------------------------------------------------------------------------
 
 type ActivityLog = {
   id: string;
@@ -80,11 +90,4 @@ type ActivityLog = {
   type: ActivityType;
 };
 
-export type {
-  SidebarData,
-  NavGroup,
-  NavItem,
-  NavCollapsible,
-  NavLink,
-  ActivityLog,
-};
+export type { ActivityLog };

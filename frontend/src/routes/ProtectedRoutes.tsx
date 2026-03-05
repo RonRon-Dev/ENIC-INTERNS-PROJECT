@@ -1,31 +1,38 @@
-"use client";
-
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/auth-context";
 import { UnauthorisedError } from "@/components/errors/401";
+import type { UserRole } from "@/data/schema";
 
 type ProtectedRouteProps = {
   children: React.ReactNode;
-  allowedRoles?: string[];
+  allowedRoles?: UserRole[];
 };
 
 export default function ProtectedRoute({
   children,
   allowedRoles,
 }: ProtectedRouteProps) {
-  const auth = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
 
-  // Wait for auth to load if needed
-  // if (auth.loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <span className="text-muted-foreground text-sm">DESIGN LOADING HERE FOR HARD RESET</span>
+      </div>
+    );
+  }
 
-  // Authentication check
-  if (!auth.isAuthenticated) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  // Role-based restriction
-  if (!allowedRoles == allowedRoles?.includes(auth.user?.roleName ?? "")) {
-    return <UnauthorisedError />; // Or redirect: <Navigate to="/home" replace />
+  const userRole = user?.roleName?.toLowerCase() as UserRole | undefined;
+
+  if (allowedRoles && allowedRoles.length > 0) {
+    const normalised = allowedRoles.map((r) => r.toLowerCase() as UserRole);
+    if (!userRole || !normalised.includes(userRole)) {
+      return <UnauthorisedError />;
+    }
   }
 
   return <>{children}</>;
