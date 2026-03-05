@@ -64,7 +64,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = async () => {
     try {
       const data = await getAuthenticatedUser();
-      console.log("Authenticated User:", data);
       setUser(data);
     } catch {
       setUser(null);
