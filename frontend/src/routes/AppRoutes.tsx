@@ -1,40 +1,116 @@
+import { Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "@/layouts/AppLayout";
 import AuthPage from "@/pages/auth/AuthPage";
 import ProtectedRoute from "./ProtectedRoutes";
-
-// Pages
 import GeneralHomePage from "@/pages/GeneralHomePage";
-import Dashboard from "@/pages/AdminDashboardPage";
-import UserManagementPage from "@/pages/UserManagementPage";
-import InventoryToolPage from "@/pages/tools/InventoryToolPage";
-import OperationsToolPage from "@/pages/tools/OperationsToolPage";
-import SubToolTestPage from "@/pages/tools/subtools/SubToolPage";
-
+import DevelopmentToolPage from "@/pages/tools/DevelopmentToolPage";
 import { toolsData } from "@/data/tools";
+import { useAuth } from "@/auth-context";
+import type { Tool, SubTool } from "@/data/tools";
+import type { UserRole } from "@/data/schema";
 
-function rolesFor(title: string) {
-  return toolsData.find((t) => t.title === title)?.allowedRoles;
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return null;
+  if (isAuthenticated) return <Navigate to="/home" replace />;
+  return <>{children}</>;
 }
 
-function subRolesFor(parentTitle: string, subTitle: string) {
-  const parent = toolsData.find((t) => t.title === parentTitle);
+function PageComponent({ tool }: { tool: Tool | SubTool }) {
+  const Component = tool.component ?? DevelopmentToolPage;
   return (
-    parent?.subtools?.find((s) => s.title === subTitle)?.allowedRoles ??
-    parent?.allowedRoles
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
+          Loading…
+        </div>
+      }
+    >
+      <Component />
+    </Suspense>
   );
 }
 
+function generateRoutes() {
+  const MANUAL = ["Home"];
+
+  return toolsData
+    .filter((tool) => !MANUAL.includes(tool.title))
+    .flatMap((tool) => {
+      // Collapsible tool with subtools
+      if (tool.subtools && tool.subtools.length > 0) {
+        const basePath = tool.subtools[0].url.split("/").slice(0, 2).join("/");
+
+        return (
+          <Route key={basePath} path={basePath}>
+            {tool.component && (
+              <Route
+                index
+                element={
+                  <ProtectedRoute
+                    allowedRoles={tool.allowedRoles as UserRole[]}
+                  >
+                    <PageComponent tool={tool} />
+                  </ProtectedRoute>
+                }
+              />
+            )}
+            {tool.subtools.map((sub) => {
+              const segment = sub.url.split("/").slice(2).join("/");
+              return (
+                <Route
+                  key={sub.url}
+                  path={segment}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={
+                        (sub.allowedRoles ?? tool.allowedRoles) as UserRole[]
+                      }
+                    >
+                      <PageComponent tool={sub} />
+                    </ProtectedRoute>
+                  }
+                />
+              );
+            })}
+          </Route>
+        );
+      }
+
+      // Leaf tool
+      if (!tool.url) return [];
+      return (
+        <Route
+          key={tool.url}
+          path={tool.url}
+          element={
+            <ProtectedRoute allowedRoles={tool.allowedRoles as UserRole[]}>
+              <PageComponent tool={tool} />
+            </ProtectedRoute>
+          }
+        />
+      );
+    });
+}
+
+// ---------------------------------------------------------------------------
+// AppRoutes
+// ---------------------------------------------------------------------------
 export default function AppRoutes() {
   return (
     <Routes>
-      {/* Default landing */}
       <Route path="/" element={<Navigate to="/home" replace />} />
 
-      {/* Public */}
-      <Route path="/login" element={<AuthPage />} />
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <AuthPage />
+          </PublicRoute>
+        }
+      />
 
-      {/* Protected shell — any authenticated user */}
       <Route
         element={
           <ProtectedRoute>
@@ -42,157 +118,10 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        {/* Home — all authenticated users */}
         <Route path="/home" element={<GeneralHomePage />} />
-
-        {/* Dashboard — superadmin, admin */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={rolesFor("Dashboard")}>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* User Management — superadmin, admin */}
-        <Route
-          path="/users"
-          element={
-            <ProtectedRoute allowedRoles={rolesFor("User Management")}>
-              <UserManagementPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Inventory & Assets */}
-        <Route path="/inventory">
-          <Route
-            index
-            element={
-              <ProtectedRoute allowedRoles={rolesFor("Inventory & Assets")}>
-                <InventoryToolPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="assets"
-            element={
-              <ProtectedRoute
-                allowedRoles={subRolesFor("Inventory & Assets", "Asset List")}
-              >
-                <SubToolTestPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="assets/new_assets"
-            element={
-              <ProtectedRoute
-                allowedRoles={subRolesFor(
-                  "Inventory & Assets",
-                  "Add New Asset"
-                )}
-              >
-                <SubToolTestPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="reports"
-            element={
-              <ProtectedRoute
-                allowedRoles={subRolesFor(
-                  "Inventory & Assets",
-                  "Asset Reports"
-                )}
-              >
-                <SubToolTestPage />
-              </ProtectedRoute>
-            }
-          />
-        </Route>
-
-        {/* Operations */}
-        <Route path="/operations">
-          <Route
-            index
-            element={
-              <ProtectedRoute allowedRoles={rolesFor("Operations")}>
-                <OperationsToolPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="tasks"
-            element={
-              <ProtectedRoute
-                allowedRoles={subRolesFor("Operations", "Task Board")}
-              >
-                <SubToolTestPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="shifts"
-            element={
-              <ProtectedRoute
-                allowedRoles={subRolesFor("Operations", "Shift Schedules")}
-              >
-                <SubToolTestPage />
-              </ProtectedRoute>
-            }
-          />
-        </Route>
-
-        {/* Finance */}
-        <Route path="/finance">
-          <Route
-            path="expenses"
-            element={
-              <ProtectedRoute
-                allowedRoles={subRolesFor("Finance", "Expense Tracker")}
-              >
-                <SubToolTestPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="budget"
-            element={
-              <ProtectedRoute
-                allowedRoles={subRolesFor("Finance", "Budget Planner")}
-              >
-                <SubToolTestPage />
-              </ProtectedRoute>
-            }
-          />
-        </Route>
-
-        {/* Marketing */}
-        <Route path="/marketing">
-          <Route
-            path="campaigns"
-            element={
-              <ProtectedRoute
-                allowedRoles={subRolesFor("Marketing", "Campaigns")}
-              >
-                <SubToolTestPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="leads"
-            element={
-              <ProtectedRoute allowedRoles={subRolesFor("Marketing", "Leads")}>
-                <SubToolTestPage />
-              </ProtectedRoute>
-            }
-          />
-        </Route>
+        {generateRoutes()}
       </Route>
 
-      {/* Fallback */}
       <Route path="*" element={<Navigate to="/home" replace />} />
     </Routes>
   );

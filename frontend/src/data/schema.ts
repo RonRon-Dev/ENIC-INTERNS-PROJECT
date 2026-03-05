@@ -49,7 +49,6 @@ type BaseNavItem = {
   title: string;
   badge?: string;
   icon?: React.ElementType;
-  /** Omit = visible to everyone who is authenticated */
   allowedRoles?: UserRole[];
 };
 
