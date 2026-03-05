@@ -102,11 +102,11 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         {
             UserId = user.Id,
             UserName = user.UserName,
-            ActivityType = "Privilege", // change to account managamanet later on
+            ActivityType = "account management",
             Description = "User Registration (Pending Approval)",
             Payload = System.Text.Json.JsonSerializer.Serialize(new { request.Name, request.UserName }),
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -143,11 +143,11 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             {
                 UserId = user.Id,
                 UserName = user.UserName,
-                ActivityType = "Authentication",
+                ActivityType = "authentication",
                 Description = "User Login Blocked - Pending Approval",
                 Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
                 IsSuccess = false,
-                Timestamp = DateTime.UtcNow,
+                Timestamp = PhTime,
             });
 
             await context.SaveChangesAsync();
@@ -173,11 +173,11 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             {
                 UserId = user.Id,
                 UserName = user.UserName,
-                ActivityType = "Authentication",
+                ActivityType = "authentication",
                 Description = "User Login Failed",
                 Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
                 IsSuccess = false,
-                Timestamp = DateTime.UtcNow,
+                Timestamp = PhTime,
             });
 
             await context.SaveChangesAsync();
@@ -197,11 +197,11 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         {
             UserId = user.Id,
             UserName = user.UserName,
-            ActivityType = "Authentication",
+            ActivityType = "authentication",
             Description = "User Login Successful",
             Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -243,12 +243,12 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         {
             UserId = user.Id,
             UserName = user.UserName,
-            ActivityType = "Authentication",
+            ActivityType = "authentication",
             Description = "User Logout",
             Payload = "{}",
             //Payload = System.Text.Json.JsonSerializer.Serialize(new { user.UserName }),
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -330,11 +330,11 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         {
             UserId = user.Id,
             UserName = user.UserName,
-            ActivityType = "Reset Password Request",
+            ActivityType = "account management",
             Description = "Reset Password Request (Pending Admin Approval)",
             Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -383,11 +383,11 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         {
             UserId = user.Id,
             UserName = user.UserName,
-            ActivityType = "PasswordReset",
+            ActivityType = "account management",
             Description = "User Reset Password Successfully",
             Payload = "{}",
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -402,6 +402,11 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     // -------------------------
     // Helpers
     // -------------------------
+
+    private static DateTime PhTime =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
+            TimeZoneInfo.FindSystemTimeZoneById(
+                OperatingSystem.IsWindows() ? "Singapore Standard Time" : "Asia/Manila"));
 
     private string GenerateToken(Users user)
     {

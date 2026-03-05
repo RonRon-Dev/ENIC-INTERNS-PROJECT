@@ -89,11 +89,11 @@ public class UserService(AppDbContext context) : IUserService
         {
             UserId = authUser.Id,
             UserName = authUser.UserName,
-            ActivityType = "User Management",
+            ActivityType = "account management",
             Description = "Admin Created User",
             Payload = System.Text.Json.JsonSerializer.Serialize(request),
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         };
 
         context.ActivityLogs.Add(log);
@@ -139,12 +139,12 @@ public class UserService(AppDbContext context) : IUserService
         {
             UserId = authUser.Id,
             UserName = authUser.UserName,
-            ActivityType = "Privilege", // will change to um later on
+            ActivityType = "privilege",
             Description = $"Role assigned: {role.Name}",
             //Description = "Assigned Role to User",
             Payload = System.Text.Json.JsonSerializer.Serialize(new { entity.Name, entity.UserName, PastRole = pastRole,  Role = role.Name }),
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -173,11 +173,11 @@ public class UserService(AppDbContext context) : IUserService
         {
             UserId = authUser.Id,
             UserName = authUser.UserName,
-            ActivityType = "User Management",
+            ActivityType = "account management",
             Description = "Enabled User",
             Payload = System.Text.Json.JsonSerializer.Serialize(new { user.Name, user.UserName }),
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -207,11 +207,11 @@ public class UserService(AppDbContext context) : IUserService
         {
             UserId = authUser.Id,
             UserName = authUser.UserName,
-            ActivityType = "User Management",
+            ActivityType = "account management",
             Description = "Disabled User",
             Payload = System.Text.Json.JsonSerializer.Serialize(new { user.Name, user.UserName }),
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -251,11 +251,11 @@ public class UserService(AppDbContext context) : IUserService
         {
             UserId = authUser.Id,
             UserName = authUser.UserName,
-            ActivityType = "User Management",
+            ActivityType = "account management",
             Description = "Admin Approved Registration",
             Payload = System.Text.Json.JsonSerializer.Serialize(request),
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -310,11 +310,11 @@ public class UserService(AppDbContext context) : IUserService
         {
             UserId = authUser.Id,
             UserName = authUser.UserName,
-            ActivityType = "Account Management",
+            ActivityType = "account management",
             Description = "Admin Approved Reset (Temp Password Generated)",
             Payload = System.Text.Json.JsonSerializer.Serialize(new { username = user.UserName }),
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -329,6 +329,11 @@ public class UserService(AppDbContext context) : IUserService
     }
 
     // Deleting a user by ID. This should also handle any related data cleanup if necessary (e.g., activity logs).
+
+    private static DateTime PhTime =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
+            TimeZoneInfo.FindSystemTimeZoneById(
+                OperatingSystem.IsWindows() ? "Singapore Standard Time" : "Asia/Manila"));
 
     private static string GenerateTempPassword(int length)
     {
