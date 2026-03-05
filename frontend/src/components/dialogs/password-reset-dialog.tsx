@@ -2,22 +2,53 @@
 
 import { KeyRound, ShieldCheck } from 'lucide-react'
 import { ConfirmDialog } from '../confirm-dialog'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { PasswordInput } from "@/components/password-input";
+
+const schema = z.object({
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  confirmPassword: z.string(),
+}).refine(d => d.password === d.confirmPassword, {
+  message: "Passwords don't match",
+  path: ['confirmPassword'],
+})
+
+type FormValues = z.infer<typeof schema>
 
 type PasswordResetDialogProps = {
-    open: boolean
-    onOpenChange: (open: boolean) => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
 export function PasswordResetDialog({ open, onOpenChange }: PasswordResetDialogProps) {
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { password: '', confirmPassword: '' },
+  })
+
   const handleReset = () => {
-    onOpenChange(false)
-    // navigate to password reset page/flow
+    form.handleSubmit((values) => {
+      console.log('New password:', values.password)
+      // call your API here
+      onOpenChange(false)
+      form.reset()
+    })()
   }
 
   return (
     <ConfirmDialog
       open={open}
-      hideCancel = {true}
+      hideCancel
       onOpenChange={onOpenChange}
       handleConfirm={handleReset}
       confirmText='Update Password'
@@ -32,16 +63,49 @@ export function PasswordResetDialog({ open, onOpenChange }: PasswordResetDialogP
           <div className='flex h-14 w-14 items-center justify-center rounded-full bg-teal-100/40 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800'>
             <KeyRound className='h-6 w-6 text-teal-600 dark:text-teal-400' />
           </div>
-          <p className='text-sm text-muted-foreground leading-relaxed max-w-xs'>
-            For your account's security, we recommend setting a strong,
-            unique password that you don't use elsewhere.
-          </p>
+          <Form {...form}>
+            <form className='text-left w-3/4' onSubmit={(e) => { e.preventDefault(); handleReset() }}>
+              <div className='grid grid-rows-2 gap-3 '>
+                <FormField
+                  control={form.control}
+                  name='password'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <PasswordInput {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name='confirmPassword'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm</FormLabel>
+                      <FormControl>
+                        <PasswordInput
+                          disabled={!form.formState.dirtyFields.password}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </form>
+          </Form>
           <div className='flex items-center gap-1.5 text-xs text-muted-foreground'>
             <ShieldCheck className='h-3.5 w-3.5' />
             <span>Your session is secure</span>
           </div>
         </div>
       }
-    />
+    >
+
+    </ConfirmDialog>
   )
 }

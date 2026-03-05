@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,7 +14,6 @@ import { toolsData, hasAccess } from "@/data/tools";
 import type { ElementType } from "react";
 import type { UserRole } from "@/data/schema";
 import { Badge } from "@/components/ui/badge";
-import { useDialog } from "@/components/dialogs/dialog-provider";
 
 type ToolCard = {
   title: string;
@@ -54,15 +53,15 @@ export default function GeneralHomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const now = useClock();
-  const { setOpen } = useDialog()
+  // const { setOpen } = useDialog()
+  // const hasOpened = useRef(false)
 
-  const hasOpened = useRef(false)
-
-  // loading timer — runs normally, no guard needed
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1200)
-    return () => clearTimeout(timer)
-  }, [])
+  // dialog — guarded against double-mount
+  // useEffect(() => {
+  //   if (hasOpened.current) return
+  //   hasOpened.current = true
+  //   setOpen('passwordReset')
+  // }, [setOpen])
 
   // dialog — guarded against double-mount
   useEffect(() => {
@@ -175,8 +174,8 @@ export default function GeneralHomePage() {
                     {now.getHours() < 12
                       ? "morning"
                       : now.getHours() < 17
-                      ? "afternoon"
-                      : "evening"}
+                        ? "afternoon"
+                        : "evening"}
                     , {firstName}
                   </h2>
                   <div className="flex items-center gap-2 flex-wrap">
