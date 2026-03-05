@@ -6,7 +6,6 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Search, Lock, ChevronRight, Clock, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,6 +13,7 @@ import { useAuth } from "@/auth-context";
 import { toolsData, hasAccess } from "@/data/tools";
 import type { ElementType } from "react";
 import type { UserRole } from "@/data/schema";
+import { Badge } from "@/components/ui/badge";
 
 type ToolCard = {
   title: string;
@@ -132,7 +132,6 @@ export default function GeneralHomePage() {
       );
   }, [tools, searchQuery]);
 
-  const accessibleCount = tools.filter((t: ToolCard) => t.isAccessible).length;
 
   return (
     <div className="space-y-5">
@@ -174,12 +173,12 @@ export default function GeneralHomePage() {
                       @{username}
                     </span>
                     {/* <span className="text-muted-foreground/30 text-sm">|</span> */}
-                    {/* <Badge
+                    <Badge
                       variant="outline"
-                      className="text-xs font-medium capitalize h-4 px-1.5 rounded-sm"
+                      className="text-xs font-medium capitalize h-4 px-2 rounded-full text-muted-foreground"
                     >
                       {role}
-                    </Badge> */}
+                    </Badge>
                     {/* <span className="text-muted-foreground/30 text-xs">|</span> */}
                     {/* <span className="text-xs text-muted-foreground hidden sm:inline">
                       Eurolink Network International Corporation
@@ -195,13 +194,13 @@ export default function GeneralHomePage() {
             {/* Date + time stacked */}
             {!loading && (
               <div className="hidden lg:flex flex-col gap-0 items-end">
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground ">
                   <Calendar className="h-3 w-3 shrink-0" />
                   <span>{formattedDate}</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Clock className="h-3 w-3 shrink-0" />
-                  <span className="font-mono tabular-nums">
+                  <span className=" tabular-nums">
                     {formattedTime}
                   </span>
                 </div>
