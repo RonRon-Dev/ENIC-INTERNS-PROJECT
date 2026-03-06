@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "@/layouts/AppLayout";
 import AuthPage from "@/pages/auth/AuthPage";
-import { ProtectedRoute, LoadingScreen } from "@/routes/ProtectedRoutes";
+import { ProtectedRoute } from "@/routes/ProtectedRoutes";
+// import {  LoadingScreen } from "@/routes/ProtectedRoutes";
 import GeneralHomePage from "@/pages/GeneralHomePage";
 import DevelopmentToolPage from "@/pages/tools/DevelopmentToolPage";
 import { toolsData } from "@/data/tools";
@@ -15,7 +16,8 @@ import AccountPage from "@/pages/settings/AccountPage";
 import PreferencesPage from "@/pages/settings/PreferencesPage";
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-    const { isAuthenticated, loading } = useAuth();
+    const { isAuthenticated } = useAuth();
+    // const { loading } = useAuth();
 
     /* if (loading) return <LoadingScreen />;
   */
