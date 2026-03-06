@@ -10,8 +10,27 @@ namespace backend.Controllers.Auth;
 
 [Route("api/auth")]
 [ApiController]
-public class AuthController(IAuthService service) : ControllerBase
+public class AuthController(IAuthService service, IWebHostEnvironment env) : ControllerBase
 {
+    // Secure = true and SameSite = Strict in production
+    private bool IsProduction => env.IsProduction();
+
+    private CookieOptions AccessTokenCookieOptions => new CookieOptions
+    {
+        HttpOnly = true,
+        Secure = IsProduction,
+        SameSite = IsProduction ? SameSiteMode.Strict : SameSiteMode.Lax,
+        Expires = DateTime.UtcNow.AddMinutes(15)
+    };
+
+    private CookieOptions RefreshTokenCookieOptions => new CookieOptions
+    {
+        HttpOnly = true,
+        Secure = IsProduction,
+        SameSite = IsProduction ? SameSiteMode.Strict : SameSiteMode.Lax,
+        Expires = DateTime.UtcNow.AddDays(7)
+    };
+
     [Authorize]
     [HttpGet("iam")]
     public async Task<ActionResult<IamResponse>> GetIam()
@@ -19,7 +38,7 @@ public class AuthController(IAuthService service) : ControllerBase
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
         if (userId is null)
-          return Unauthorized();
+            return Unauthorized();
 
         var result = await service.GetIamAsync(int.Parse(userId));
 
@@ -44,32 +63,12 @@ public class AuthController(IAuthService service) : ControllerBase
         if (result is null || result.AccessToken is null || result.RefreshToken is null)
             return Unauthorized(result);
 
-        Response.Cookies.Append("accessToken", result.AccessToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = false,
-            SameSite = SameSiteMode.Lax,
-            /* For Production
-            Secure = true,
-            SameSite = SameSiteMode.Strict, */
-            Expires = DateTime.UtcNow.AddMinutes(15)
-        });
-
-        Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = false,
-            SameSite = SameSiteMode.Lax,
-            /* For Production
-            Secure = true,
-            SameSite = SameSiteMode.Strict, */
-            Expires = DateTime.UtcNow.AddDays(7)
-        });
+        Response.Cookies.Append("accessToken", result.AccessToken, AccessTokenCookieOptions);
+        Response.Cookies.Append("refreshToken", result.RefreshToken, RefreshTokenCookieOptions);
 
         return Ok(result);
     }
 
-    // USER: request reset (PENDING admin approval, no code returned)
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request)
     {
@@ -91,49 +90,24 @@ public class AuthController(IAuthService service) : ControllerBase
             : BadRequest(new { message = response.Message });
     }
 
-    // USER: refresh token
     [HttpPost("refresh-token")]
     public async Task<ActionResult<AuthResponse>> RefreshToken()
-    { 
+    {
         var refreshToken = Request.Cookies["refreshToken"];
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
         var result = await service.RefreshTokenAsync(refreshToken);
 
-        if ( result is null
+        if (result is null
             || string.IsNullOrWhiteSpace(result.AccessToken)
-            || string.IsNullOrWhiteSpace(result.RefreshToken)
-        )
+            || string.IsNullOrWhiteSpace(result.RefreshToken))
             return Unauthorized(new { message = "Invalid refresh token" });
 
-        Response.Cookies.Append("accessToken", result.AccessToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = false,
-            SameSite = SameSiteMode.Lax,
-            /* For Production
-            Secure = true,
-            SameSite = SameSiteMode.Strict, */
-            Expires = DateTime.UtcNow.AddMinutes(15)
-        });
-
-        Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = false,
-            SameSite = SameSiteMode.Lax,
-            /* For Production
-            Secure = true,
-            SameSite = SameSiteMode.Strict, */
-            Expires = DateTime.UtcNow.AddDays(7)
-        });
+        Response.Cookies.Append("accessToken", result.AccessToken, AccessTokenCookieOptions);
+        Response.Cookies.Append("refreshToken", result.RefreshToken, RefreshTokenCookieOptions);
 
         return Ok(result);
     }
 
-    // OPTIONAL: logout (revokes refresh token)
-    // If your frontend can pass Authorization: Bearer <accessToken>, you can
-    // enable this.
     [Authorize]
     [HttpPost("logout")]
     public async Task<IActionResult> Logout()

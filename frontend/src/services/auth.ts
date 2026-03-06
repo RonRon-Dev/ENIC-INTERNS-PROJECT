@@ -1,19 +1,16 @@
 import * as requests from "@/validations";
-
 import api from "./api";
 
-//User Information and Permissions and Roles
+// User Information, Permissions and Roles
 export const refreshToken = async () => {
-  console.log("Attempting to refresh token...");
   const response = await api.post("/auth/refresh-token");
-  console.log("refreshToken response:", response);
   return response.data;
-}
+};
 
 export const getIam = async () => {
   const response = await api.get("/auth/iam");
   return response.data;
-}
+};
 
 export const login = async (data: requests.LoginRequest) => {
   const response = await api.post("/auth/login", {
@@ -37,10 +34,9 @@ export const forgotPassword = async (data: requests.ForgotPasswordRequest) => {
     userName: data.username,
   });
   return response.data;
-}
+};
 
 export const logout = async () => {
   const response = await api.post("/auth/logout");
   return response.data;
-}
-
+};

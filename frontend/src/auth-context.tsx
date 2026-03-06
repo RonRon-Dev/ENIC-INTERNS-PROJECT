@@ -1,13 +1,17 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   createContext,
+  useCallback,
   useContext,
-  useState,
   useEffect,
+  useRef,
+  useState,
   type ReactNode,
 } from "react";
-import { getIam } from "./services/auth";
+import { getIam, logout } from "./services/auth";
 
-// Define the shape of the user object and the authentication context
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 type User = {
   name: string;
   userName: string;
@@ -16,54 +20,122 @@ type User = {
   forcePasswordChange: boolean;
 };
 
-// Define the shape of the authentication context
 type AuthContextType = {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
+  sessionExpired: boolean;
+  idleSecondsLeft: number | null;
   refreshUser: () => Promise<void>;
   setUser: (user: User | null) => void;
+  dismissSessionExpired: () => void;
 };
 
-// Create the authentication context
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+// const IDLE_TIMEOUT_MS = 15 * 60 * 1000; 
+// const COUNTDOWN_SECONDS = 60;
+
+const IDLE_TIMEOUT_MS = 10 * 1000;  
+const COUNTDOWN_SECONDS = 10;        
+
+// ── Context ───────────────────────────────────────────────────────────────────
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Function to fetch the authenticated user's information from the server
 async function getAuthenticatedUser() {
-  try {
-    const data = await getIam();
-    return {
-      name: data.name,
-      userName: data.userName,
-      nameIdentifier: data.nameIdentifier,
-      roleName: data.roleName,
-      forcePasswordChange: data.forcePasswordChange,
-    };
-  } catch (err: any) {
-    if (err.response?.status === 401) {
-      throw err;
-    }
-    throw err;
-  }
+  const data = await getIam();
+  return {
+    name: data.name,
+    userName: data.userName,
+    nameIdentifier: data.nameIdentifier,
+    roleName: data.roleName,
+    forcePasswordChange: data.forcePasswordChange,
+  };
 }
 
-// Authentication provider component that wraps the app and provides authentication context
+// ── Provider ──────────────────────────────────────────────────────────────────
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [idleSecondsLeft, setIdleSecondsLeft] = useState<number | null>(null);
 
-  // const refreshUser = async () => {
-  //   try {
-  //     const data = await getAuthenticatedUser();
-  //     setUser(data);
-  //   } catch {
-  //     setUser(null);
-  //   }
-  // };
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null
+  );
+  const countdownValueRef = useRef<number>(COUNTDOWN_SECONDS);
+  const userRef = useRef<User | null>(null);
 
-  const refreshUser = async () => {
+  const isInitializingRef = useRef(true);
+
+  // Keep userRef in sync
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  const stopCountdown = useCallback(() => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setIdleSecondsLeft(null);
+    countdownValueRef.current = COUNTDOWN_SECONDS;
+  }, []);
+
+  const triggerSessionExpired = useCallback(async () => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    if (countdownIntervalRef.current)
+      clearInterval(countdownIntervalRef.current);
+    countdownIntervalRef.current = null;
+    setIdleSecondsLeft(null);
+
+    try {
+      await logout();
+    } catch {
+      /* ignore */
+    }
+
+    setUser(null);
+    setSessionExpired(true);
+  }, []);
+
+  const startCountdown = useCallback(() => {
+    stopCountdown();
+    countdownValueRef.current = COUNTDOWN_SECONDS;
+    setIdleSecondsLeft(COUNTDOWN_SECONDS);
+
+    countdownIntervalRef.current = setInterval(() => {
+      countdownValueRef.current -= 1;
+      setIdleSecondsLeft(countdownValueRef.current);
+
+      if (countdownValueRef.current <= 0) {
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
+        triggerSessionExpired();
+      }
+    }, 1000);
+  }, [stopCountdown, triggerSessionExpired]);
+
+  const resetIdleTimer = useCallback(() => {
+    if (!userRef.current) return;
+    if (countdownIntervalRef.current) stopCountdown();
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => {
+      startCountdown();
+    }, IDLE_TIMEOUT_MS);
+  }, [stopCountdown, startCountdown]);
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
+  const refreshUser = useCallback(async () => {
     setLoading(true);
-
     try {
       const data = await getAuthenticatedUser();
       setUser(data);
@@ -72,11 +144,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const dismissSessionExpired = useCallback(() => {
+    setSessionExpired(false);
+  }, []);
+
+
+  const hasInitialized = useRef(false);
+  useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+    refreshUser().finally(() => {
+      isInitializingRef.current = false;
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   useEffect(() => {
-    refreshUser();
-  }, []);
+    const handler = () => {
+      if (isInitializingRef.current) return;
+      triggerSessionExpired();
+    };
+    window.addEventListener("session:expired", handler);
+    return () => window.removeEventListener("session:expired", handler);
+  }, [triggerSessionExpired]);
+
+  // ── Idle detection ────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!user) {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      stopCountdown();
+      return;
+    }
+
+    const EVENTS = [
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "scroll",
+      "touchstart",
+      "click",
+    ];
+    EVENTS.forEach((e) =>
+      window.addEventListener(e, resetIdleTimer, { passive: true })
+    );
+    resetIdleTimer();
+
+    return () => {
+      EVENTS.forEach((e) => window.removeEventListener(e, resetIdleTimer));
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      stopCountdown();
+    };
+  }, [user, resetIdleTimer, stopCountdown]);
 
   return (
     <AuthContext.Provider
@@ -85,7 +206,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser,
         loading,
         isAuthenticated: !!user,
+        sessionExpired,
+        idleSecondsLeft,
         refreshUser,
+        dismissSessionExpired,
       }}
     >
       {children}
@@ -93,11 +217,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Custom hook to access the authentication context
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 }
