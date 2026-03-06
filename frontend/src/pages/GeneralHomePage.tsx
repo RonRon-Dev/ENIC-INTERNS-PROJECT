@@ -177,7 +177,7 @@ export default function GeneralHomePage() {
                       : now.getHours() < 17
                       ? "afternoon"
                       : "evening"}
-                    , {firstName}
+                    , {firstName.charAt(0).toUpperCase() + firstName.slice(1)}!
                   </h2>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm text-muted-foreground ">

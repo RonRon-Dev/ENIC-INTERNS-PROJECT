@@ -134,6 +134,10 @@ export default function AppLayout() {
                 )}
                 {!isHome && <Search className="mr-20" />}
               </div>
+
+              <div>
+                
+              </div>
             </header>
 
             {/* Page Content */}
