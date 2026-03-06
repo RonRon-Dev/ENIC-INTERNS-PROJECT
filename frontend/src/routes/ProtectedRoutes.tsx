@@ -1,15 +1,15 @@
-import { Navigate } from "react-router-dom";
 import { useAuth } from "@/auth-context";
 import { UnauthorisedError } from "@/components/errors/401";
 import type { UserRole } from "@/data/schema";
 import { Atom } from "lucide-react";
+import { Navigate } from "react-router-dom";
 
 type ProtectedRouteProps = {
   children: React.ReactNode;
   allowedRoles?: UserRole[];
 };
 
-function LoadingScreen() {
+export function LoadingScreen() {
   return (
     <div className="flex h-screen w-full flex-col items-center justify-center gap-6 bg-background">
       {/* Pulsing logo */}
@@ -19,7 +19,6 @@ function LoadingScreen() {
           <Atom className="h-6 w-6" />
         </div>
       </div>
-
       {/* Bouncing dots */}
       <div className="flex items-center gap-1.5">
         {[0, 1, 2].map((i) => (
@@ -30,7 +29,6 @@ function LoadingScreen() {
           />
         ))}
       </div>
-
       {/* Label */}
       <p className="text-xs text-muted-foreground tracking-wide">
         ENIC Systems
@@ -39,18 +37,20 @@ function LoadingScreen() {
   );
 }
 
-export default function ProtectedRoute({
+export function ProtectedRoute({
   children,
   allowedRoles,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, loading, user } = useAuth();
+  const { isAuthenticated, loading, user, sessionExpired } = useAuth();
 
   if (loading) return <LoadingScreen />;
 
+  if (sessionExpired) return null;
+
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
+  // Role check
   const userRole = user?.roleName?.toLowerCase() as UserRole | undefined;
-
   if (allowedRoles && allowedRoles.length > 0) {
     const normalised = allowedRoles.map((r) => r.toLowerCase() as UserRole);
     if (!userRole || !normalised.includes(userRole)) {

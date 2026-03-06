@@ -17,6 +17,16 @@ import NProgress from "@/lib/nprogress";
 import { SearchProvider } from "@/components/search-provider";
 import { Search } from "@/components/search";
 import { toolsData } from "@/data/tools";
+import { ChevronLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useTheme } from 'next-themes'
+import { Sun, Moon } from 'lucide-react'
+// import { useDialog } from "@/components/dialogs/dialog-provider";
+// import {  useRef } from "react";
+
+function toTitleCase(segment: string) {
+  return segment.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 function buildBreadcrumbMap(): Record<string, string> {
   const map: Record<string, string> = {};
@@ -43,22 +53,25 @@ export default function AppLayout() {
   const location = useLocation();
   const pathnames = location.pathname.split("/").filter(Boolean);
   const isHome = location.pathname === "/home";
-
+  // const { setOpen } = useDialog()
+  // const hasOpened = useRef(false)
   const breadcrumbNameMap = useMemo(() => buildBreadcrumbMap(), []);
 
   const breadcrumbSegments =
     pathnames.length <= 2 ? pathnames : pathnames.slice(-2);
+
+  // dialog — guarded against double-mount
+  // useEffect(() => {
+  //   if (hasOpened.current) return
+  //   hasOpened.current = true
+  //   setOpen('passwordReset')
+  // }, [setOpen])
 
   useEffect(() => {
     NProgress.start();
     const timeout = setTimeout(() => NProgress.done(), 300);
     return () => clearTimeout(timeout);
   }, [location]);
-
-  // const pageTitle =
-  //   breadcrumbNameMap[pathnames[pathnames.length - 1]] ??
-  //   pathnames[pathnames.length - 1] ??
-  //   "ENIC";
 
   return (
     <>
@@ -85,7 +98,8 @@ export default function AppLayout() {
                         .slice(0, pathnames.indexOf(segment) + 1)
                         .join("/");
                     const isLast = index === breadcrumbSegments.length - 1;
-                    const title = breadcrumbNameMap[segment] || segment;
+                    const title =
+                      breadcrumbNameMap[segment] || toTitleCase(segment);
 
                     return (
                       <React.Fragment key={routeTo}>
@@ -110,16 +124,48 @@ export default function AppLayout() {
                 </BreadcrumbList>
               </Breadcrumb>
 
-              {!isHome && <Search className="ml-auto mr-20" />}
+              <div className="flex ml-auto gap-2">
+                {!isHome && (
+                  <Button
+                    variant="outline"
+                    onClick={() => window.history.back()}
+                    className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors h-8 shadow-none"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Back
+                  </Button>
+                )}
+                {!isHome && <Search className="mr-20" />}
+
+                <ThemeToggle />
+              </div>
             </header>
 
             {/* Page Content */}
             <div className="flex flex-1 flex-col gap-4 px-[100px] pt-10">
-                <Outlet />
+              <Outlet />
             </div>
           </SidebarInset>
         </SidebarProvider>
       </SearchProvider>
     </>
   );
+}
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme()
+
+  const next = theme === 'dark' ? 'light' : 'dark'
+  const Icon = theme === 'dark' ? Sun : Moon
+
+  return (
+    <Button
+      variant="outline"
+      size="icon"
+      className="h-8 w-8 shadow-none"
+      onClick={() => setTheme(next)}
+    >
+      <Icon className="h-4 w-4" />
+    </Button>
+  )
 }

@@ -38,16 +38,15 @@ export function useColumns() {
 
   const columns: ColumnDef<ActivityLog>[] = [
     {
-      accessorKey: 'username',
+      id: 'username',                            
+      accessorFn: (row) => row.user.username,
       header: ({ column }) => (
         <div className="ml-3">
           <DataTableColumnHeader column={column} title="Username" />
         </div>
       ),
       cell: ({ row }) => (
-        <div className="flex items-center">
-          <div className="ml-5">{row.original.user.username}</div>
-        </div>
+        <div className="ml-5">{row.original.user.username}</div>
       ),
       enableHiding: false,
     },

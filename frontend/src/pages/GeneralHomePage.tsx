@@ -65,7 +65,7 @@ export default function GeneralHomePage() {
 
   // dialog — guarded against double-mount
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1200);
+    const timer = setTimeout(() => setLoading(false));
     return () => clearTimeout(timer);
   }, []);
 
@@ -142,6 +142,8 @@ export default function GeneralHomePage() {
       );
   }, [tools, searchQuery]);
 
+  const accessibleCount = tools.filter((t: ToolCard) => t.isAccessible).length;
+
   return (
     <div className="space-y-5">
       {/* ── Welcome Header ─────────────────────────────────────── */}
@@ -173,9 +175,9 @@ export default function GeneralHomePage() {
                     {now.getHours() < 12
                       ? "morning"
                       : now.getHours() < 17
-                        ? "afternoon"
-                        : "evening"}
-                    , {firstName}
+                      ? "afternoon"
+                      : "evening"}
+                    , {firstName.charAt(0).toUpperCase() + firstName.slice(1)}!
                   </h2>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm text-muted-foreground ">
@@ -262,13 +264,13 @@ export default function GeneralHomePage() {
 
         {/* Bottom rule — section label */}
         <div className="px-7 py-2 border-t bg-muted/20 flex items-center justify-between">
-          <p className="text-sm text-muted-foreground font-medium">
+          <p className="text-xs text-muted-foreground font-medium">
             Select a tool
           </p>
           {!loading && (
-            <p className="text-sm text-muted-foreground">
-              {sortedTools.length} tool{sortedTools.length !== 1 ? "s" : ""}
-              {searchQuery ? ` for "${searchQuery}"` : ""} available
+            <p className="text-xs text-muted-foreground">
+              {accessibleCount} tool{accessibleCount !== 1 ? "s" : ""} available
+              to you
             </p>
           )}
         </div>
@@ -311,8 +313,8 @@ export default function GeneralHomePage() {
                   clickable
                     ? "cursor-pointer hover:bg-accent hover:border-accent-foreground/20 hover:shadow-sm"
                     : tool.isAccessible
-                      ? "cursor-default"
-                      : "opacity-50 cursor-not-allowed bg-muted/20 border-dashed"
+                    ? "cursor-default"
+                    : "opacity-50 cursor-not-allowed bg-muted/20 border-dashed"
                 )}
               >
                 <div

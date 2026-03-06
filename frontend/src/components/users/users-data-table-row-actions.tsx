@@ -1,4 +1,4 @@
-import { MoreHorizontal, Trash2, UserCheck, UserPen, UserX } from 'lucide-react'
+import { KeyRound, MoreHorizontal, Trash2, UserCheck, UserPen, UserX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -70,6 +70,17 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
                 Edit
                 <DropdownMenuShortcut>
                   <UserPen size={16} />
+                </DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setCurrentRow(row.original)
+                  setOpen('approveReset')
+                }}
+              >
+                Reset Pwd
+                <DropdownMenuShortcut>
+                  <KeyRound size={16} />
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
