@@ -1,14 +1,25 @@
-
-
 import type { User } from "./schema"
+import { usersApi } from "@/services/users"
+
+function mapStatus(isVerified: boolean, isActive: boolean): User['status'] {
+  if (!isVerified) return 'pending'
+  if (!isActive) return 'deactivated'
+  return 'active'
+}
+
+function mapRole(roleName: string): User['role'] {
+  const lower = roleName.toLowerCase()
+  if (lower === 'developer') return 'dev'
+  return lower as User['role']
+}
 
 export const users: () => Promise<User[]> = async () => {
-  return [
-    { id: "728ed521", name: "jane doe", status: "pending", username: "janedoe", role: "guest" },
-    { id: "728ed522", name: "jake doe", status: "pending", username: "jakedoe", role: "guest" },
-    { id: "728ed52f", name: "john doe", status: "active", username: "johndoe", role: "superadmin" },
-    { id: "728ed522", name: "john smith", status: "active", username: "johnsmith", role: "admin" },
-    { id: "728ed511", name: "kate doe", status: "deactivated", username: "katedoe", role: "guest" },
-    { id: "728ed512", name: "karen smith", status: "deactivated", username: "ktsmith", role: "guest" },
-  ]
+  const res = await usersApi.getAll()
+  return (res.data as any[]).map((u): User => ({
+    id: String(u.id),
+    name: u.name,
+    username: u.userName,
+    status: mapStatus(u.isVerified, u.isActive),
+    role: mapRole(u.role?.name ?? 'guest'),
+  }))
 }

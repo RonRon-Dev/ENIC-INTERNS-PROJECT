@@ -3,13 +3,14 @@ import { useAuth } from "@/auth-context";
 import { UnauthorisedError } from "@/components/errors/401";
 import type { UserRole } from "@/data/schema";
 import { Atom } from "lucide-react";
+import { useEffect } from "react";
 
 type ProtectedRouteProps = {
   children: React.ReactNode;
   allowedRoles?: UserRole[];
 };
 
-function LoadingScreen() {
+export function LoadingScreen() {
   return (
     <div className="flex h-screen w-full flex-col items-center justify-center gap-6 bg-background">
       {/* Pulsing logo */}
@@ -39,7 +40,7 @@ function LoadingScreen() {
   );
 }
 
-export default function ProtectedRoute({
+export function ProtectedRoute({
   children,
   allowedRoles,
 }: ProtectedRouteProps) {
@@ -53,6 +54,7 @@ export default function ProtectedRoute({
 
   if (allowedRoles && allowedRoles.length > 0) {
     const normalised = allowedRoles.map((r) => r.toLowerCase() as UserRole);
+
     if (!userRole || !normalised.includes(userRole)) {
       return <UnauthorisedError />;
     }

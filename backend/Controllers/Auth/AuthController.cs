@@ -92,18 +92,41 @@ public class AuthController(IAuthService service) : ControllerBase
     }
 
     // USER: refresh token
-    [Authorize]
     [HttpPost("refresh-token")]
-    public async Task<ActionResult<AuthResponse>> RefreshToken(RefreshTokenRequest request)
-    {
-        var result = await service.RefreshTokenAsync(request);
+    public async Task<ActionResult<AuthResponse>> RefreshToken()
+    { 
+        var refreshToken = Request.Cookies["refreshToken"];
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-        if (
-            result is null
+        var result = await service.RefreshTokenAsync(refreshToken);
+
+        if ( result is null
             || string.IsNullOrWhiteSpace(result.AccessToken)
             || string.IsNullOrWhiteSpace(result.RefreshToken)
         )
             return Unauthorized(new { message = "Invalid refresh token" });
+
+        Response.Cookies.Append("accessToken", result.AccessToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = false,
+            SameSite = SameSiteMode.Lax,
+            /* For Production
+            Secure = true,
+            SameSite = SameSiteMode.Strict, */
+            Expires = DateTime.UtcNow.AddMinutes(15)
+        });
+
+        Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = false,
+            SameSite = SameSiteMode.Lax,
+            /* For Production
+            Secure = true,
+            SameSite = SameSiteMode.Strict, */
+            Expires = DateTime.UtcNow.AddDays(7)
+        });
 
         return Ok(result);
     }

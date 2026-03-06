@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { DataTable, useColumns } from '@/components/tables-data/activity-logs-column'
-import { userlogs } from "@/data/userlogs"
+import { getActivityLogs } from "@/services/activity-logs"
 import type { ActivityLog } from "@/data/schema"
 import { SkeletonTable } from "@/pages/UserManagementPage"
 import { LogsProvider } from "@/components/act-logs/logs-provider"
@@ -14,18 +14,20 @@ function DashboardContent() {
 
     useEffect(() => {
         async function loadData() {
-            const logs = await userlogs()
-            setData(logs)
-            // setLoading(false)
+            try {
+                const res = await getActivityLogs()
+                setData(res.data)
+            } catch (err) {
+                console.error("Failed to load activity logs:", err)
+            } finally {
+                setLoading(false)
+            }
         }
 
         loadData()
     }, [])
 
-    useEffect(() => {
-        const timer = setTimeout(() => setLoading(false), 1200);
-        return () => clearTimeout(timer);
-    }, []);
+    console.log("Activity Logs Data:", data)
 
     return (
         <>

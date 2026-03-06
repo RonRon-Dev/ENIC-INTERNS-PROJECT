@@ -4,7 +4,6 @@ import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { useEffect, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { showSubmittedData } from '@/lib/show-submitted-data'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -25,12 +24,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { SelectDropdown } from '@/components/select-dropdown'
 import { AlertTriangle, Check, Copy, UserCheck, UserX } from 'lucide-react'
-import { roles } from '@/data/const'
 import { type User } from '@/data/schema'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Textarea } from '../ui/textarea'
-import { Checkbox } from '../ui/checkbox'
+import { usersApi } from '@/services/users'
+import { useUsers } from './users-provider'
 
 const formSchema = z
   .object({
@@ -62,10 +61,46 @@ export function UsersActionDialog({
       : { name: '', username: '', role: '', isEdit, isResetPassword: false },
   })
 
-  const onSubmit = (values: UserForm) => {
-    form.reset()
-    showSubmittedData(values, isEdit ? 'edit' : 'create')
-    onOpenChange(false)
+  const { apiRoles, refresh } = useUsers()
+  const [tempPassword, setTempPassword] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const onSubmit = async (values: UserForm) => {
+    if (isEdit) {
+      setIsSubmitting(true)
+      setError(null)
+      try {
+        const apiRole = apiRoles.find(r => r.name.toLowerCase() === values.role.toLowerCase())
+        if (!apiRole) { setError('Role not found.'); return }
+        await usersApi.assignRole(parseInt(currentRow!.id), apiRole.id)
+        refresh()
+        form.reset()
+        onOpenChange(false)
+      } catch (err: any) {
+        setError(err?.response?.data?.message ?? 'Failed to update user.')
+      } finally {
+        setIsSubmitting(false)
+      }
+      return
+    }
+    setIsSubmitting(true)
+    setError(null)
+    try {
+      const apiRole = apiRoles.find(r => r.name.toLowerCase() === values.role.toLowerCase())
+      if (!apiRole) { setError('Role not found. Please try again.'); return }
+      const res = await usersApi.createUser({
+        name: values.name,
+        userName: values.username,
+        roleId: apiRole.id,
+      })
+      setTempPassword(res.data.tempPassword)
+      refresh()
+    } catch (err: any) {
+      setError(err?.response?.data?.errors?.UserName?.[0] ?? 'Failed to create user.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
   const fullName = form.watch("name");
 
@@ -107,6 +142,8 @@ export function UsersActionDialog({
       open={open}
       onOpenChange={(state) => {
         form.reset()
+        setTempPassword(null)
+        setError(null)
         onOpenChange(state)
       }}
     >
@@ -198,16 +235,9 @@ export function UsersActionDialog({
                       onValueChange={field.onChange}
                       placeholder='Select a role'
                       className='col-span-3'
-                      items={roles.map(({ label, value, icon: Icon }) => ({
-                        label: (
-                          <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4" />
-                            <span>
-                              {label.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase())}
-                            </span>
-                          </div>
-                        ),
-                        value,
+                      items={apiRoles.map((r) => ({
+                        label: r.name.charAt(0).toUpperCase() + r.name.slice(1),
+                        value: r.name,
                       }))}
                     />
                     <FormMessage className='col-span-4 col-start-3' />
@@ -215,33 +245,24 @@ export function UsersActionDialog({
                 )}
               />
 
-              {isEdit && (
-                <FormField
-                  control={form.control}
-                  name='isResetPassword'
-                  render={({ field }) => (
-                    <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
-                      <FormLabel className='col-span-2 text-end'>Reset Password</FormLabel>
-                      <FormControl>
-                        <div className='col-span-3 flex items-center gap-2'>
-                          <Checkbox
-                            id='reset-password'
-                            checked={field.value}
-                            onCheckedChange={(checked) => field.onChange(!!checked)}
-                          />
-                          <label htmlFor='reset-password' className='text-sm cursor-pointer text-muted-foreground'>
-                            Set a new password
-                          </label>
-                        </div>
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              )}
             </form>
           </Form>
         </div>
         <DialogFooter>
+          {tempPassword && (
+            <Alert className='w-full text-left mb-2'>
+              <AlertTitle>User Created</AlertTitle>
+              <AlertDescription>
+                Temporary password: <span className='font-mono font-bold'>{tempPassword}</span>
+                <br />Share this with the user via secure channel.
+              </AlertDescription>
+            </Alert>
+          )}
+          {error && (
+            <Alert variant='destructive' className='w-full text-left mb-2'>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           {isEdit && (
             <Button
               type='button'
@@ -253,11 +274,12 @@ export function UsersActionDialog({
             </Button>
           )}
           <Button
-            type='submit'
+            type={tempPassword ? 'button' : 'submit'}
             form='user-form'
-            disabled={isEdit && (!form.formState.isValid || !form.formState.isDirty)}
+            disabled={isSubmitting || (isEdit && (!form.formState.isValid || !form.formState.isDirty))}
+            onClick={tempPassword ? () => { form.reset(); setTempPassword(null); onOpenChange(false) } : undefined}
           >
-            {isEdit ? 'Save changes' : 'Create user'}
+            {tempPassword ? 'Done' : isSubmitting ? 'Saving...' : isEdit ? 'Save changes' : 'Create user'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -276,13 +298,22 @@ export function UsersDeactivateDialog({
   onOpenChange,
   currentRow,
 }: UserDeactivateDialogProps) {
+  const { refresh } = useUsers()
   const [value, setValue] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleDeactivate = () => {
+  const handleDeactivate = async () => {
     if (value.trim() !== currentRow.username) return
-
-    onOpenChange(false)
-    showSubmittedData(currentRow, 'deactivate')
+    setIsSubmitting(true)
+    try {
+      await usersApi.disableUser(parseInt(currentRow.id))
+      refresh()
+      onOpenChange(false)
+    } catch (err) {
+      console.error('Failed to deactivate user:', err)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -290,7 +321,7 @@ export function UsersDeactivateDialog({
       open={open}
       onOpenChange={onOpenChange}
       handleConfirm={handleDeactivate}
-      disabled={value.trim() !== currentRow.username}
+      disabled={value.trim() !== currentRow.username || isSubmitting}
       title={
         <span className='text-destructive'>
           <AlertTriangle
@@ -345,13 +376,22 @@ export function UsersActivateDialog({
   onOpenChange,
   currentRow,
 }: UserActivateDialogProps) {
+  const { refresh } = useUsers()
   const [value, setValue] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleActivate = () => {
+  const handleActivate = async () => {
     if (value.trim() !== currentRow.username) return
-
-    onOpenChange(false)
-    showSubmittedData(currentRow, 'activate')
+    setIsSubmitting(true)
+    try {
+      await usersApi.enableUser(parseInt(currentRow.id))
+      refresh()
+      onOpenChange(false)
+    } catch (err) {
+      console.error('Failed to activate user:', err)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -359,7 +399,7 @@ export function UsersActivateDialog({
       open={open}
       onOpenChange={onOpenChange}
       handleConfirm={handleActivate}
-      disabled={value.trim() !== currentRow.username}
+      disabled={value.trim() !== currentRow.username || isSubmitting}
       title={
         <span className='text-green-600'>
           <AlertTriangle
@@ -414,32 +454,43 @@ export function UsersApproveDialog({
   onOpenChange,
   currentRow,
 }: UserApproveDialogProps) {
-  const handleApprove = () => {
-    onOpenChange(false)
-    showSubmittedData(currentRow, 'approve')
-  }
+  const { apiRoles, refresh } = useUsers()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const form = useForm<UserForm>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      role: '',
-    },
+    defaultValues: { role: '', name: '', username: '', isEdit: false, isResetPassword: false },
   })
 
-  const onSubmit = (values: UserForm) => {
-    form.reset()
-    showSubmittedData(values, 'approve')
-    onOpenChange(false)
+  const selectedRole = form.watch('role')
+
+  const handleApprove = async () => {
+    const roleName = form.getValues('role')
+    const apiRole = apiRoles.find(r => r.name.toLowerCase() === roleName.toLowerCase())
+    if (!apiRole) { setErrorMsg('Please select a valid role.'); return }
+    setIsSubmitting(true)
+    setErrorMsg(null)
+    try {
+      await usersApi.approveRegistration(parseInt(currentRow.id), apiRole.id)
+      form.reset()
+      refresh()
+      onOpenChange(false)
+    } catch (err: any) {
+      setErrorMsg(err?.response?.data?.message ?? 'Failed to approve user.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const selectedRole = form.watch('role')
+  const onSubmit = () => handleApprove()
 
   return (
     <ConfirmDialog
       open={open}
       onOpenChange={onOpenChange}
       handleConfirm={handleApprove}
-      disabled={!selectedRole}
+      disabled={!selectedRole || isSubmitting}
       title={
         <span className='text-green-600'>
           <UserCheck
@@ -468,22 +519,14 @@ export function UsersApproveDialog({
                 name='role'
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
-                    {/* <FormLabel className='col-span-2 text-end'>Role</FormLabel> */}
                     <SelectDropdown
                       defaultValue={field.value}
                       onValueChange={field.onChange}
                       placeholder='Select a role'
                       className='col-span-6'
-                      items={roles.map(({ label, value, icon: Icon }) => ({
-                        label: (
-                          <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4" />
-                            <span>
-                              {label.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase())}
-                            </span>
-                          </div>
-                        ),
-                        value,
+                      items={apiRoles.map((r) => ({
+                        label: r.name,
+                        value: r.name,
                       }))}
                     />
                     <FormMessage className='col-span-4 col-start-3' />
@@ -492,6 +535,11 @@ export function UsersApproveDialog({
               />
             </form>
           </Form>
+          {errorMsg && (
+            <Alert variant='destructive'>
+              <AlertDescription>{errorMsg}</AlertDescription>
+            </Alert>
+          )}
           <Alert>
             <AlertTitle>Note</AlertTitle>
             <AlertDescription>
@@ -500,7 +548,7 @@ export function UsersApproveDialog({
           </Alert>
         </div>
       }
-      confirmText='Approve'
+      confirmText={isSubmitting ? 'Approving...' : 'Approve'}
     />
   )
 }
@@ -520,7 +568,6 @@ export function UsersRejectDialog({
 
   const handleReject = () => {
     onOpenChange(false)
-    showSubmittedData({ ...currentRow, reason }, 'reject')
   }
 
   return (
@@ -562,6 +609,92 @@ export function UsersRejectDialog({
       }
       confirmText='Reject'
       destructive
+    />
+  )
+}
+
+type UserApproveResetDialogProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  currentRow: User
+}
+
+export function UsersApproveResetDialog({
+  open,
+  onOpenChange,
+  currentRow,
+}: UserApproveResetDialogProps) {
+  const { refresh } = useUsers()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [tempPassword, setTempPassword] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const handleApprove = async () => {
+    setIsSubmitting(true)
+    setErrorMsg(null)
+    try {
+      const res = await usersApi.approveResetPassword(currentRow.username)
+      setTempPassword(res.data.temporaryPassword)
+      refresh()
+    } catch (err: any) {
+      setErrorMsg(err?.response?.data?.message ?? 'Failed to approve reset.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleCopy = () => {
+    if (!tempPassword) return
+    navigator.clipboard.writeText(tempPassword)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <ConfirmDialog
+      open={open}
+      onOpenChange={(state) => {
+        if (!state) { setTempPassword(null); setErrorMsg(null) }
+        onOpenChange(state)
+      }}
+      handleConfirm={tempPassword ? () => onOpenChange(false) : handleApprove}
+      disabled={isSubmitting}
+      title={
+        <span className='text-yellow-600'>
+          <UserCheck className='me-1 inline-block stroke-yellow-600' size={18} />{' '}
+          Approve Password Reset
+        </span>
+      }
+      desc={
+        <div className='space-y-4'>
+          {!tempPassword ? (
+            <p>
+              Approve password reset for <span className='font-bold'>{currentRow.username}</span>?
+              <br />A temporary password will be generated for you to share with the user.
+            </p>
+          ) : (
+            <div className='space-y-3'>
+              <p>Password reset approved. Share this temporary password with <span className='font-bold'>{currentRow.username}</span>:</p>
+              <div className='flex items-center gap-2 rounded-md border bg-muted px-3 py-2'>
+                <span className='flex-1 font-mono text-base font-bold tracking-widest'>{tempPassword}</span>
+                <button type='button' onClick={handleCopy} className='p-1 hover:bg-background rounded transition-colors'>
+                  {copied ? <Check className='h-4 w-4 text-green-600' /> : <Copy className='h-4 w-4 text-muted-foreground' />}
+                </button>
+              </div>
+              <Alert>
+                <AlertDescription>The user must change this password on next login.</AlertDescription>
+              </Alert>
+            </div>
+          )}
+          {errorMsg && (
+            <Alert variant='destructive'>
+              <AlertDescription>{errorMsg}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+      }
+      confirmText={tempPassword ? 'Done' : isSubmitting ? 'Processing...' : 'Approve Reset'}
     />
   )
 }

@@ -102,11 +102,11 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         {
             UserId = user.Id,
             UserName = user.UserName,
-            ActivityType = "Authentication",
+            ActivityType = "account management",
             Description = "User Registration (Pending Approval)",
             Payload = System.Text.Json.JsonSerializer.Serialize(new { request.Name, request.UserName }),
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -143,23 +143,25 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             {
                 UserId = user.Id,
                 UserName = user.UserName,
-                ActivityType = "Authentication",
+                ActivityType = "authentication",
                 Description = "User Login Blocked - Pending Approval",
                 Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
                 IsSuccess = false,
-                Timestamp = DateTime.UtcNow,
+                Timestamp = PhTime,
             });
 
             await context.SaveChangesAsync();
-
-            return new AuthResponse
+            if (!user.IsVerified)
             {
-                Success = false,
-                Message = "Account pending approval. Please contact your administrator.",
-                AccessToken = null!,
-                RefreshToken = null!,
-                ForcePasswordChange = false
-            };
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "Account pending approval. Please contact your administrator.",
+                    AccessToken = null!,
+                    RefreshToken = null!,
+                    ForcePasswordChange = false
+                };
+            }
         }
 
         // If an admin issued a temporary password, it is stored in PasswordHash,
@@ -173,11 +175,11 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             {
                 UserId = user.Id,
                 UserName = user.UserName,
-                ActivityType = "Authentication",
+                ActivityType = "authentication",
                 Description = "User Login Failed",
                 Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
                 IsSuccess = false,
-                Timestamp = DateTime.UtcNow,
+                Timestamp = PhTime,
             });
 
             await context.SaveChangesAsync();
@@ -197,11 +199,11 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         {
             UserId = user.Id,
             UserName = user.UserName,
-            ActivityType = "Authentication",
+            ActivityType = "authentication",
             Description = "User Login Successful",
-            Payload = System.Text.Json.JsonSerializer.Serialize(request),
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -243,11 +245,12 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         {
             UserId = user.Id,
             UserName = user.UserName,
-            ActivityType = "Authentication",
+            ActivityType = "authentication",
             Description = "User Logout",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { user.UserName }),
+            Payload = "{}",
+            //Payload = System.Text.Json.JsonSerializer.Serialize(new { user.UserName }),
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -263,10 +266,15 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     }
 
     // Refresh token (your implemented version)
-    public async Task<AuthResponse?> RefreshTokenAsync(RefreshTokenRequest request)
+    public async Task<AuthResponse?> RefreshTokenAsync(string? refreshToken)
     {
-        var user = await ValidateRefreshTokenAsync(request.UserId, request.RefreshToken);
-        if (user == null) return null;
+        var user = await context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken &&
+                u.RefreshTokenExpiry > DateTime.UtcNow);
+
+        if (user is null)
+            return null;
 
         return new AuthResponse
         {
@@ -324,11 +332,11 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         {
             UserId = user.Id,
             UserName = user.UserName,
-            ActivityType = "Reset Password Request",
+            ActivityType = "account management",
             Description = "Reset Password Request (Pending Admin Approval)",
             Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -377,11 +385,11 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         {
             UserId = user.Id,
             UserName = user.UserName,
-            ActivityType = "PasswordReset",
+            ActivityType = "account management",
             Description = "User Reset Password Successfully",
             Payload = "{}",
             IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = PhTime,
         });
 
         await context.SaveChangesAsync();
@@ -397,44 +405,50 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     // Helpers
     // -------------------------
 
+    private static DateTime PhTime =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
+            TimeZoneInfo.FindSystemTimeZoneById(
+                OperatingSystem.IsWindows() ? "Singapore Standard Time" : "Asia/Manila"));
+
     private string GenerateToken(Users user)
-{
-    var issuer = configuration["AppSettings:Issuer"];
-    var audience = configuration["AppSettings:Audience"];
-    var secret = configuration["AppSettings:Token"];
-
-    if (string.IsNullOrWhiteSpace(issuer))
-        throw new InvalidOperationException("AppSettings:Issuer is missing.");
-    if (string.IsNullOrWhiteSpace(audience))
-        throw new InvalidOperationException("AppSettings:Audience is missing.");
-    if (string.IsNullOrWhiteSpace(secret))
-        throw new InvalidOperationException("AppSettings:Token is missing.");
-
-    var claims = new List<Claim>
     {
-        new Claim(ClaimTypes.Name, user.UserName),
-        new Claim(ClaimTypes.GivenName, user.Name),
-        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-        new Claim("ForcePasswordChange", user.ForcePasswordChange.ToString())
-    };
+        var issuer = configuration["AppSettings:Issuer"];
+        var audience = configuration["AppSettings:Audience"];
+        var secret = configuration["AppSettings:Token"];
 
-    if (user.Role != null && !string.IsNullOrWhiteSpace(user.Role.Name))
-        claims.Add(new Claim(ClaimTypes.Role, user.Role.Name));
+        if (string.IsNullOrWhiteSpace(issuer))
+            throw new InvalidOperationException("AppSettings:Issuer is missing.");
+        if (string.IsNullOrWhiteSpace(audience))
+            throw new InvalidOperationException("AppSettings:Audience is missing.");
+        if (string.IsNullOrWhiteSpace(secret))
+            throw new InvalidOperationException("AppSettings:Token is missing.");
 
-    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
-    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.Name, user.UserName),
+            new Claim(ClaimTypes.GivenName, user.Name),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim("ForcePasswordChange", user.ForcePasswordChange.ToString())
+        };
 
-    var token = new JwtSecurityToken(
-        issuer: issuer,
-        audience: audience,
-        claims: claims,
-        notBefore: DateTime.UtcNow,
-        expires: DateTime.UtcNow.AddDays(1), 
-        signingCredentials: creds
-    );
+        if (user.Role != null && !string.IsNullOrWhiteSpace(user.Role.Name))
+            claims.Add(new Claim(ClaimTypes.Role, user.Role.Name));
 
-    return new JwtSecurityTokenHandler().WriteToken(token);
-}
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
+
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
+            claims: claims,
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddDays(1), 
+            signingCredentials: creds
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
     private async Task<Users?> ValidateRefreshTokenAsync(int userId, string refreshToken)
     {
         var user = await context.Users.FindAsync(userId);

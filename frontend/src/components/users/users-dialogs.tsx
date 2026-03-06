@@ -1,4 +1,4 @@
-import { UsersActionDialog, UsersDeactivateDialog, UsersActivateDialog, UsersApproveDialog, UsersRejectDialog } from '@/components/users/users-action-dialog'
+import { UsersActionDialog, UsersDeactivateDialog, UsersActivateDialog, UsersApproveDialog, UsersRejectDialog, UsersApproveResetDialog } from '@/components/users/users-action-dialog'
 import { useUsers } from '@/components/users/users-provider'
 import { UsersAddRoleDialog } from '@/components/users/users-add-role-dialog'
 
@@ -70,6 +70,16 @@ export function UsersDialogs() {
             open={open === 'reject'}
             onOpenChange={() => {
               setOpen('reject')
+              setTimeout(() => {
+                setCurrentRow(null)
+              }, 500)
+            }}
+            currentRow={currentRow}
+          />
+          <UsersApproveResetDialog
+            open={open === 'approveReset'}
+            onOpenChange={() => {
+              setOpen('approveReset')
               setTimeout(() => {
                 setCurrentRow(null)
               }, 500)
