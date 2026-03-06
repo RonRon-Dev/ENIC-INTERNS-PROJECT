@@ -33,11 +33,11 @@ type AuthContextType = {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-// const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
-// const COUNTDOWN_SECONDS = 60;
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+const COUNTDOWN_SECONDS = 60;
 
-const IDLE_TIMEOUT_MS = 10 * 1000;
-const COUNTDOWN_SECONDS = 10;
+// const IDLE_TIMEOUT_MS = 10 * 1000;
+// const COUNTDOWN_SECONDS = 10;
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
