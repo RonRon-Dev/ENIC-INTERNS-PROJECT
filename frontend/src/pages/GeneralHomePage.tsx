@@ -65,7 +65,7 @@ export default function GeneralHomePage() {
 
   // dialog — guarded against double-mount
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1200);
+    const timer = setTimeout(() => setLoading(false));
     return () => clearTimeout(timer);
   }, []);
 

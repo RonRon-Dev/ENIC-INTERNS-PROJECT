@@ -75,7 +75,7 @@ function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
         asChild
         isActive={checkIsActive(href, item)}
         tooltip={item.title}
-        className='group/sub duration-300 ease-in-out cursor-pointer'
+        className='group/sub'
       >
         <Link to={item.url} onClick={() => setOpenMobile(false)}>
           {item.icon && <item.icon />}
@@ -117,7 +117,7 @@ function SidebarMenuCollapsible({
                 <SidebarMenuSubButton
                   asChild
                   isActive={checkIsActive(href, subItem)}
-                  className='group/sub duration-300 ease-in-out cursor-pointer'
+                  className='group/sub'
                 >
                   <Link to={subItem.url} onClick={() => setOpenMobile(false)}>
                     {subItem.icon && <subItem.icon />}
