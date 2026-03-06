@@ -12,19 +12,30 @@ namespace backend.Controllers.Auth;
 [ApiController]
 public class AuthController(IAuthService service) : ControllerBase
 {
-    [Authorize]
     [HttpGet("iam")]
     public async Task<ActionResult<IamResponse>> GetIam()
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
         if (userId is null)
-          return Unauthorized();
+          return Unauthorized(new IamResponse 
+          { 
+              Name = null,
+              UserName = null,
+              NameIdentifier = null,
+              RoleName = null,
+          });
 
         var result = await service.GetIamAsync(int.Parse(userId));
 
         if (result is null)
-            return NotFound(new { message = "User not found" });
+            return NotFound(new IamResponse 
+            { 
+                Name = null,
+                UserName = null,
+                NameIdentifier = null,
+                RoleName = null,
+            });
 
         return Ok(result);
     }
@@ -52,7 +63,7 @@ public class AuthController(IAuthService service) : ControllerBase
             /* For Production
             Secure = true,
             SameSite = SameSiteMode.Strict, */
-            Expires = DateTime.UtcNow.AddMinutes(15)
+            Expires = DateTime.UtcNow.AddMinutes(30)
         });
 
         Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
@@ -114,7 +125,7 @@ public class AuthController(IAuthService service) : ControllerBase
             /* For Production
             Secure = true,
             SameSite = SameSiteMode.Strict, */
-            Expires = DateTime.UtcNow.AddMinutes(15)
+            Expires = DateTime.UtcNow.AddMinutes(30)
         });
 
         Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions

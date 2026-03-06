@@ -1,16 +1,18 @@
 using System.Security.Cryptography;
 using backend.Data;
 using backend.Models;
+using backend.Services.ActivityLogger;
 using backend.Dtos.Request.User;
 using backend.Dtos.Response.User;
-using backend.Dtos.Response.Auth;
 using backend.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using BCrypt.Net;
 
 namespace backend.Services.User;
 
-public class UserService(AppDbContext context) : IUserService
+public class UserService(
+    AppDbContext context,
+    ActivityLoggerService logger) : IUserService
 {
     // Getting all users with their roles, but not including sensitive information like password hash.
     public async Task<List<UserResponse>> GetAllUsersAsync() =>
@@ -112,6 +114,10 @@ public class UserService(AppDbContext context) : IUserService
         var password = BCrypt.Net.BCrypt.HashPassword(rawPassword, 10);
 
         var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
+        var role = await context.Roles.FirstOrDefaultAsync(r => r.Id == request.RoleId);
+
+        if (role is null)
+            throw new ArgumentException("Role not found.");
 
         var newUser = new Users
         {
@@ -126,18 +132,27 @@ public class UserService(AppDbContext context) : IUserService
 
         context.Users.Add(newUser);
 
-        var log = new ActivityLogs
-        {
-            UserId = authUser.Id,
-            UserName = authUser.UserName,
-            ActivityType = "account management",
-            Description = "Admin Created User",
-            Payload = System.Text.Json.JsonSerializer.Serialize(request),
-            IsSuccess = true,
-            Timestamp = PhTime,
+        var payload = new 
+        { 
+            target_user = new 
+            {
+                id = newUser.Id,
+                name = newUser.Name,
+                username = newUser.UserName,
+                role = role.Name,
+                is_verified = newUser.IsVerified,
+                ForcePasswordChange = newUser.ForcePasswordChange
+            },
+            temp_generated_password = true
         };
 
-        context.ActivityLogs.Add(log);
+        await logger.LogAccountManagementAsync(
+            authUser.Id,
+            authUser.UserName,
+            "Admin Created User",
+            true,
+            payload
+        );
 
         await context.SaveChangesAsync();
 
@@ -176,17 +191,13 @@ public class UserService(AppDbContext context) : IUserService
 
         var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
 
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = authUser.Id,
-            UserName = authUser.UserName,
-            ActivityType = "privilege",
-            Description = $"Role assigned: {role.Name}",
-            //Description = "Assigned Role to User",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { entity.Name, entity.UserName, PastRole = pastRole,  Role = role.Name }),
-            IsSuccess = true,
-            Timestamp = PhTime,
-        });
+        await logger.LogPrivilegeChangeAsync(
+            authUser.Id,
+            authUser.UserName,
+            $"Role assigned: {role.Name}",
+            true,
+            new { name = entity.Name, username = entity.UserName, past_role = pastRole, new_role = role.Name }
+        );
 
         await context.SaveChangesAsync();
         return new UpdateUserResponse
@@ -210,16 +221,20 @@ public class UserService(AppDbContext context) : IUserService
 
         var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
 
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = authUser.Id,
-            UserName = authUser.UserName,
-            ActivityType = "account management",
-            Description = "Enabled User",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { user.Name, user.UserName }),
-            IsSuccess = true,
-            Timestamp = PhTime,
-        });
+        var payload = new 
+        { 
+            name = user.Name,
+            username = user.UserName,
+            role = user.Role != null ? user.Role.Name : "No Role"
+        };
+
+        await logger.LogAccountManagementAsync(
+            authUser.Id,
+            authUser.UserName,
+            "Enable User",
+            true,
+            payload
+        );
 
         await context.SaveChangesAsync();
 
@@ -244,16 +259,20 @@ public class UserService(AppDbContext context) : IUserService
 
         var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
 
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = authUser.Id,
-            UserName = authUser.UserName,
-            ActivityType = "account management",
-            Description = "Disabled User",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { user.Name, user.UserName }),
-            IsSuccess = true,
-            Timestamp = PhTime,
-        });
+        var payload = new 
+        { 
+            name = user.Name,
+            username = user.UserName,
+            role = user.Role != null ? user.Role.Name : "No Role"
+        };
+
+        await logger.LogAccountManagementAsync(
+            authUser.Id,
+            authUser.UserName,
+            "Disable User",
+            true,
+            payload
+        );
 
         await context.SaveChangesAsync();
 
@@ -296,16 +315,21 @@ public class UserService(AppDbContext context) : IUserService
 
         var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
 
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = authUser.Id,
-            UserName = authUser.UserName,
-            ActivityType = "account management",
-            Description = "Admin Approved Registration",
-            Payload = System.Text.Json.JsonSerializer.Serialize(request),
-            IsSuccess = true,
-            Timestamp = PhTime,
-        });
+        var payload = new 
+        { 
+            name = user.Name,
+            username = user.UserName,
+            role = role.Name,
+            is_verified = user.IsVerified,
+        };
+
+        await logger.LogAccountManagementAsync(
+            authUser.Id,
+            authUser.UserName,
+            "Admin Approved Registration",
+            true,
+            payload 
+        );
 
         await context.SaveChangesAsync();
         return new UpdateUserResponse
@@ -363,16 +387,21 @@ public class UserService(AppDbContext context) : IUserService
 
         user.ForcePasswordChange = true;
 
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = authUser.Id,
-            UserName = authUser.UserName,
-            ActivityType = "account management",
-            Description = "Admin Approved Reset (Temp Password Generated)",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { username = user.UserName }),
-            IsSuccess = true,
-            Timestamp = PhTime,
-        });
+        var payload = new 
+        { 
+            name = user.Name,
+            username = user.UserName,
+            role = user.Role != null ? user.Role.Name : "No Role",
+            generated_temp_password = true
+        };
+
+        await logger.LogAccountManagementAsync(
+            authUser.Id,
+            authUser.UserName,
+            "Admin Approved Reset (Temp Password Generated)",
+            true,
+            payload
+        );
 
         await context.SaveChangesAsync();
 

@@ -1,9 +1,10 @@
 using System.Text;
 using backend.Data;
-using backend.Services;
 using backend.Services.Auth;
 using backend.Services.Interface;
 using backend.Services.User;
+using backend.Services.Dashboard;
+using backend.Services.ActivityLogger;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -126,8 +127,11 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // DI
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
+builder.Services.AddScoped<ActivityLoggerService>();
 
 var app = builder.Build();
 
