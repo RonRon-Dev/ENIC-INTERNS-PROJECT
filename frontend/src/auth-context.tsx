@@ -1,11 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
 import {
   createContext,
-  useCallback,
   useContext,
-  useEffect,
-  useRef,
   useState,
+  useEffect,
+  useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { getIam, logout } from "./services/auth";
@@ -33,11 +33,11 @@ type AuthContextType = {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-// const IDLE_TIMEOUT_MS = 15 * 60 * 1000; 
+// const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 // const COUNTDOWN_SECONDS = 60;
 
-const IDLE_TIMEOUT_MS = 10 * 1000;  
-const COUNTDOWN_SECONDS = 10;        
+const IDLE_TIMEOUT_MS = 10 * 1000;
+const COUNTDOWN_SECONDS = 10;
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
@@ -69,9 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const countdownValueRef = useRef<number>(COUNTDOWN_SECONDS);
   const userRef = useRef<User | null>(null);
 
+  const hasExpiredRef = useRef(false);
+
   const isInitializingRef = useRef(true);
 
-  // Keep userRef in sync
   useEffect(() => {
     userRef.current = user;
   }, [user]);
@@ -88,17 +89,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const triggerSessionExpired = useCallback(async () => {
+    if (hasExpiredRef.current) return;
+    hasExpiredRef.current = true;
+
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     if (countdownIntervalRef.current)
       clearInterval(countdownIntervalRef.current);
     countdownIntervalRef.current = null;
     setIdleSecondsLeft(null);
 
-    try {
-      await logout();
-    } catch {
-      /* ignore */
-    }
+    logout().catch(() => {});
 
     setUser(null);
     setSessionExpired(true);
@@ -148,8 +148,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const dismissSessionExpired = useCallback(() => {
     setSessionExpired(false);
+    hasExpiredRef.current = false;
   }, []);
 
+  // ── Init ──────────────────────────────────────────────────────────────────
 
   const hasInitialized = useRef(false);
   useEffect(() => {
@@ -160,6 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Listen for session:expired from api.ts interceptor ───────────────────
 
   useEffect(() => {
     const handler = () => {
@@ -178,6 +181,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       stopCountdown();
       return;
     }
+
+    hasExpiredRef.current = false;
 
     const EVENTS = [
       "mousemove",
