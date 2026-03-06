@@ -10,8 +10,6 @@ public interface IUserService
 
   Task<CreateUserResponse> CreateUserAsync(CreateUserRequest user, int currentUser);
 
-  Task<List<UserResponse>> GetUserRequestsAsync();
-
   Task<List<RoleResponse>> GetRolesAsync();
 
   Task<UpdateUserResponse> AssignRoleAsync(int id, UpdateUserRequest user, int currentUser);

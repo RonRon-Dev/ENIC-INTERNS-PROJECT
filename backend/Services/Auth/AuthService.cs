@@ -46,7 +46,8 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     // Account Registration and Sending Request to Admin for Approval
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
-        var existingUser = await context.Users.FirstOrDefaultAsync(u => u.UserName == request.UserName);
+        var username = request.UserName.Trim().ToLower();
+        var existingUser = await context.Users.FirstOrDefaultAsync(u => u.UserName.ToLower() == username);
 
         if (existingUser != null)
         {
@@ -78,7 +79,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         var user = new Users
         {
             Name = request.Name,
-            UserName = request.UserName,
+            UserName = request.UserName.Trim(),
             PasswordHash = hashedPassword,
 
             IsVerified = false,
@@ -124,7 +125,8 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     // Login
     public async Task<AuthResponse?> LoginAsync(LoginRequest request)
     {
-        var user = await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.UserName == request.UserName);
+        var loginUsername = request.UserName.Trim().ToLower();
+        var user = await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.UserName.ToLower() == loginUsername);
         if (user == null)
         {
             return new AuthResponse
@@ -151,6 +153,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             });
 
             await context.SaveChangesAsync();
+            
             if (!user.IsVerified)
             {
                 return new AuthResponse
@@ -293,7 +296,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     // USER: submits forgot request (NO code yet)
     public async Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordRequest request)
     {
-        var username = (request.UserName ?? "").Trim();
+        var username = (request.UserName ?? "").Trim().ToLower();
 
         if (string.IsNullOrWhiteSpace(username))
         {
@@ -306,7 +309,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
 
         var user = await context.Users
             .Include(u => u.UserRequests)
-            .FirstOrDefaultAsync(u => u.UserName.ToLower() == username.ToLower());
+            .FirstOrDefaultAsync(u => u.UserName.ToLower() == username);
 
         // Don't reveal if user exists
         if (user is null)

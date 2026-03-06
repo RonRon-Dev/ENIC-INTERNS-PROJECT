@@ -42,20 +42,6 @@ public class UserService(AppDbContext context) : IUserService
             })
             .FirstOrDefaultAsync();
 
-    //Registration of admin
-    public async Task<List<UserResponse>> GetUserRequestsAsync() =>
-        await context.Users
-            .Include(u => u.Role)
-            .Where(u => !u.IsVerified)
-            .Select(u => new UserResponse
-            {
-                Id = u.Id,
-                Name = u.Name,
-                UserName = u.UserName,
-                Role = u.Role != null ? new RoleResponse { Id = u.Role.Id, Name = u.Role.Name } : null,
-            })
-            .ToListAsync();
-
     public async Task<List<UserRequestResponse>> GetUserRequestsAsync(string status = "Pending")
     {
         status = (status ?? "Pending").Trim();
@@ -117,8 +103,8 @@ public class UserService(AppDbContext context) : IUserService
     // Creating a new user with the provided information and a hashed password. The role is assigned based on the RoleId provided in the request.
     public async Task<CreateUserResponse> CreateUserAsync(CreateUserRequest request, int currentUser)
     {
-        // var authUser = await 
-        var exists = await context.Users.AnyAsync(u => u.UserName.ToLower() == request.UserName);
+        var username = request.UserName.Trim().ToLower();
+        var exists = await context.Users.AnyAsync(u => u.UserName.ToLower() == username);
         if (exists)
             throw new ArgumentException("Username already exists.");
 
@@ -130,7 +116,7 @@ public class UserService(AppDbContext context) : IUserService
         var newUser = new Users
         {
             Name = request.Name,
-            UserName = request.UserName,
+            UserName = request.UserName.Trim(),
             PasswordHash = password,
             RoleId = request.RoleId,
             CreatedAt = DateTime.UtcNow,
