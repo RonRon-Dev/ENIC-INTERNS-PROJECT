@@ -20,6 +20,7 @@ import {
 import { logout } from "@/services/auth";
 import { ChevronsUpDown, Code2, LogOut, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom"
 
 export function NavUser() {
   const { isMobile } = useSidebar();
@@ -92,7 +93,7 @@ export function NavUser() {
             <DropdownMenuGroup>
               <DropdownMenuItem onClick={() => navigate("/settings")}>
                 <Settings />
-                Settings
+                <Link to="/settings">Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/about-developers")}>
                 <Code2 />

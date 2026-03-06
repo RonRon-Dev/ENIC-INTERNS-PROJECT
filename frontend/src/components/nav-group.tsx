@@ -61,7 +61,7 @@ export function NavGroup({ title, items }: NavGroupProps) {
 
 function NavBadge({ children }: { children: ReactNode }) {
   return (
-    <Badge className='rounded-full px-1 py-0 text-xs group-data-[active=true]/sub:bg-white group-data-[active=true]/sub:text-primary'>
+    <Badge className='rounded-full px-1 py-0 text-xs'>
       {children}
     </Badge>
   )
@@ -75,8 +75,7 @@ function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
         asChild
         isActive={checkIsActive(href, item)}
         tooltip={item.title}
-        variant={"custom"}
-        className='group/sub'
+        className='group/sub duration-300 ease-in-out cursor-pointer'
       >
         <Link to={item.url} onClick={() => setOpenMobile(false)}>
           {item.icon && <item.icon />}
@@ -118,7 +117,7 @@ function SidebarMenuCollapsible({
                 <SidebarMenuSubButton
                   asChild
                   isActive={checkIsActive(href, subItem)}
-                  className='group/sub duration-300 ease-in-out data-[active=true]:bg-primary data-[active=true]:text-white hover:bg-muted/50 cursor-pointer'
+                  className='group/sub duration-300 ease-in-out cursor-pointer'
                 >
                   <Link to={subItem.url} onClick={() => setOpenMobile(false)}>
                     {subItem.icon && <subItem.icon />}
@@ -165,7 +164,7 @@ function SidebarMenuCollapsedDropdown({
             <DropdownMenuItem key={`${sub.title}-${sub.url}`} asChild>
               <Link
                 to={sub.url}
-                className={`${checkIsActive(href, sub) ? 'bg-secondary' : ''}`}
+                // className={`${checkIsActive(href, sub) ? 'bg-secondary' : ''} `}
               >
                 {sub.icon && <sub.icon />}
                 <span className='max-w-52 text-wrap'>{sub.title}</span>

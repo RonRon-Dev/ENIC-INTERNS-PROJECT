@@ -8,7 +8,7 @@ import {
   UserPlus,
 } from 'lucide-react'
 
-type ToastMode = 'create' | 'edit' | 'approve' | 'reject' | 'activate' | 'deactivate' | 'addrole'
+type ToastMode = 'create' | 'edit' | 'approve' | 'reject' | 'activate' | 'deactivate' | 'addrole' | 'appsettings'
 
 const modeConfig: Record<
   ToastMode,
@@ -61,6 +61,12 @@ const modeConfig: Record<
     icon: ShieldCheck,
     iconClass: 'text-green-600 bg-green-300',
   },
+  appsettings: {
+    title: 'Settings Updated',
+    description: () => 'Your application settings have been saved.',
+    icon: UserCog,
+    iconClass: 'text-purple-600 bg-purple-300',
+  }
 }
 
 export function showSubmittedData(
