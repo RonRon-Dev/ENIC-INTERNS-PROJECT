@@ -1,7 +1,6 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { refreshToken } from "./auth";
 
-//api instance with baseURL and credentials
 const api = axios.create({
   baseURL: "/api",
   withCredentials: true,
@@ -11,20 +10,32 @@ const api = axios.create({
 });
 
 let isRefreshing = false;
-let failedQueue: Array<{ resolve: (value: any) => void; reject: (reason?: any) => void }> = [];
+let failedQueue: Array<{
+  resolve: (value: unknown) => void;
+  reject: (reason?: unknown) => void;
+}> = [];
 
-const processQueue = (error: any = null) => {
+const processQueue = (error: AxiosError | null = null) => {
   failedQueue.forEach((prom) => {
-    error ? prom.reject(error) : prom.resolve(null);
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(null);
+    }
   });
   failedQueue = [];
 };
 
 api.interceptors.response.use(
   (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as typeof error.config & {
+      _retry?: boolean;
+    };
 
-  async (error) => {
-    const originalRequest = error.config;
+    if (originalRequest?.url?.includes("/auth/refresh-token")) {
+      return Promise.reject(error);
+    }
 
     // Don't intercept auth endpoints
     if (
@@ -43,26 +54,22 @@ api.interceptors.response.use(
     originalRequest._retry = true;
 
     if (isRefreshing) {
-      // Queue until current refresh finishes
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject });
       })
         .then(() => api(originalRequest))
-        .catch((err) => Promise.reject(err));
+        .catch((err: unknown) => Promise.reject(err));
     }
 
     isRefreshing = true;
 
     try {
-      await refreshToken(); // This should set new accessToken cookie
-      processQueue(); // resolve queued requests
-
-      return api(originalRequest); // retry original with new accessToken cookie
+      await refreshToken();
+      processQueue();
+      return api(originalRequest);
     } catch (refreshError) {
-      console.error("Interceptor: Refresh failed", refreshError);
-
-      processQueue(refreshError);
-      window.location.href = "/login"; // or use your router: navigate("/login")
+      processQueue(refreshError as AxiosError);
+      window.dispatchEvent(new CustomEvent("session:expired"));
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;

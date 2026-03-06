@@ -4,6 +4,7 @@ import { AuthProvider } from "./auth-context";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DialogProvider } from "@/components/dialogs/dialog-provider";
 import { Dialogs } from "@/components/dialogs/dialogs";
+import { SessionExpiredDialog } from "./components/dialogs/session-expired-dialog";
 
 export default function App() {
   const isMobile = useIsMobile();
@@ -24,6 +25,7 @@ export default function App() {
 
   return (
     <AuthProvider>
+       <SessionExpiredDialog/>
       <DialogProvider>
         <AppRoutes />
         <Dialogs />

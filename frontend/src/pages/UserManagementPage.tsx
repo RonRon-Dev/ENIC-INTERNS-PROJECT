@@ -89,8 +89,10 @@ function UserManagementContent() {
   const [stats, setStats] = useState<UserStats>({
     totalUsers: 0, pendingUsers: 0, activeUsers: 0, deactivatedUsers: 0, assignedUsers: 0,
   })
+  
   const [requests, setRequests] = useState<UserRequest[]>([])
   const [loading, setLoading] = useState(true)
+
   const { setCurrentRow, setOpen, setRefresh } = useUsers()
 
   const loadData = useCallback(async () => {

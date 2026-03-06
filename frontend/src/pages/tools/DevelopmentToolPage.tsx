@@ -71,19 +71,19 @@ export default function SubToolTestPage() {
 
   return (
     <div className="flex w-full flex-col items-center justify-center">
-      <div className="w-full flex flex-col items-center gap-6 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20 p-12 text-center">
+      <div className="w-full flex flex-col items-center gap-6 rounded-xl border-2 border-dashed border-border bg-muted/30 p-12 text-center">
+
         {/* Top — module icon + construction overlay */}
         <div className="relative flex items-center justify-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-border bg-card">
             {ModuleIcon ? (
-              <ModuleIcon className="h-9 w-9 text-gray-400" />
+              <ModuleIcon className="h-9 w-9 text-muted-foreground" />
             ) : (
-              <Construction className="h-9 w-9 text-gray-400" />
+              <Construction className="h-9 w-9 text-muted-foreground" />
             )}
           </div>
-          {/* Small construction badge */}
-          <div className="absolute -bottom-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 dark:bg-amber-900/60 border border-gray-300 dark:border-amber-700">
-            <Construction className="h-3.5 w-3.5 text-gray-600" />
+          <div className="absolute -bottom-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-muted border border-border">
+            <Construction className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
         </div>
 
@@ -94,17 +94,17 @@ export default function SubToolTestPage() {
               {meta.parentTitle}
             </Badge>
           )}
-          <Badge className="text-xs font-normal bg-gray-100 text-gray-700 border-gray-200 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-400 dark:border-amber-700 shadow-none">
+          <Badge variant="outline" className="text-xs font-normal text-muted-foreground">
             Under Development
           </Badge>
         </div>
 
         {/* Title + description */}
         <div className="space-y-2">
-          <h3 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+          <h3 className="text-xl font-semibold tracking-tight text-foreground">
             {meta.title}
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs leading-relaxed">
+          <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
             {meta.description}
           </p>
         </div>
@@ -113,10 +113,10 @@ export default function SubToolTestPage() {
 
         {/* Hint row */}
         <div className="flex items-start gap-3 text-left px-2">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 mt-0.5">
-            <HintIcon className="h-3.5 w-3.5 text-gray-400" />
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-card border border-border mt-0.5">
+            <HintIcon className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed pt-1">
+          <p className="text-xs text-muted-foreground/70 leading-relaxed pt-1">
             {hint.text}
           </p>
         </div>
@@ -128,13 +128,13 @@ export default function SubToolTestPage() {
           <Button
             variant="ghost"
             size="sm"
-            className="gap-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -ml-2"
+            className="gap-2 text-muted-foreground hover:text-foreground -ml-2"
             onClick={() => navigate(-1)}
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Go back
           </Button>
-          <span className="font-mono text-[11px] text-gray-300 dark:text-gray-600">
+          <span className="font-mono text-[11px] text-muted-foreground/40">
             {location.pathname}
           </span>
         </div>

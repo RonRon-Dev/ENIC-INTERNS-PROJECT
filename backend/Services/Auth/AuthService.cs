@@ -12,7 +12,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using backend.Services.ActivityLogger;
 
-
 namespace backend.Services.Auth;
 
 public class AuthService(
@@ -26,7 +25,7 @@ public class AuthService(
             .Users
             .Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Id == userId);
-        
+
         if (user == null)
             return new IamResponse
             {
@@ -47,7 +46,6 @@ public class AuthService(
         };
     }
 
-    // Account Registration and Sending Request to Admin for Approval
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
         var username = request.UserName.Trim().ToLower();
@@ -122,7 +120,6 @@ public class AuthService(
         };
     }
 
-    // Login
     public async Task<AuthResponse?> LoginAsync(LoginRequest request)
     {
         var loginUsername = request.UserName.Trim().ToLower();
@@ -160,8 +157,6 @@ public class AuthService(
             };
         }
 
-        // If an admin issued a temporary password, it is stored in PasswordHash,
-        // so normal BCrypt verify works.
         var isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
 
         if (!isPasswordValid)
@@ -207,7 +202,6 @@ public class AuthService(
         };
     }
 
-    // Logout: revoke refresh token
     public async Task<AuthResponse> LogoutAsync(int? userId)
     {
         var user = await context.Users.FindAsync(userId);
@@ -247,7 +241,6 @@ public class AuthService(
         };
     }
 
-    // Refresh token (your implemented version)
     public async Task<AuthResponse?> RefreshTokenAsync(string? refreshToken)
     {
         var user = await context.Users
@@ -290,7 +283,6 @@ public class AuthService(
             .Include(u => u.UserRequests)
             .FirstOrDefaultAsync(u => u.UserName.ToLower() == username);
 
-        // Don't reveal if user exists
         if (user is null)
         {
             return new ForgotPasswordResponse
@@ -300,7 +292,6 @@ public class AuthService(
             };
         }
 
-        // Ensure collection exists
         user.UserRequests ??= new List<UserRequests>();
 
         user.UserRequests.Add(new UserRequests
@@ -327,31 +318,18 @@ public class AuthService(
         };
     }
 
-    // USER: after login, reset to new password
     public async Task<ForgotPasswordResponse> UpdatePasswordAsync(ResetPasswordRequest request)
     {
         var newPassword = (request.NewPassword ?? "").Trim();
         if (string.IsNullOrWhiteSpace(newPassword))
-            return new ForgotPasswordResponse
-            {
-                Success = false,
-                Message = "New password is required.",
-            };
+            return new ForgotPasswordResponse { Success = false, Message = "New password is required." };
 
         if (newPassword.Length < 8)
-            return new ForgotPasswordResponse
-            {
-                Success = false,
-                Message = "New password must be at least 8 characters long.",
-            };
+            return new ForgotPasswordResponse { Success = false, Message = "New password must be at least 8 characters long." };
 
         var user = await context.Users.FirstOrDefaultAsync(u => u.UserName == request.UserName);
         if (user is null)
-            return new ForgotPasswordResponse
-            {
-                Success = false,
-                Message = "User not found.",
-            };
+            return new ForgotPasswordResponse { Success = false, Message = "User not found." };
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         user.ForcePasswordChange = false;
@@ -370,16 +348,10 @@ public class AuthService(
 
         await context.SaveChangesAsync();
 
-        return new ForgotPasswordResponse
-        {
-            Success = true,
-            Message = "Password updated successfully.",
-        };
+        return new ForgotPasswordResponse { Success = true, Message = "Password updated successfully." };
     }
 
-    // -------------------------
-    // Helpers
-    // -------------------------
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static DateTime PhTime =>
         TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
@@ -418,23 +390,11 @@ public class AuthService(
             audience: audience,
             claims: claims,
             notBefore: DateTime.UtcNow,
-            expires: DateTime.UtcNow.AddDays(1), 
+            expires: DateTime.UtcNow.AddMinutes(15), // matches cookie expiry
             signingCredentials: creds
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
-    }
-
-    private async Task<Users?> ValidateRefreshTokenAsync(int userId, string refreshToken)
-    {
-        var user = await context.Users.FindAsync(userId);
-        if (user is null ||
-            user.RefreshToken != refreshToken ||
-            user.RefreshTokenExpiry <= DateTime.UtcNow)
-        {
-            return null;
-        }
-        return user;
     }
 
     private string GenerateRefreshToken()
@@ -452,28 +412,5 @@ public class AuthService(
         user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
         await context.SaveChangesAsync();
         return refreshToken;
-    }
-
-    private int? TryGetUserIdFromJwt(string token)
-    {
-        try
-        {
-            // token might be "Bearer xxx"
-            var raw = token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
-                ? token["Bearer ".Length..]
-                : token;
-
-            var handler = new JwtSecurityTokenHandler();
-            var jwt = handler.ReadJwtToken(raw);
-
-            var idClaim = jwt.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-            if (int.TryParse(idClaim, out var id))
-                return id;
-            return null;
-        }
-        catch
-        {
-            return null;
-        }
     }
 }
