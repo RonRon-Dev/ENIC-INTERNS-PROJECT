@@ -12,14 +12,17 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo } from "react";
 import NProgress from "@/lib/nprogress";
 import { SearchProvider } from "@/components/search-provider";
 import { Search } from "@/components/search";
 import { toolsData } from "@/data/tools";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useDialog } from "@/components/dialogs/dialog-provider";
+import { useTheme } from 'next-themes'
+import { Sun, Moon } from 'lucide-react'
+// import { useDialog } from "@/components/dialogs/dialog-provider";
+// import {  useRef } from "react";
 
 function toTitleCase(segment: string) {
   return segment.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -133,10 +136,8 @@ export default function AppLayout() {
                   </Button>
                 )}
                 {!isHome && <Search className="mr-20" />}
-              </div>
 
-              <div>
-                
+                <ThemeToggle />
               </div>
             </header>
 
@@ -149,4 +150,22 @@ export default function AppLayout() {
       </SearchProvider>
     </>
   );
+}
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme()
+
+  const next = theme === 'dark' ? 'light' : 'dark'
+  const Icon = theme === 'dark' ? Sun : Moon
+
+  return (
+    <Button
+      variant="outline"
+      size="icon"
+      className="h-8 w-8 shadow-none"
+      onClick={() => setTheme(next)}
+    >
+      <Icon className="h-4 w-4" />
+    </Button>
+  )
 }
