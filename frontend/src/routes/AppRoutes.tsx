@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "@/layouts/AppLayout";
 import AuthPage from "@/pages/auth/AuthPage";
-import ProtectedRoute from "./ProtectedRoutes";
+import { ProtectedRoute, LoadingScreen } from "@/routes/ProtectedRoutes";
 import GeneralHomePage from "@/pages/GeneralHomePage";
 import DevelopmentToolPage from "@/pages/tools/DevelopmentToolPage";
 import { toolsData } from "@/data/tools";
@@ -12,9 +12,25 @@ import type { UserRole } from "@/data/schema";
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
-  if (loading) return null;
-  if (isAuthenticated) return <Navigate to="/home" replace />;
+
+  /* if (loading) return <LoadingScreen />;
+*/
+  if (isAuthenticated) {
+    return <Navigate to="/home" replace />;
+  }
+
   return <>{children}</>;
+}
+
+function FallbackRoute() {
+  const { isAuthenticated } = useAuth();
+
+  return (
+    <Navigate
+      to={isAuthenticated ? "/home" : "/login"}
+      replace
+    />
+  );
 }
 
 function PageComponent({ tool }: { tool: Tool | SubTool }) {
@@ -122,7 +138,7 @@ export default function AppRoutes() {
         {generateRoutes()}
       </Route>
 
-      <Route path="*" element={<Navigate to="/home" replace />} />
+      <Route path="*" element={<FallbackRoute />} />
     </Routes>
   );
 }

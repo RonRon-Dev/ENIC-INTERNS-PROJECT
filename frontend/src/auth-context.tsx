@@ -62,21 +62,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // };
 
   const refreshUser = async () => {
+    setLoading(true);
+
     try {
       const data = await getAuthenticatedUser();
       setUser(data);
     } catch {
       setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      await refreshUser();
-      setLoading(false);
-    };
-
-    initializeAuth();
+    refreshUser();
   }, []);
 
   return (

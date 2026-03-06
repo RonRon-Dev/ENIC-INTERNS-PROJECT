@@ -1,5 +1,5 @@
 import api from "@/services/api"
 
-export const activityLogsApi = {
-  getAll: (take = 200) => api.get(`/activity-logs?take=${take}`),
+export const getActivityLogs = async () => {
+  return await api.get("/activity-logs");
 };

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { refreshToken } from "./auth";
 
 //api instance with baseURL and credentials
 const api = axios.create({
@@ -44,12 +45,7 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      console.log("Interceptor: Attempting token refresh..."); // ← debug log
-
-      await api.post("/auth/refresh-token"); // browser sends refreshToken cookie automatically
-
-      console.log("Interceptor: Refresh successful");
-
+      await refreshToken(); // This should set new accessToken cookie
       processQueue(); // resolve queued requests
 
       return api(originalRequest); // retry original with new accessToken cookie

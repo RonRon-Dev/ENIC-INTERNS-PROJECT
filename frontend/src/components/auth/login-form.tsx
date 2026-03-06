@@ -50,17 +50,18 @@ export function LoginForm({
 
   const onSubmit = async (data: UserForm) => {
     try {
-      NProgress.start()
+      NProgress.start();
       setServerError(null);
+
       const response = await login(data);
-      await refreshUser()
-      navigate('/home')
 
       if (!response.success) {
         setServerError(response.message);
         return;
       }
 
+      await refreshUser();
+      navigate("/home");
     } catch (error: any) {
       const res = error.response?.data;
 
@@ -81,6 +82,8 @@ export function LoginForm({
       if (res.message) {
         setServerError(res.message);
       }
+    } finally {
+      NProgress.done();
     }
   };
 
@@ -96,10 +99,7 @@ export function LoginForm({
       </div>
 
       <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-4"
-        >
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={form.control}
             name="username"
