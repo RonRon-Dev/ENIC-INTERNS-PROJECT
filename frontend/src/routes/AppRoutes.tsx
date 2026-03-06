@@ -9,6 +9,8 @@ import { toolsData } from "@/data/tools";
 import { useAuth } from "@/auth-context";
 import type { Tool, SubTool } from "@/data/tools";
 import type { UserRole } from "@/data/schema";
+import SettingsPage from "@/pages/general/SettingsPage";
+import AboutDevPage from "@/pages/general/AboutDevPage";
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -119,6 +121,8 @@ export default function AppRoutes() {
         }
       >
         <Route path="/home" element={<GeneralHomePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/about-developers" element={<AboutDevPage />} />
         {generateRoutes()}
       </Route>
 

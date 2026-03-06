@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  BadgeCheck,
-  ChevronsUpDown,
-  LifeBuoy,
-  LogOut,
-  Settings,
-} from "lucide-react";
+import { useAuth } from "@/auth-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -24,7 +18,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { logout } from "@/services/auth";
-import { useAuth } from "@/auth-context";
+import { ChevronsUpDown, Code2, LogOut, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export function NavUser() {
@@ -96,17 +90,13 @@ export function NavUser() {
             <DropdownMenuSeparator />
 
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheck />
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/settings")}>
                 <Settings />
                 Settings
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <LifeBuoy />
-                Ask Support
+              <DropdownMenuItem onClick={() => navigate("/about-developers")}>
+                <Code2 />
+                About Developers
               </DropdownMenuItem>
             </DropdownMenuGroup>
 
