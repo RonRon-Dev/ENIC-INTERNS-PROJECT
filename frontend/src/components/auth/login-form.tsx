@@ -35,7 +35,7 @@ export function LoginForm({
   onToggleSignup: () => void;
   onToggleForgot: () => void;
 }) {
-  const { refreshUser } = useAuth();
+  const { refreshUser, setUser } = useAuth();
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
 

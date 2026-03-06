@@ -26,6 +26,15 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Don't intercept auth endpoints
+    if (
+      originalRequest.url?.includes('/auth/login') ||
+      originalRequest.url?.includes('/auth/refresh-token') ||
+      originalRequest.url?.includes('/auth/iam')
+    ) {
+      return Promise.reject(error);
+    }
+
     // Skip if it's already a retry or not a 401
     if (error.response?.status !== 401 || originalRequest._retry) {
       return Promise.reject(error);

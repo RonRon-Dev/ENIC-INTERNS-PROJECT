@@ -6,7 +6,6 @@ import api from "./api";
 export const refreshToken = async () => {
   console.log("Attempting to refresh token...");
   const response = await api.post("/auth/refresh-token");
-  console.log("refreshToken response:", response);
   return response.data;
 }
 
