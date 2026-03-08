@@ -18,12 +18,16 @@ builder.Services.AddControllers();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// CORS
+// CORS — origins loaded from config, not hardcoded
+var allowedOrigins = builder.Configuration
+    .GetSection("AllowedOrigins")
+    .Get<string[]>() ?? ["http://localhost:5173"];
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReact", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://127.14.0.8:5173")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -45,7 +49,6 @@ if (string.IsNullOrWhiteSpace(secret))
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        // ✅ helps when debugging invalid_token
         options.IncludeErrorDetails = true;
 
         options.TokenValidationParameters = new TokenValidationParameters
@@ -57,43 +60,45 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = audience,
 
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(2), // ✅ tolerate small time drift
+            ClockSkew = TimeSpan.FromMinutes(2),
 
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
         };
 
-        // ✅ log WHY it fails (look at your terminal output)
         options.Events = new JwtBearerEvents
-{
-    // ✅ READ token from HttpOnly cookie
-    OnMessageReceived = context =>
-    {
-        var token = context.Request.Cookies["accessToken"];
-        if (!string.IsNullOrEmpty(token))
         {
-            context.Token = token;
-        }
-        return Task.CompletedTask;
-    },
+            // Read token from HttpOnly cookie
+            OnMessageReceived = context =>
+            {
+                var token = context.Request.Cookies["accessToken"];
+                if (!string.IsNullOrEmpty(token))
+                    context.Token = token;
+                return Task.CompletedTask;
+            },
 
-    OnAuthenticationFailed = context =>
-    {
-        Console.WriteLine("JWT AUTH FAILED: " + context.Exception.Message);
-        return Task.CompletedTask;
-    },
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices
+                    .GetRequiredService<ILogger<Program>>();
+                logger.LogWarning("JWT authentication failed: {Error}", context.Exception.Message);
+                return Task.CompletedTask;
+            },
 
-    OnChallenge = context =>
-    {
-        Console.WriteLine("JWT CHALLENGE: " + context.Error + " | " + context.ErrorDescription);
-        return Task.CompletedTask;
-    }
-};
+            OnChallenge = context =>
+            {
+                var logger = context.HttpContext.RequestServices
+                    .GetRequiredService<ILogger<Program>>();
+                logger.LogWarning("JWT challenge: {Error} | {Description}",
+                    context.Error, context.ErrorDescription);
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
 
-// Swagger (Authorize button)
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
