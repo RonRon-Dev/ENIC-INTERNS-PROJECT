@@ -31,7 +31,7 @@ import { type ActivityLog } from '@/data/schema'
 export type { ActivityLog }
 import { roles } from '@/data/const'
 import { useLogs } from '@/components/act-logs/logs-provider'
-import { CircleCheck, CircleX } from "lucide-react"
+import { CircleCheck, CircleX, Info } from "lucide-react"
 
 export function useColumns() {
   const { setOpen, setCurrentRow } = useLogs()
@@ -39,7 +39,7 @@ export function useColumns() {
   const columns: ColumnDef<ActivityLog>[] = [
     {
       id: 'ID',
-      header: 'Reference ID',
+      header: 'Ref. ID',
       accessorKey: 'id',
     },
     {
@@ -127,13 +127,16 @@ export function useColumns() {
       accessorFn: (row) => row.description,
       cell: ({ row }) => (
         <button
-          className="max-w-[150px] truncate text-left hover:text-foreground transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 max-w-[150px] text-left hover:text-foreground transition-colors cursor-pointer"
           onClick={() => {
             setCurrentRow(row.original)
             setOpen('desc')
           }}
         >
-          {row.original.description.charAt(0).toUpperCase() + row.original.description.slice(1)}
+          <Info className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate">
+            {row.original.description.charAt(0).toUpperCase() + row.original.description.slice(1)}
+          </span>
         </button>
       ),
     },
