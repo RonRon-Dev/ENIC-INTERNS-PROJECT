@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { type ActivityLog } from '@/data/schema'
 import { roles, activityTypes, userTypes } from '@/data/const'
 import { Avatar, AvatarFallback } from '../ui/avatar'
+import { CircleCheck, CircleX } from 'lucide-react'
 
 type DescViewDialogProps = {
   open: boolean
@@ -108,11 +109,11 @@ export function DescViewDialog({
           <div className='flex justify-end'>
             <Badge
               variant='outline'
-              className={
+              className={`gap-x-1 py-1 ${
                 currentRow.isSuccess
-                  ? 'text-green-600 border-green-600 bg-green-50' : 'text-red-500 border-red-500 bg-red-50'
-              }
-            >
+                  ? 'text-green-600 border-green-600 bg-green-50' : 'text-red-500 border-red-500 bg-red-50'}
+              `}>
+              {currentRow.isSuccess ? <CircleCheck className="w-4 h-4" /> : <CircleX className="w-4 h-4" />}
               {currentRow.isSuccess ? 'Success' : 'Failed'}
             </Badge>
           </div>
