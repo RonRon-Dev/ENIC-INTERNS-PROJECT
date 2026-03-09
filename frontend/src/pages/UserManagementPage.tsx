@@ -234,7 +234,6 @@ function UserManagementContent() {
       </div>
 
         {/* </div> */}
-      </div>
       <UsersDialogs />
     </>
   )
