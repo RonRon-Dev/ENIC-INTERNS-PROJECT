@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using backend.Data;
 using backend.Services.ActivityLogger;
@@ -83,6 +84,39 @@ builder
                     context.Token = token;
                 }
                 return Task.CompletedTask;
+            },
+
+            OnTokenValidated = async context =>
+            {
+                var userIdStr = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!int.TryParse(userIdStr, out var userId))
+                {
+                    context.Fail("Invalid user id.");
+                    return;
+                }
+
+                var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+
+                var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+                if (user is null)
+                {
+                    context.Fail("User not found.");
+                    return;
+                }
+
+                // block disabled accounts
+                if (!user.IsActive)
+                {
+                    context.Fail("Account disabled.");
+                    return;
+                }
+
+                // also enforce approval
+                if (!user.IsVerified)
+                {
+                    context.Fail("Pending approval.");
+                    return;
+                }
             },
 
             OnAuthenticationFailed = context =>

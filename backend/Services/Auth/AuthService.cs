@@ -157,6 +157,28 @@ public class AuthService(
             };
         }
 
+        if (!user.IsActive)
+        {
+            await logger.LogAuthenticationAsync(
+                user.Id,
+                user.UserName,
+                "User Login Blocked - Account Disabled",
+                false,
+                null
+            );
+
+            await context.SaveChangesAsync();
+
+            return new AuthResponse
+            {
+                Success = false,
+                Message = "Account is disabled. Please contact your administrator.",
+                AccessToken = null!,
+                RefreshToken = null!,
+                ForcePasswordChange = false
+            };
+        }
+
         var isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
 
         if (!isPasswordValid)

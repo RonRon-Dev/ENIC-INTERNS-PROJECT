@@ -256,6 +256,8 @@ public class UserService(
             };
 
         user.IsActive = false;
+        user.RefreshToken = null;
+        user.RefreshTokenExpiry = null;
 
         var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
 
