@@ -722,3 +722,89 @@ export function UsersApproveResetDialog({
     />
   )
 }
+
+type UserAdminResetDialogProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  currentRow: User
+}
+
+export function UsersAdminResetDialog({
+  open,
+  onOpenChange,
+  currentRow,
+}: UserAdminResetDialogProps) {
+  const { refresh } = useUsers()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [tempPassword, setTempPassword] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const handleReset = async () => {
+    setIsSubmitting(true)
+    setErrorMsg(null)
+    try {
+      const res = await usersApi.adminResetPassword(Number(currentRow.id))
+      setTempPassword(res.data.temporaryPassword)
+      refresh()
+    } catch (err: any) {
+      setErrorMsg(err?.response?.data?.message ?? 'Failed to reset password.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleCopy = () => {
+    if (!tempPassword) return
+    navigator.clipboard.writeText(tempPassword)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <ConfirmDialog
+      open={open}
+      onOpenChange={(state) => {
+        if (!state) { setTempPassword(null); setErrorMsg(null) }
+        onOpenChange(state)
+      }}
+      handleConfirm={tempPassword ? () => onOpenChange(false) : handleReset}
+      disabled={isSubmitting}
+      title={
+        <span className='text-yellow-600'>
+          <UserCheck className='me-1 inline-block stroke-yellow-600' size={18} />{' '}
+          Reset User Password
+        </span>
+      }
+      desc={
+        <div className='space-y-4'>
+          {!tempPassword ? (
+            <p>
+              Reset password for <span className='font-bold'>{currentRow.username}</span>?
+              <br />A temporary password will be generated. The user must change it on next login.
+            </p>
+          ) : (
+            <div className='space-y-3'>
+              <p>Password reset. Share this temporary password with <span className='font-bold'>{currentRow.username}</span>:</p>
+              <div className='flex items-center gap-2 rounded-md border bg-muted px-3 py-2'>
+                <span className='flex-1 font-mono text-base font-bold tracking-widest'>{tempPassword}</span>
+                <button type='button' onClick={handleCopy} className='p-1 hover:bg-background rounded transition-colors'>
+                  {copied ? <Check className='h-4 w-4 text-green-600' /> : <Copy className='h-4 w-4 text-muted-foreground' />}
+                </button>
+              </div>
+              <Alert>
+                <AlertDescription>The user must change this password on next login.</AlertDescription>
+              </Alert>
+            </div>
+          )}
+          {errorMsg && (
+            <Alert variant='destructive'>
+              <AlertDescription>{errorMsg}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+      }
+      confirmText={tempPassword ? 'Done' : isSubmitting ? 'Processing...' : 'Reset Password'}
+    />
+  )
+}

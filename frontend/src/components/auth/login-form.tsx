@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { login } from "@/services/auth";
+import { authenticationApi } from "@/services/auth";
 import { useAuth } from "@/auth-context";
 import {
   Form,
@@ -35,7 +35,7 @@ export function LoginForm({
   onToggleSignup: () => void;
   onToggleForgot: () => void;
 }) {
-  const { refreshUser } = useAuth();
+  const { refreshUser, setUser } = useAuth();
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -53,7 +53,7 @@ export function LoginForm({
       NProgress.start();
       setServerError(null);
 
-      const response = await login(data);
+      const response = await authenticationApi.login(data);
 
       if (!response.success) {
         setServerError(response.message);

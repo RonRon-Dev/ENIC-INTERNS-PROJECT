@@ -38,12 +38,24 @@ public class AuthController(IAuthService service, IWebHostEnvironment env) : Con
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
         if (userId is null)
-            return Unauthorized();
+          return Unauthorized(new IamResponse 
+          { 
+              Name = null,
+              UserName = null,
+              NameIdentifier = null,
+              RoleName = null,
+          });
 
         var result = await service.GetIamAsync(int.Parse(userId));
 
         if (result is null)
-            return NotFound(new { message = "User not found" });
+            return NotFound(new IamResponse 
+            { 
+                Name = null,
+                UserName = null,
+                NameIdentifier = null,
+                RoleName = null,
+            });
 
         return Ok(result);
     }
@@ -80,7 +92,7 @@ public class AuthController(IAuthService service, IWebHostEnvironment env) : Con
     }
 
     [Authorize]
-    [HttpPut("update-password")]
+    [HttpPatch("update-password")]
     public async Task<IActionResult> UpdatePassword(ResetPasswordRequest request)
     {
         var response = await service.UpdatePasswordAsync(request);

@@ -1,9 +1,12 @@
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
+import { useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ShieldPlus, Shield, UserCheck, User, ShieldCheck, Code, Megaphone, Settings, Users, FileText, Cpu } from 'lucide-react'
-import { showSubmittedData } from '@/lib/show-submitted-data'
 import { Button } from '@/components/ui/button'
+import { usersApi } from '@/services/users'
+import { useUsers } from './users-provider'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Dialog,
   DialogClose,
@@ -22,10 +25,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { roles } from '@/data/const'
 import { cn } from '@/lib/utils'
-
-const existingRoleValues = roles.map((r) => r.value)
 
 const availableIcons = [
   { label: 'User', value: 'user', icon: User },
@@ -41,13 +41,7 @@ const availableIcons = [
 ]
 
 const formSchema = z.object({
-  name: z
-    .string()
-    .min(1, 'Role name is required.')
-    .refine(
-      (val) => !existingRoleValues.includes(val.toLowerCase() as typeof existingRoleValues[number]),
-      { message: 'This role already exists.' }
-    ),
+  name: z.string().min(1, 'Role name is required.'),
   icon: z.string().min(1, 'Please select an icon.'),
 })
 
@@ -63,11 +57,27 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
     resolver: zodResolver(formSchema),
     defaultValues: { name: '', icon: '' },
   })
+  const { refreshRoles } = useUsers()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const onSubmit = (values: UserAddRoleForm) => {
-    form.reset()
-    showSubmittedData(values, 'addrole')
-    onOpenChange(false)
+  const onSubmit = async (values: UserAddRoleForm) => {
+    setIsSubmitting(true)
+    setError(null)
+    try {
+      const res = await usersApi.createRole(values.name.trim())
+      if (!res.data.success) {
+        setError(res.data.message)
+        return
+      }
+      await refreshRoles()
+      form.reset()
+      onOpenChange(false)
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? 'Failed to create role.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -75,6 +85,7 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
       open={open}
       onOpenChange={(state) => {
         form.reset()
+        setError(null)
         onOpenChange(state)
       }}
     >
@@ -141,11 +152,16 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
           </form>
         </Form>
         <DialogFooter className='gap-y-2'>
+          {error && (
+            <Alert variant='destructive' className='w-full text-left'>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           <DialogClose asChild>
-            <Button variant='outline'>Cancel</Button>
+            <Button variant='outline' disabled={isSubmitting}>Cancel</Button>
           </DialogClose>
-          <Button type='submit' form='user-add-role-form'>
-            Add Role
+          <Button type='submit' form='user-add-role-form' disabled={isSubmitting}>
+            {isSubmitting ? 'Adding...' : 'Add Role'}
           </Button>
         </DialogFooter>
       </DialogContent>

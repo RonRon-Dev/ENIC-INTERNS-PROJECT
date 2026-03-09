@@ -1,5 +1,5 @@
 import axios, { AxiosError } from "axios";
-import { refreshToken } from "./auth";
+import { authenticationApi } from "./auth";
 
 const api = axios.create({
   baseURL: "/api",
@@ -37,6 +37,16 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Don't intercept auth endpoints
+    if (
+      originalRequest.url?.includes('/auth/login') ||
+      originalRequest.url?.includes('/auth/refresh-token') ||
+      originalRequest.url?.includes('/auth/iam')
+    ) {
+      return Promise.reject(error);
+    }
+
+    // Skip if it's already a retry or not a 401
     if (error.response?.status !== 401 || originalRequest._retry) {
       return Promise.reject(error);
     }
@@ -54,7 +64,7 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      await refreshToken();
+      await authenticationApi.refreshToken();
       processQueue();
       return api(originalRequest);
     } catch (refreshError) {

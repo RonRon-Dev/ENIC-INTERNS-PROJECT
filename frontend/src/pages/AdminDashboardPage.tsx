@@ -1,52 +1,75 @@
-import { useEffect, useState } from "react"
-import { DataTable, useColumns } from '@/components/tables-data/activity-logs-column'
-import { getActivityLogs } from "@/services/activity-logs"
-import type { ActivityLog } from "@/data/schema"
-import { SkeletonTable } from "@/pages/UserManagementPage"
-import { LogsProvider } from "@/components/act-logs/logs-provider"
-import { LogsDialogs } from "@/components/act-logs/logs-dialogs"
-
+import { useEffect, useState } from "react";
+import {
+  DataTable,
+  useColumns,
+} from "@/components/tables-data/activity-logs-column";
+import { dashboardApi } from "@/services/dashboard";
+import { usersApi } from "@/services/users";
+import { type Roles, type ActivityLog } from "@/data/schema";
+import { SkeletonTable } from "@/pages/UserManagementPage";
+import { LogsProvider } from "@/components/act-logs/logs-provider";
+import { LogsDialogs } from "@/components/act-logs/logs-dialogs";
+import { roles as roleIcons } from "@/data/const";
 
 function DashboardContent() {
-    const [data, setData] = useState<ActivityLog[]>([])
-    const [loading, setLoading] = useState(true)
-    const columns = useColumns()
+  const [data, setData] = useState<ActivityLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [roles, setRoles] = useState<Roles[]>([]);
+  const columns = useColumns(roles);
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [rolesRes, logsRes] = await Promise.all([
+          usersApi.getRoles(),
+          dashboardApi.getActivityLogs(),
+        ]);
 
-    useEffect(() => {
-        async function loadData() {
-            try {
-                const res = await getActivityLogs()
-                setData(res.data)
-            } catch (err) {
-                console.error("Failed to load activity logs:", err)
-            } finally {
-                setLoading(false)
-            }
-        }
+        // ✅ Map API roles to include icons
+        const rolesWithIcons = rolesRes.data.map((role) => {
+          const iconMatch = roleIcons.find(
+            (r) => r.value.toLowerCase() === role.name.toLowerCase(),
+          );
+          return {
+            ...role,
+            icon: iconMatch?.icon, // Add icon from const
+          };
+        });
 
-        loadData()
-    }, [])
+        setRoles(rolesWithIcons);
+        setData(logsRes.data);
+      } catch (err) {
+        console.error("Failed to load data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
 
-    console.log("Activity Logs Data:", data)
-
-    return (
-        <>
-            <div>
-                <h2 className="text-2xl font-bold tracking-tight">Activity Logs</h2>
-                <p className="text-muted-foreground">View your users' activity logs here.</p>
-            </div>
-            <div>
-                {loading ? <SkeletonTable /> : <DataTable columns={columns} data={data} />}
-            </div>
-            <LogsDialogs />
-        </>
-    )
+  return (
+    <>
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight">Activity Logs</h2>
+        <p className="text-muted-foreground">
+          View your users' activity logs here.
+        </p>
+      </div>
+      <div>
+        {loading ? (
+          <SkeletonTable />
+        ) : (
+          <DataTable columns={columns} data={data} roles={roles} />
+        )}
+      </div>
+      <LogsDialogs />
+    </>
+  );
 }
 
 export default function AdminDashboardPage() {
-    return (
-        <LogsProvider>
-            <DashboardContent />
-        </LogsProvider>
-    )
+  return (
+    <LogsProvider>
+      <DashboardContent />
+    </LogsProvider>
+  );
 }

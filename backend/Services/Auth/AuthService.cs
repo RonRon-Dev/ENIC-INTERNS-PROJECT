@@ -10,10 +10,15 @@ using backend.Models;
 using backend.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using backend.Services.ActivityLogger;
+using BCrypt.Net;
 
 namespace backend.Services.Auth;
 
-public class AuthService(AppDbContext context, IConfiguration configuration) : IAuthService
+public class AuthService(
+    AppDbContext context, 
+    IConfiguration configuration,
+    ActivityLoggerService logger) : IAuthService
 {
     public async Task<IamResponse?> GetIamAsync(int userId)
     {
@@ -44,7 +49,8 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
-        var existingUser = await context.Users.FirstOrDefaultAsync(u => u.UserName == request.UserName);
+        var username = request.UserName.Trim().ToLower();
+        var existingUser = await context.Users.FirstOrDefaultAsync(u => u.UserName.ToLower() == username);
 
         if (existingUser != null)
         {
@@ -76,7 +82,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         var user = new Users
         {
             Name = request.Name,
-            UserName = request.UserName,
+            UserName = request.UserName.Trim(),
             PasswordHash = hashedPassword,
             IsVerified = false,
             RoleId = guestRole.Id,
@@ -94,16 +100,14 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             RequestDate = DateTime.UtcNow,
         });
 
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = user.Id,
-            UserName = user.UserName,
-            ActivityType = "account management",
-            Description = "User Registration (Pending Approval)",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { request.Name, request.UserName }),
-            IsSuccess = true,
-            Timestamp = PhTime,
-        });
+        // User Registration Logs
+        await logger.LogAuthenticationAsync(
+              user.Id,
+              user.UserName,
+              "User Registration (Pending Approval)",
+              true,
+              null
+          );
 
         await context.SaveChangesAsync();
 
@@ -119,7 +123,8 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest request)
     {
-        var user = await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.UserName == request.UserName);
+        var loginUsername = request.UserName.Trim().ToLower();
+        var user = await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.UserName.ToLower() == loginUsername);
         if (user == null)
         {
             return new AuthResponse
@@ -134,19 +139,15 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
 
         if (!user.IsVerified)
         {
-            context.ActivityLogs.Add(new ActivityLogs
-            {
-                UserId = user.Id,
-                UserName = user.UserName,
-                ActivityType = "authentication",
-                Description = "User Login Blocked - Pending Approval",
-                Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
-                IsSuccess = false,
-                Timestamp = PhTime,
-            });
+            await logger.LogAuthenticationAsync(
+                  user.Id,
+                  user.UserName,
+                  "User Login Blocked - Pending Approval",
+                  false,
+                  null
+            );
 
             await context.SaveChangesAsync();
-
             return new AuthResponse
             {
                 Success = false,
@@ -157,20 +158,39 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             };
         }
 
+        if (!user.IsActive)
+        {
+            await logger.LogAuthenticationAsync(
+                user.Id,
+                user.UserName,
+                "User Login Blocked - Account Disabled",
+                false,
+                null
+            );
+
+            await context.SaveChangesAsync();
+
+            return new AuthResponse
+            {
+                Success = false,
+                Message = "Account is disabled. Please contact your administrator.",
+                AccessToken = null!,
+                RefreshToken = null!,
+                ForcePasswordChange = false
+            };
+        }
+
         var isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
 
         if (!isPasswordValid)
         {
-            context.ActivityLogs.Add(new ActivityLogs
-            {
-                UserId = user.Id,
-                UserName = user.UserName,
-                ActivityType = "authentication",
-                Description = "User Login Failed",
-                Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
-                IsSuccess = false,
-                Timestamp = PhTime,
-            });
+            await logger.LogAuthenticationAsync(
+                  user.Id,
+                  user.UserName,
+                  "User Login Failed",
+                  false,
+                  null
+              );
 
             await context.SaveChangesAsync();
 
@@ -184,16 +204,14 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             };
         }
 
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = user.Id,
-            UserName = user.UserName,
-            ActivityType = "authentication",
-            Description = "User Login Successful",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
-            IsSuccess = true,
-            Timestamp = PhTime,
-        });
+        // Log successful login
+        await logger.LogAuthenticationAsync(
+              user.Id,
+              user.UserName,
+              "User Login Successful",
+              true,
+              null
+          );
 
         await context.SaveChangesAsync();
 
@@ -226,16 +244,13 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         user.RefreshToken = null;
         user.RefreshTokenExpiry = null;
 
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = user.Id,
-            UserName = user.UserName,
-            ActivityType = "authentication",
-            Description = "User Logout",
-            Payload = "{}",
-            IsSuccess = true,
-            Timestamp = PhTime,
-        });
+        await logger.LogAuthenticationAsync(
+              user.Id,
+              user.UserName,
+              "User Logout",
+              true,
+              null
+          );
 
         await context.SaveChangesAsync();
 
@@ -269,9 +284,14 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         };
     }
 
+    // -------------------------
+    // Forgot Password FLOW
+    // -------------------------
+
+    // USER: submits forgot request 
     public async Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordRequest request)
     {
-        var username = (request.UserName ?? "").Trim();
+        var username = (request.UserName ?? "").Trim().ToLower();
 
         if (string.IsNullOrWhiteSpace(username))
         {
@@ -284,7 +304,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
 
         var user = await context.Users
             .Include(u => u.UserRequests)
-            .FirstOrDefaultAsync(u => u.UserName.ToLower() == username.ToLower());
+            .FirstOrDefaultAsync(u => u.UserName.ToLower() == username);
 
         if (user is null)
         {
@@ -297,6 +317,32 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
 
         user.UserRequests ??= new List<UserRequests>();
 
+        var now = DateTime.UtcNow;
+        var cooldownMinutes = 10;
+
+        var pendingReset = user.UserRequests
+            .Where(r => r.RequestType == "Reset Password" && r.RequestStatus == "Pending")
+            .OrderByDescending(r => r.RequestDate)
+            .FirstOrDefault();
+
+        if (pendingReset != null)
+        {
+            var minutesSince = (now - pendingReset.RequestDate).TotalMinutes;
+
+            if (minutesSince < cooldownMinutes)
+            {
+                var remaining = (int)Math.Ceiling(cooldownMinutes - minutesSince);
+                return new ForgotPasswordResponse
+                {
+                    Success = false,
+                    Message = $"You already requested a password reset. Please try again in {remaining} minute(s)."
+                };
+            }
+
+            // Cooldown passed — expire the old pending request
+            pendingReset.RequestStatus = "Expired";
+        }
+
         user.UserRequests.Add(new UserRequests
         {
             RequestType = "Reset Password",
@@ -304,16 +350,13 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
             RequestDate = DateTime.UtcNow,
         });
 
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = user.Id,
-            UserName = user.UserName,
-            ActivityType = "account management",
-            Description = "Reset Password Request (Pending Admin Approval)",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
-            IsSuccess = true,
-            Timestamp = PhTime,
-        });
+        await logger.LogAuthenticationAsync(
+              user.Id,
+              user.UserName,
+              "Reset Password Request (Pending Admin Approval)",
+              true,
+              new { request.UserName }
+          );
 
         await context.SaveChangesAsync();
 
@@ -340,16 +383,17 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         user.ForcePasswordChange = false;
 
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = user.Id,
-            UserName = user.UserName,
-            ActivityType = "account management",
-            Description = "User Reset Password Successfully",
-            Payload = "{}",
-            IsSuccess = true,
-            Timestamp = PhTime,
-        });
+        // invalidate temp code
+        /* user.PasswordResetCodeHash = null;
+        user.PasswordResetCodeExpiresUtc = null; */
+
+        await logger.LogAuthenticationAsync(
+              user.Id,
+              user.UserName,
+              "User Update Password Successfully",
+              true,
+              null
+          );
 
         await context.SaveChangesAsync();
 
@@ -357,11 +401,6 @@ public class AuthService(AppDbContext context, IConfiguration configuration) : I
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private static DateTime PhTime =>
-        TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
-            TimeZoneInfo.FindSystemTimeZoneById(
-                OperatingSystem.IsWindows() ? "Singapore Standard Time" : "Asia/Manila"));
 
     private string GenerateToken(Users user)
     {
