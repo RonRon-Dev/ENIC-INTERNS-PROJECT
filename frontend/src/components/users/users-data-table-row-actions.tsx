@@ -18,6 +18,9 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const { setOpen, setCurrentRow } = useUsers()
   const isPending = row.original.status === 'pending'
   const isDeactivated = row.original.status === 'deactivated'
+  const isSuperadmin = row.original.role === 'superadmin'
+
+  if (isSuperadmin) return null
 
   return (
     <>
@@ -84,20 +87,20 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              { isDeactivated ? (
-              <DropdownMenuItem
-                onClick={() => {
-                  setCurrentRow(row.original)
-                  setOpen('activate')
-                }}
-                className='text-green-600 focus:text-green-700'
-              >
-                Activate
-                <DropdownMenuShortcut>
-                  <UserCheck size={16} />
-                </DropdownMenuShortcut>
-              </DropdownMenuItem>
-               ) : (<DropdownMenuItem
+              {isDeactivated ? (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setCurrentRow(row.original)
+                    setOpen('activate')
+                  }}
+                  className='text-green-600 focus:text-green-700'
+                >
+                  Activate
+                  <DropdownMenuShortcut>
+                    <UserCheck size={16} />
+                  </DropdownMenuShortcut>
+                </DropdownMenuItem>
+              ) : (<DropdownMenuItem
                 onClick={() => {
                   setCurrentRow(row.original)
                   setOpen('deactivate')
@@ -109,7 +112,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
                   <Trash2 size={16} />
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
-            )}
+              )}
             </>
           )}
         </DropdownMenuContent>

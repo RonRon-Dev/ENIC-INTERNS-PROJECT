@@ -96,11 +96,9 @@ export const columns: ColumnDef<User>[] = [
       const Icon = option?.icon
 
       return (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 border rounded-md px-2 py-1 w-max bg-muted">
           {Icon && <Icon className="size-3.5 text-muted-foreground" />}
-          <span className="capitalize">
-            {option?.label ?? role}
-          </span>
+          <span className="capitalize">{option?.label ?? role}</span>
         </div>
       )
     },
