@@ -471,6 +471,37 @@ public class UserService(
         };
     }
 
+    public async Task<(bool Success, string Message, RoleResponse? Role)> CreateRoleAsync(CreateRoleRequest request, int currentUserId)
+    {
+        var name = (request.Name ?? "").Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+            return (false, "Role name is required.", null);
+
+        var exists = await context.Roles.AnyAsync(r => r.Name.ToLower() == name.ToLower());
+        if (exists)
+            return (false, "Role already exists.", null);
+
+        var role = new Roles { Name = name };
+        context.Roles.Add(role);
+
+        var admin = await context.Users.FindAsync(currentUserId);
+        context.ActivityLogs.Add(new ActivityLogs
+        {
+            UserId = currentUserId,
+            UserName = admin?.UserName ?? "admin",
+            ActivityType = "privilege",
+            Description = $"Role Created: {name}",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { role = name }),
+            IsSuccess = true,
+            Timestamp = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+
+        return (true, "Role created successfully.", new RoleResponse { Id = role.Id, Name = role.Name });
+    }
+
     private static DateTime PhTime =>
         TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
             TimeZoneInfo.FindSystemTimeZoneById(

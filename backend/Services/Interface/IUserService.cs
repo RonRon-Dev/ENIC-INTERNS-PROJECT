@@ -24,4 +24,6 @@ public interface IUserService
   Task<ResetPasswordResponse> AdminResetPasswordAsync(AdminResetPasswordRequest request, int currentUserId);
   Task<List<UserRequestResponse>> GetUserRequestsAsync(string status = "Pending");
   Task<UserStatsResponse> GetUserStatsAsync();
+
+  Task<(bool Success, string Message, RoleResponse? Role)> CreateRoleAsync(CreateRoleRequest request, int currentUserId);
 }

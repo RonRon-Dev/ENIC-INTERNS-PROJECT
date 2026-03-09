@@ -38,6 +38,20 @@ public class UserController(IUserService service) : ControllerBase
         Ok(await service.GetRolesAsync());
 
     [Authorize(Roles = "Admin,Superadmin")]
+    [HttpPost("roles")]
+    public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
+    {
+        var currentUser = User.GetCurrentUser();
+        if (currentUser <= 0)
+            return Unauthorized(new { message = "Invalid user." });
+
+        var response = await service.CreateRoleAsync(request, currentUser);
+        return response.Success
+            ? Ok(new { success = true, message = response.Message, role = response.Role })
+            : BadRequest(new { success = false, message = response.Message });
+    }
+
+    [Authorize(Roles = "Admin,Superadmin")]
     [HttpPost("create-user")]
     public async Task<ActionResult<CreateUserResponse>> CreateUser(CreateUserRequest request)
     {
