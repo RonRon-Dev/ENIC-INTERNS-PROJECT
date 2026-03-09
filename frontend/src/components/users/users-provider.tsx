@@ -5,7 +5,7 @@ import { usersApi } from '@/services/users'
 
 export type ApiRole = { id: number; name: string }
 
-type UsersDialogType = 'add' | 'edit' | 'deactivate' | 'activate' | 'role' | 'approve' | 'reject' | 'approveReset'
+type UsersDialogType = 'add' | 'edit' | 'deactivate' | 'activate' | 'role' | 'approve' | 'reject' | 'approveReset' | 'adminReset'
 
 type UsersContextType = {
   open: UsersDialogType | null
@@ -13,6 +13,7 @@ type UsersContextType = {
   currentRow: User | null
   setCurrentRow: React.Dispatch<React.SetStateAction<User | null>>
   apiRoles: ApiRole[]
+  refreshRoles: () => Promise<void>
   refresh: () => void
   setRefresh: (fn: () => void) => void
 }
@@ -25,17 +26,23 @@ export function UsersProvider({ children }: { children: React.ReactNode }) {
   const [apiRoles, setApiRoles] = useState<ApiRole[]>([])
   const refreshRef = useRef<() => void>(() => {})
 
+  const refreshRoles = async () => {
+    try {
+      const res = await usersApi.getRoles()
+      setApiRoles(res.data)
+    } catch {}
+  }
+
   useEffect(() => {
-    usersApi.getRoles()
-      .then(res => setApiRoles(res.data))
-      .catch(() => {})
+    refreshRoles()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const refresh = () => refreshRef.current()
   const setRefresh = (fn: () => void) => { refreshRef.current = fn }
 
   return (
-    <UsersContext value={{ open, setOpen, currentRow, setCurrentRow, apiRoles, refresh, setRefresh }}>
+    <UsersContext value={{ open, setOpen, currentRow, setCurrentRow, apiRoles, refreshRoles, refresh, setRefresh }}>
       {children}
     </UsersContext>
   )

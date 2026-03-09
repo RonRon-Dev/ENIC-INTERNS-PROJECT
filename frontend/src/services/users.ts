@@ -2,18 +2,31 @@ import api from "@/services/api"
 
 export const usersApi = {
   getAll: () => api.get('/users'),
+
   getStats: () => api.get('/users/stats'),
+
   getUserRequests: (status = 'Pending') =>
     api.get(`/users/user-requests?status=${encodeURIComponent(status)}`),
+
   getRoles: () => api.get('/users/roles'),
+
   createUser: (data: { name: string; userName: string; roleId: number }) =>
     api.post('/users/create-user', data),
+
   assignRole: (id: number, roleId: number) =>
-    api.put(`/users/assign-role/${id}`, { roleId }),
-  enableUser: (id: number) => api.put(`/users/enable-user/${id}`),
-  disableUser: (id: number) => api.put(`/users/disable-user/${id}`),
+    api.patch(`/users/assign-role/${id}`, { roleId }),
+
+  enableUser: (id: number) => api.patch(`/users/enable-user/${id}`),
+
+  disableUser: (id: number) => api.patch(`/users/disable-user/${id}`),
+
   approveRegistration: (userId: number, roleId: number) =>
-    api.put('/users/approve-registration', { userId, roleId }),
+    api.patch('/users/approve-registration', { userId, roleId }),
+
   approveResetPassword: (userName: string) =>
-    api.put('/users/approve-reset-password', { userName }),
+    api.patch('/users/approve-reset-password', { userName }),
+  adminResetPassword: (userId: number) =>
+    api.patch('/users/admin-reset-password', { userId }),
+  createRole: (name: string) =>
+    api.post('/users/roles', { name }),
 }

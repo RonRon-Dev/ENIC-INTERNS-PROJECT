@@ -6,8 +6,9 @@ import {
   DialogContent,
   DialogHeader
 } from '@/components/ui/dialog'
-import { roles, userTypes } from '@/data/const'
 import { type ActivityLog } from '@/data/schema'
+import { roles, activityTypes, userTypes } from '@/data/const'
+import { useAuth } from '@/auth-context'
 import { CircleCheck, CircleX } from 'lucide-react'
 import { Avatar, AvatarFallback } from '../ui/avatar'
 
@@ -22,6 +23,7 @@ export function DescViewDialog({
   onOpenChange,
   currentRow,
 }: DescViewDialogProps) {
+    const { user } = useAuth();
   const roleConfig = roles.find((r) => r.value === currentRow.user.role)
   const RoleIcon = roleConfig?.icon
   const displayName = currentRow.user.name

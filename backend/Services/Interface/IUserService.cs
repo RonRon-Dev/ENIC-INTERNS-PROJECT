@@ -10,8 +10,6 @@ public interface IUserService
 
   Task<CreateUserResponse> CreateUserAsync(CreateUserRequest user, int currentUser);
 
-  Task<List<UserResponse>> GetUserRequestsAsync();
-
   Task<List<RoleResponse>> GetRolesAsync();
 
   Task<UpdateUserResponse> AssignRoleAsync(int id, UpdateUserRequest user, int currentUser);
@@ -23,6 +21,9 @@ public interface IUserService
   Task<UpdateUserResponse> ApproveRegistrationAsync(ApproveRegistrationRequest request, int currentUser);
 
   Task<ResetPasswordResponse>ApproveResetPasswordAsync(ApproveResetPasswordRequest request, int currentUser);
+  Task<ResetPasswordResponse> AdminResetPasswordAsync(AdminResetPasswordRequest request, int currentUserId);
   Task<List<UserRequestResponse>> GetUserRequestsAsync(string status = "Pending");
   Task<UserStatsResponse> GetUserStatsAsync();
+
+  Task<(bool Success, string Message, RoleResponse? Role)> CreateRoleAsync(CreateRoleRequest request, int currentUserId);
 }

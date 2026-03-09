@@ -17,7 +17,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { logout } from "@/services/auth";
+import { authenticationApi } from "@/services/auth";
 import { ChevronsUpDown, Code2, LogOut, Settings } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -27,7 +27,7 @@ export function NavUser() {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await logout();
+    await authenticationApi.logout();
     setUser(null);
     navigate("/login");
   };

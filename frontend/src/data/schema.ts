@@ -87,7 +87,17 @@ type ActivityLog = {
   time: string;
   date: string;
   type: ActivityType;
+  payload?: Record<string, any>;
   isSuccess: boolean;
 };
 
-export type { ActivityLog };
+// ---------------------------------------------------------------------------
+// Roles
+// ---------------------------------------------------------------------------
+
+type Roles = {
+  id: number;
+  name: string;
+}
+
+export type { ActivityLog, Roles};
