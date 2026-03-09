@@ -1,7 +1,6 @@
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
+import { useAuth } from "@/auth-context";
+import { PasswordInput } from '@/components/password-input';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -13,16 +12,17 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { PasswordInput } from "@/components/password-input";
-import { showSubmittedData } from "@/lib/show-submitted-data";
-import { Copy, Check } from "lucide-react";
-import { updateAccountSchema, type UpdateAccountRequest } from "@/validations";
-import { useAuth } from "@/auth-context";
 import NProgress from "@/lib/nprogress";
+import { notifToast } from '@/lib/show-submitted-data';
 import { settingsApi } from "@/services/settings";
+import { updateAccountSchema, type UpdateAccountRequest } from "@/validations";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Check, Copy } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 
 export function AccountForm() {
-  const [copied, setCopied] = useState(false); // ✅ moved to component level
+  const [copied, setCopied] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
   const { user } = useAuth();
@@ -38,50 +38,56 @@ export function AccountForm() {
     },
   });
 
-  const password = form.watch("password");
+  const password = form.watch('password')
+  const fullname = form.watch('fullname')
+
+  useEffect(() => {
+    if (!fullname?.trim()) return
+    const names = fullname.toLowerCase().trim().split(/\s+/)
+    const generated = names.length >= 2
+      ? `${names[0].charAt(0)}.${names[names.length - 1]}`
+      : names[0]
+    form.setValue('username', generated, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+  }, [fullname, form])
 
   const onSubmit = async (data: UpdateAccountRequest) => {
     try {
-      NProgress.start();
-      setServerError(null);
-      const response = await settingsApi.updateAccount(data);
+      NProgress.start()
+      setServerError(null)
+      const response = await settingsApi.updateAccount(data)
       if (!response.success) {
-        setServerError(response.message);
-        NProgress.done();
-        return;
+        setServerError(response.message)
+        return
       }
-    } catch (error: any) {
-      const res = error.response?.data;
-
-      if (!res) {
-        setServerError("Something went wrong");
-        return;
-      }
-
+      notifToast(data, 'edit')
+      form.reset({ ...data, password: '', confirmPassword: '' })
+    } catch (error) {
+      const res = (error as { response?: { data?: { errors?: Record<string, string>; message?: string } } })?.response?.data
+      if (!res) { setServerError('Something went wrong'); return }
       if (res.errors) {
         Object.entries(res.errors).forEach(([key, value]) => {
           form.setError(key as keyof UpdateAccountRequest, {
-            type: "server",
-            message: value as string,
-          });
-        });
+            type: 'server',
+            message: value,
+          })
+        })
       }
-
-      if (res.message) {
-        setServerError(res.message);
-      }
+      if (res.message) setServerError(res.message)
+    } finally {
+      NProgress.done()
     }
-
-    NProgress.done();
   }
 
   const copyUsername = () => {
-    const username = form.getValues("username");
-    if (!username) return;
-    navigator.clipboard.writeText(username);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+    const username = form.getValues('username')
+    if (!username) return
+    navigator.clipboard.writeText(username)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <Form {...form}>
@@ -177,6 +183,11 @@ export function AccountForm() {
           />
         </div>
 
+        {serverError && (
+          <Alert variant='destructive'>
+            <AlertDescription>{serverError}</AlertDescription>
+          </Alert>
+        )}
         <Button disabled={!form.formState.isDirty} type="submit">
           Update account
         </Button>

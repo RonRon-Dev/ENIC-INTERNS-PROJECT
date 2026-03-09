@@ -1,12 +1,12 @@
-import { toast } from 'sonner'
 import {
-  UserCheck,
-  UserX,
-  UserCog,
   ShieldCheck,
   ShieldOff,
+  UserCheck,
+  UserCog,
   UserPlus,
+  UserX,
 } from 'lucide-react'
+import { toast } from 'sonner'
 
 type ToastMode = 'create' | 'edit' | 'approve' | 'reject' | 'activate' | 'deactivate' | 'addrole' | 'appsettings'
 
@@ -33,7 +33,7 @@ const modeConfig: Record<
   },
   approve: {
     title: 'User Approved',
-    description: (name?: string, role?: string) => `${name} has been granted access as ${role}.`,
+    description: (name?: string, role?: string) => `${name} has been requested has been granted ${role}.`,
     icon: UserCheck,
     iconClass: 'text-green-600 bg-green-300',
   },
@@ -69,7 +69,7 @@ const modeConfig: Record<
   }
 }
 
-export function showSubmittedData(
+export function notifToast(
   data: unknown,
   mode: ToastMode = 'create',
 ) {

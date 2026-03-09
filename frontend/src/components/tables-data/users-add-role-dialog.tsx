@@ -1,8 +1,3 @@
-import { z } from 'zod'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { ShieldPlus, Shield, UserCheck, User, ShieldCheck, Code, Megaphone, Settings, Users, FileText, Cpu } from 'lucide-react'
-import { showSubmittedData } from '@/lib/show-submitted-data'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,7 +18,12 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { roles } from '@/data/const'
+import { notifToast } from '@/lib/show-submitted-data'
 import { cn } from '@/lib/utils'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Code, Cpu, FileText, Megaphone, Settings, Shield, ShieldCheck, ShieldPlus, User, UserCheck, Users } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
 
 const existingRoleValues = roles.map((r) => r.value)
 
@@ -68,7 +68,7 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
 
   const onSubmit = (values: UserAddRoleForm) => {
     form.reset()
-    showSubmittedData(values, 'addrole')
+    notifToast(values, 'addrole')
     onOpenChange(false)
   }
 

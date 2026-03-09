@@ -1,12 +1,5 @@
-import { z } from 'zod'
-import { useForm } from 'react-hook-form'
-import { useState } from 'react'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { ShieldPlus, Shield, UserCheck, User, ShieldCheck, Code, Megaphone, Settings, Users, FileText, Cpu } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { usersApi } from '@/services/users'
-import { useUsers } from './users-provider'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogClose,
@@ -25,7 +18,15 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { notifToast } from '@/lib/show-submitted-data'
 import { cn } from '@/lib/utils'
+import { usersApi } from '@/services/users'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Code, Cpu, FileText, Megaphone, Settings, Shield, ShieldCheck, ShieldPlus, User, UserCheck, Users } from 'lucide-react'
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
+import { useUsers } from './users-provider'
 
 const availableIcons = [
   { label: 'User', value: 'user', icon: User },
@@ -71,10 +72,11 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
         return
       }
       await refreshRoles()
+      notifToast(values, 'addrole')
       form.reset()
       onOpenChange(false)
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Failed to create role.')
+    } catch (err) {
+      setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to create role.')
     } finally {
       setIsSubmitting(false)
     }
@@ -131,16 +133,15 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
                           key={value.toLowerCase()}
                           type='button'
                           onClick={() => field.onChange(value)}
-                          variant={"outline"}
+                          variant='outline'
                           className={cn(
                             'flex flex-col items-center justify-center gap-1 rounded-md border p-3 text-xs transition-colors hover:border-gray-500',
                             field.value === value
-                              ? "hover:bg-muted/60 cursor-pointer border-gray-500"
+                              ? 'hover:bg-muted/60 cursor-pointer border-gray-500'
                               : 'border-input text-muted-foreground'
                           )}
                         >
                           <Icon size={20} />
-                          {/* <span className='line-clamp-1'>{label}</span> */}
                         </Button>
                       ))}
                     </div>

@@ -1,7 +1,3 @@
-import { z } from 'zod'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -20,7 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { showSubmittedData } from '@/lib/show-submitted-data'
+import { notifToast } from '@/lib/show-submitted-data'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useTheme } from 'next-themes'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
 
 const timeoutOptions = [
   { label: '5 minutes', value: '5' },
@@ -51,7 +51,7 @@ export function PreferencesForm() {
 
   function onSubmit(data: PreferencesFormValues) {
     setTheme(data.theme)
-    showSubmittedData(data, 'appsettings')
+    notifToast(data, 'appsettings')
     form.reset(data)
   }
 
