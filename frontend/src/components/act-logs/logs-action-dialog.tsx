@@ -49,16 +49,11 @@ export function DescViewDialog({
               <div className='font-medium text-muted-foreground text-sm'>{currentRow.user.username}</div>
             </div>
             <div className='flex flex-col items-end gap-2'>
+
+
               <Badge className='w-fit gap-x-1 py-1'>
                 {RoleIcon && <RoleIcon className='h-4 w-4' />}
                 <span>{currentRow.user.role.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}</span>
-              </Badge>
-
-              <Badge
-                variant='outline'
-                className={userTypes.get(currentRow.user.status) + ' w-fit'}
-              >
-                {currentRow.user.status.charAt(0).toUpperCase() + currentRow.user.status.slice(1)}
               </Badge>
             </div>
           </div>
@@ -79,20 +74,27 @@ export function DescViewDialog({
             })}
           </span>
 
-          <span className='text-muted-foreground text-sm'>Action Taken</span>
-          <span className='text-right text-sm'>{currentRow.description}</span>
+          <span className='text-muted-foreground text-sm'>User Status</span>
+          <div className='flex justify-end'>
+            <div
+              className={userTypes.get(currentRow.user.status) + ' w-fit text-sm bg-transparent'}
+            >
+              {currentRow.user.status.charAt(0).toUpperCase() + currentRow.user.status.slice(1)}
+            </div>
+          </div>
 
           <span className='text-muted-foreground text-sm'>Result</span>
           <div className='flex justify-end'>
-            <Badge
-              variant='outline'
-              className={`gap-x-1 py-1 ${currentRow.isSuccess
-                ? 'text-green-600 border-green-600 bg-green-50' : 'text-red-500 border-red-500 bg-red-50'}
+            <div
+              className={`gap-x-1 flex items-center text-sm ${currentRow.isSuccess
+                ? 'text-green-600 border-green-600' : 'text-red-500 border-red-500'}
               `}>
-              {currentRow.isSuccess ? <CircleCheck className="w-4 h-4" /> : <CircleX className="w-4 h-4" />}
               {currentRow.isSuccess ? 'Success' : 'Failed'}
-            </Badge>
+            </div>
           </div>
+
+          <span className='text-muted-foreground text-sm'>Action Taken</span>
+          <span className='text-right text-sm break-words'>{currentRow.description}</span>
         </div>
       </DialogContent>
     </Dialog>

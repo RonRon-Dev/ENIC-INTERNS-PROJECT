@@ -14,6 +14,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { useSidebar } from "@/components/ui/sidebar";
+import JSZip from "jszip";
 import {
   CheckSquare,
   ChevronDown,
@@ -101,11 +102,13 @@ interface ExportConfig {
   mode: ExportMode;
   fileName: string;
   fileNameCol: string;
+  zipFileName: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 50;
+const ZIP_THRESHOLD = 5; // per-row exports above this count get zipped
 
 // ─── Upload Zone ──────────────────────────────────────────────────────────────
 
@@ -215,6 +218,167 @@ function UploadZone({
   );
 }
 
+// ─── Header Picker Dialog ─────────────────────────────────────────────────────
+
+function HeaderPickerDialog({
+  open,
+  rawData,
+  onConfirm,
+  onClose,
+}: {
+  open: boolean;
+  rawData: string[][];
+  onConfirm: (rowIndex: number) => void;
+  onClose: () => void;
+}) {
+  const previewRows = rawData.slice(0, 12);
+  const previewCols = Math.min(
+    8,
+    Math.max(0, ...previewRows.map((r) => r.length))
+  );
+
+  // Lazy initializer runs once on mount. The parent resets this component by
+  // changing its `key` prop whenever rawData changes, so this is always fresh.
+  const [selectedRow, setSelectedRow] = useState(() => {
+    if (rawData.length === 0) return 0;
+    let best = 0;
+    let bestScore = -1;
+    for (let i = 0; i < Math.min(10, rawData.length); i++) {
+      const score = rawData[i].filter(
+        (c) => c && isNaN(Number(c)) && String(c).trim().length > 0
+      ).length;
+      if (score > bestScore) {
+        bestScore = score;
+        best = i;
+      }
+    }
+    return best;
+  });
+
+  const dataRowCount = Math.max(0, rawData.length - selectedRow - 1);
+
+  return (
+    <Dialog open={open} onOpenChange={(v: boolean) => !v && onClose()}>
+      <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden">
+        <DialogHeader className="px-5 pt-5 pb-4 border-b border-border">
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <Table2 className="h-4 w-4 text-muted-foreground" />
+            Select Header Row
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            Click the row that contains your column headers. Any rows above it
+            (e.g. titles, summaries) will be skipped.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="overflow-auto max-h-[420px] p-4">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr>
+                <th className="w-8 px-2 py-1.5 text-left text-muted-foreground/40 font-normal border-b border-border sticky top-0 bg-background">
+                  #
+                </th>
+                {Array.from({ length: previewCols }, (_, i) => (
+                  <th
+                    key={i}
+                    className="px-3 py-1.5 text-left text-muted-foreground/40 font-normal border-b border-border whitespace-nowrap sticky top-0 bg-background"
+                  >
+                    col {i + 1}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {previewRows.map((row, ri) => {
+                const isSelected = ri === selectedRow;
+                const isAbove = ri < selectedRow;
+                return (
+                  <tr
+                    key={ri}
+                    onClick={() => setSelectedRow(ri)}
+                    className={`cursor-pointer transition-all duration-100 border-b border-border/40 ${
+                      isSelected
+                        ? "bg-primary/10 ring-1 ring-inset ring-primary/30"
+                        : isAbove
+                        ? "opacity-30 hover:opacity-55 hover:bg-muted/30"
+                        : "hover:bg-muted/40"
+                    }`}
+                  >
+                    <td className="px-2 py-2 font-mono text-muted-foreground/30 text-[10px] shrink-0">
+                      {ri + 1}
+                    </td>
+                    {Array.from({ length: previewCols }, (_, ci) => (
+                      <td
+                        key={ci}
+                        className={`px-3 py-2 whitespace-nowrap max-w-[180px] truncate ${
+                          isSelected
+                            ? "font-semibold text-primary"
+                            : isAbove
+                            ? "text-muted-foreground"
+                            : "text-foreground/70"
+                        }`}
+                        title={row[ci] ?? ""}
+                      >
+                        {row[ci] ?? (
+                          <span className="text-muted-foreground/20">—</span>
+                        )}
+                      </td>
+                    ))}
+                    <td className="px-2 py-2 w-28">
+                      {isSelected && (
+                        <span className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/30 rounded-full px-2 py-0.5 whitespace-nowrap">
+                          ← header row
+                        </span>
+                      )}
+                      {isAbove && (
+                        <span className="text-[10px] text-muted-foreground/30 whitespace-nowrap">
+                          skipped
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {rawData.length > 12 && (
+            <p className="text-[11px] text-muted-foreground/40 text-center pt-3">
+              Showing first 12 rows · {rawData.length} total rows in file
+            </p>
+          )}
+        </div>
+
+        <DialogFooter className="px-5 py-3 border-t border-border gap-2 items-center">
+          <p className="flex-1 text-xs text-muted-foreground">
+            Row{" "}
+            <span className="font-semibold text-foreground">
+              {selectedRow + 1}
+            </span>{" "}
+            as header
+            {" · "}
+            <span className="font-semibold text-foreground">
+              {dataRowCount.toLocaleString()}
+            </span>{" "}
+            data row{dataRowCount !== 1 ? "s" : ""} below
+          </p>
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => onConfirm(selectedRow)}
+          >
+            <Table2 className="h-3.5 w-3.5" />
+            Use Row {selectedRow + 1} as Header
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Export Config Dialog ─────────────────────────────────────────────────────
 
 function ExportDialog({
@@ -235,6 +399,7 @@ function ExportDialog({
     mode: "single",
     fileName: `export_${new Date().toISOString().slice(0, 10)}`,
     fileNameCol: columns[0] ?? "",
+    zipFileName: `export_${new Date().toISOString().slice(0, 10)}`,
   });
 
   const set = <K extends keyof ExportConfig>(key: K, val: ExportConfig[K]) =>
@@ -438,6 +603,34 @@ function ExportDialog({
                   [value].{config.format}
                 </span>
               </p>
+
+              {/* Zip section — only shown when above threshold */}
+              {selectedCount > ZIP_THRESHOLD && (
+                <div className="flex flex-col gap-2 pt-2 mt-1 border-t border-border">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                      {selectedCount} files
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      · will be bundled into a zip
+                    </span>
+                  </div>
+                  <label className="text-xs font-medium text-foreground">
+                    Zip file name
+                  </label>
+                  <div className="flex items-center gap-0">
+                    <input
+                      className="flex-1 rounded-l-md border border-border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                      value={config.zipFileName}
+                      onChange={(e) => set("zipFileName", e.target.value)}
+                      placeholder="export"
+                    />
+                    <span className="rounded-r-md border border-l-0 border-border bg-muted px-3 py-1.5 text-xs text-muted-foreground">
+                      .zip
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1360,75 +1553,115 @@ export default function SpreadsheetAutomationPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
 
+  // ── Header picker state ──
+  const [rawSheetData, setRawSheetData] = useState<string[][]>([]);
+  const [showHeaderPicker, setShowHeaderPicker] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+
   const hasData = rows.length > 0;
 
-  // ── Parse ──
-  const parseFile = useCallback(
-    (file: File) => {
-      setIsLoading(true);
-      setProgress(0);
+  // ── Phase 1: Read file raw, open header picker ──
+  const parseFile = useCallback((file: File) => {
+    setIsLoading(true);
+    setProgress(0);
+    setSelectedIds(new Set());
+    setSort({ col: null, dir: null });
+    setSearch("");
+    setPage(1);
+
+    let tick = 0;
+    const interval = setInterval(() => {
+      tick += Math.random() * 14 + 6;
+      setProgress(Math.min(85, Math.floor(tick)));
+    }, 130);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      clearInterval(interval);
+      setProgress(92);
+      try {
+        const data = new Uint8Array(e.target!.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+
+        // Read as raw array-of-arrays — no header assumption yet
+        const raw = XLSX.utils.sheet_to_json<string[]>(worksheet, {
+          header: 1,
+          defval: "",
+          raw: false,
+        }) as string[][];
+
+        setRawSheetData(raw);
+        setPendingFile(file);
+        setProgress(100);
+
+        setTimeout(() => {
+          setIsLoading(false);
+          setProgress(0);
+          setShowHeaderPicker(true);
+        }, 350);
+      } catch (err) {
+        console.error(err);
+        clearInterval(interval);
+        setIsLoading(false);
+        setProgress(0);
+        toast.error("Failed to read file", {
+          description: "Make sure it's a valid .xlsx, .xls, or .csv file.",
+        });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }, []);
+
+  // ── Phase 2: User confirmed header row — slice and commit ──
+  const commitWithHeaderRow = useCallback(
+    (headerRowIndex: number) => {
+      if (!rawSheetData.length || !pendingFile) return;
+
+      const headerRow = rawSheetData[headerRowIndex];
+      const dataRows = rawSheetData.slice(headerRowIndex + 1);
+
+      // Deduplicate column names
+      const colCounts: Record<string, number> = {};
+      const cols = headerRow.map((h) => {
+        const key = String(h ?? "").trim() || "Column";
+        colCounts[key] = (colCounts[key] ?? 0) + 1;
+        return colCounts[key] > 1 ? `${key}_${colCounts[key]}` : key;
+      });
+
+      const tagged: Row[] = dataRows
+        .filter((r) => r.some((cell) => String(cell ?? "").trim() !== "")) // skip blank rows
+        .map((r, i) => {
+          const obj: Row = { __id: i };
+          cols.forEach((col, ci) => {
+            obj[col] = r[ci] ?? "";
+          });
+          return obj;
+        });
+
+      setColumns(cols);
+      setRows(tagged);
+      setColVisibility(Object.fromEntries(cols.map((c) => [c, true])));
+      setFileName(pendingFile.name);
       setSelectedIds(new Set());
       setSort({ col: null, dir: null });
       setSearch("");
       setPage(1);
+      setActiveFilters({});
+      setDateRangeFilters({});
+      setShowHeaderPicker(false);
+      setShowColDialog(true);
+      setShowFilterPanel(false);
+      setOpen(false);
 
-      let tick = 0;
-      const interval = setInterval(() => {
-        tick += Math.random() * 14 + 6;
-        setProgress(Math.min(85, Math.floor(tick)));
-      }, 130);
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        clearInterval(interval);
-        setProgress(92);
-        try {
-          const data = new Uint8Array(e.target!.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: "array" });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(
-            worksheet,
-            {
-              defval: "",
-              raw: false,
-            }
-          );
-
-          const cols = jsonData.length > 0 ? Object.keys(jsonData[0]) : [];
-          const tagged: Row[] = jsonData.map((row, i) => ({ __id: i, ...row }));
-
-          setColumns(cols);
-          setRows(tagged);
-          setColVisibility(Object.fromEntries(cols.map((c) => [c, true])));
-          setFileName(file.name);
-          setProgress(100);
-
-          setTimeout(() => {
-            setIsLoading(false);
-            setProgress(0);
-            setShowColDialog(true);
-            setShowFilterPanel(false);
-            setOpen(false);
-            toast.success("File imported successfully", {
-              description: `${tagged.length.toLocaleString()} rows · ${
-                cols.length
-              } columns · "${file.name}"`,
-            });
-          }, 350);
-        } catch (err) {
-          console.error(err);
-          clearInterval(interval);
-          setIsLoading(false);
-          setProgress(0);
-          toast.error("Failed to read file", {
-            description: "Make sure it's a valid .xlsx, .xls, or .csv file.",
-          });
-        }
-      };
-      reader.readAsArrayBuffer(file);
+      toast.success("File imported successfully", {
+        description: `${tagged.length.toLocaleString()} rows · ${
+          cols.length
+        } columns · "${pendingFile.name}"`,
+      });
     },
-    [setOpen]
+    [rawSheetData, pendingFile, setOpen]
   );
 
   // ── Sort ──
@@ -1545,13 +1778,32 @@ export default function SpreadsheetAutomationPage() {
   }, [allFilteredIds]);
 
   // ── Export ──
-  const handleExport = (config: ExportConfig) => {
+  const handleExport = async (config: ExportConfig) => {
     const visibleColumns = columns.filter((c) => colVisibility[c] !== false);
     const selectedRows = rows
       .filter((r) => selectedIds.has(r.__id))
       .map((r) => Object.fromEntries(visibleColumns.map((c) => [c, r[c]])));
 
-    const writeFile = (data: Record<string, unknown>[], name: string) => {
+    // Returns raw file bytes (not triggers a download) — used for zip building
+    const buildFileBytes = (
+      data: Record<string, unknown>[]
+    ): Uint8Array | string => {
+      const ws = XLSX.utils.json_to_sheet(data);
+      if (config.format === "xlsx") {
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Export");
+        return XLSX.write(wb, {
+          bookType: "xlsx",
+          type: "array",
+        }) as Uint8Array;
+      } else {
+        const delim = config.format === "tsv" ? "\t" : ",";
+        return XLSX.utils.sheet_to_csv(ws, { FS: delim });
+      }
+    };
+
+    // Triggers an immediate browser download for a single file
+    const downloadFile = (data: Record<string, unknown>[], name: string) => {
       const ws = XLSX.utils.json_to_sheet(data);
       if (config.format === "xlsx") {
         const wb = XLSX.utils.book_new();
@@ -1571,22 +1823,59 @@ export default function SpreadsheetAutomationPage() {
     };
 
     if (config.mode === "single") {
-      writeFile(selectedRows, config.fileName || `export_${Date.now()}`);
+      downloadFile(selectedRows, config.fileName || `export_${Date.now()}`);
       toast.success("Export complete", {
         description: `${selectedRows.length} row${
           selectedRows.length !== 1 ? "s" : ""
         } saved as "${config.fileName}.${config.format}"`,
       });
+    } else if (selectedRows.length > ZIP_THRESHOLD) {
+      // ── Batch zip export ──
+      const zip = new JSZip();
+      const usedNames = new Map<string, number>();
+
+      selectedRows.forEach((row, i) => {
+        const rawName = config.fileNameCol
+          ? String(row[config.fileNameCol] ?? `row_${i + 1}`)
+          : `row_${i + 1}`;
+        const safeName = rawName.replace(/[\\/:*?"<>|]/g, "_");
+
+        // Deduplicate filenames within the zip (e.g. two rows with same value)
+        const count = usedNames.get(safeName) ?? 0;
+        usedNames.set(safeName, count + 1);
+        const uniqueName = count === 0 ? safeName : `${safeName}_${count + 1}`;
+
+        const bytes = buildFileBytes([row]);
+        zip.file(`${uniqueName}.${config.format}`, bytes);
+      });
+
+      try {
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${config.zipFileName || "export"}.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success("Export complete", {
+          description: `${selectedRows.length} files zipped as "${config.zipFileName}.zip"`,
+        });
+      } catch {
+        toast.error("Zip failed", {
+          description: "Something went wrong while creating the zip file.",
+        });
+      }
     } else {
+      // ── Individual downloads (≤ ZIP_THRESHOLD) ──
       selectedRows.forEach((row, i) => {
         const nameVal = config.fileNameCol
           ? String(row[config.fileNameCol] ?? `row_${i + 1}`)
           : `row_${i + 1}`;
         const safeName = nameVal.replace(/[\\/:*?"<>|]/g, "_");
-        setTimeout(() => writeFile([row], safeName), i * 80);
+        setTimeout(() => downloadFile([row], safeName), i * 80);
       });
       toast.success("Export complete", {
-        description: `${selectedRows.length} files queued for download.`,
+        description: `${selectedRows.length} files downloading.`,
       });
     }
   };
@@ -1601,6 +1890,8 @@ export default function SpreadsheetAutomationPage() {
     setActiveFilters({});
     setShowFilterPanel(false);
     setDateRangeFilters({});
+    setRawSheetData([]);
+    setPendingFile(null);
   };
 
   const selectedCount = selectedIds.size;
@@ -1888,6 +2179,21 @@ export default function SpreadsheetAutomationPage() {
       </div>
 
       {/* ── Dialogs ── */}
+
+      {/* Header Row Picker — shown after file is read, before data is committed */}
+      <HeaderPickerDialog
+        key={rawSheetData.length + rawSheetData[0]?.join("")}
+        open={showHeaderPicker}
+        rawData={rawSheetData}
+        onConfirm={commitWithHeaderRow}
+        onClose={() => {
+          setShowHeaderPicker(false);
+          setIsLoading(false);
+          setPendingFile(null);
+          setRawSheetData([]);
+        }}
+      />
+
       <FilterDrawer
         open={showFilterPanel}
         columns={columns}

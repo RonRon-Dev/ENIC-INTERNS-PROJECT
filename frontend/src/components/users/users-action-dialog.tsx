@@ -1,9 +1,8 @@
 'use client'
 
-import { z } from 'zod'
-import { useForm } from 'react-hook-form'
-import { useEffect, useState } from 'react'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { ConfirmDialog } from '@/components/confirm-dialog'
+import { SelectDropdown } from '@/components/select-dropdown'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -22,13 +21,15 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { SelectDropdown } from '@/components/select-dropdown'
-import { AlertTriangle, Check, Copy, UserCheck, UserX } from 'lucide-react'
 import { type User } from '@/data/schema'
-import { ConfirmDialog } from '@/components/confirm-dialog'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Textarea } from '../ui/textarea'
 import { usersApi } from '@/services/users'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { AlertTriangle, Check, Copy, UserCheck, UserX } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { toast } from 'sonner'
+import { z } from 'zod'
+import { Textarea } from '../ui/textarea'
 import { useUsers } from './users-provider'
 
 const formSchema = z
@@ -494,11 +495,13 @@ export function UsersApproveDialog({
     setErrorMsg(null)
     try {
       await usersApi.approveRegistration(parseInt(currentRow.id), apiRole.id)
+      toast.success('User approved successfully. They can now log in.')
       form.reset()
       refresh()
       onOpenChange(false)
     } catch (err: any) {
       setErrorMsg(err?.response?.data?.message ?? 'Failed to approve user.')
+      toast.error('Failed to approve user.')
     } finally {
       setIsSubmitting(false)
     }
