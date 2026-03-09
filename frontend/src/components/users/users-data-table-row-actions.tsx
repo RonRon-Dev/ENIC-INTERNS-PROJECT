@@ -11,16 +11,19 @@ import {
 import { type User } from '../tables-data/users-column'
 import { useUsers } from '@/components/users/users-provider'
 import { type CellContext } from '@tanstack/react-table'
+import { useAuth } from '@/auth-context'
 
 type DataTableRowActionsProps = CellContext<User, unknown>
 
 export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const { setOpen, setCurrentRow } = useUsers()
+  const { user } = useAuth()
   const isPending = row.original.status === 'pending'
   const isDeactivated = row.original.status === 'deactivated'
   const isSuperadmin = row.original.role === 'superadmin'
+  const isSelf = row.original.username === user?.userName
 
-  if (isSuperadmin) return null
+  if (isSuperadmin || isSelf) return null
 
   return (
     <>

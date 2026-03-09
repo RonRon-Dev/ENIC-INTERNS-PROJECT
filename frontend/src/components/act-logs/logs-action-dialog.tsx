@@ -72,7 +72,7 @@ export function DescViewDialog({
               <div className='font-medium text-muted-foreground text-sm'>{currentRow.user.username}</div>
             </div>
             <div className='flex flex-col items-end gap-2'>
-              <Badge className='w-fit'>
+              <Badge className='w-fit gap-x-1 py-1'>
                 {RoleIcon && <RoleIcon className='h-4 w-4' />}
                 <span>{currentRow.user.role.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}</span>
               </Badge>

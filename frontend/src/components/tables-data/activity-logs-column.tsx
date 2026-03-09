@@ -29,17 +29,16 @@ import { DataTableToolbar } from "../data-table-components/data-table-toolbar"
 import { DataTableColumnHeader } from "../data-table-components/data-table-header"
 import { type ActivityLog } from '@/data/schema'
 export type { ActivityLog }
-import { activityTypes } from '@/data/const'
 import { roles } from '@/data/const'
 import { useLogs } from '@/components/act-logs/logs-provider'
-import { Check, CircleCheck, CircleX, UserCheck, UserX } from "lucide-react"
+import { CircleCheck, CircleX } from "lucide-react"
 
 export function useColumns() {
   const { setOpen, setCurrentRow } = useLogs()
 
   const columns: ColumnDef<ActivityLog>[] = [
     {
-      id: 'id',
+      id: 'ID',
       header: 'Reference ID',
       accessorKey: 'id',
     },
@@ -140,8 +139,8 @@ export function useColumns() {
     },
 
     {
-      id: 'description',
-      header: 'Action Taken',
+      id: 'Remarks',
+      header: 'Remarks',
       accessorFn: (row) => row.description,
       cell: ({ row }) => (
         <Badge
@@ -198,13 +197,6 @@ export function DataTable<TData, TValue>({
     icon,
   }))
 
-  const activityTypeOptions = Array.from(activityTypes.keys()).map((key) => ({
-    label: key
-      .toLowerCase()
-      .replace(/\b\w/g, (char) => char.toUpperCase()),
-    value: key,
-  }))
-
   return (
     <div>
       <DataTableToolbar
@@ -216,11 +208,6 @@ export function DataTable<TData, TValue>({
             columnId: 'role',
             title: 'Role',
             options: roleOptions,
-          },
-          {
-            columnId: 'type',
-            title: 'Type',
-            options: activityTypeOptions,
           },
         ]}
       />

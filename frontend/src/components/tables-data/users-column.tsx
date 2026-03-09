@@ -54,12 +54,12 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: 'username',
     header: ({ column }) => (
-      <div className="ml-3">
+      <div>
         <DataTableColumnHeader column={column} title="Username" />
       </div>
     ),
     cell: ({ row }) => (
-      <div className="ml-5">{row.original.username}</div>
+      <div className="ml-1">{row.original.username}</div>
     ),
     enableHiding: false,
   },
@@ -92,7 +92,7 @@ export const columns: ColumnDef<User>[] = [
     filterFn: includesArrayFilter,
     cell: ({ row }) => {
       const role = row.getValue('role') as string
-      const option = roles.find((r) => r.value === role)
+      const option = roles.find((r) => r.value.toLowerCase() === role.toLowerCase())
       const Icon = option?.icon
 
       return (

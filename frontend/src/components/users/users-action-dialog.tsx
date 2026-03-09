@@ -166,19 +166,13 @@ export function UsersActionDialog({
         <div className='h-105 w-[calc(100%+0.75rem)] overflow-y-auto py-1 pe-3'>
           {tempPassword ? (
             <div className='space-y-4'>
-              <Alert>
-                <AlertTitle>User Created Successfully</AlertTitle>
-                <AlertDescription>
-                  Share these credentials with the user via a secure channel.
-                </AlertDescription>
-              </Alert>
               <div className='space-y-2 rounded-md border bg-muted/50 p-4 text-sm'>
-                <div className='flex items-center justify-between'>
+                <div className='flex flex-col items-center'>
                   <span className='text-muted-foreground'>Username</span>
                   <span className='font-mono font-medium'>{form.getValues('username')}</span>
                 </div>
-                <div className='flex items-center justify-between'>
-                  <span className='text-muted-foreground'>Temp Password</span>
+                <div className='flex flex-col items-center'>
+                  <span className='text-muted-foreground'>Temporary Password</span>
                   <div className='flex items-center gap-2'>
                     <span className='font-mono font-bold tracking-widest'>{tempPassword}</span>
                     <button
@@ -193,9 +187,11 @@ export function UsersActionDialog({
                   </div>
                 </div>
               </div>
-              <Alert>
-                <AlertDescription>
-                  The user must change this password on next login.
+              <Alert className='border-green-600 text-green-600 bg-green-50'>
+                <UserCheck className='h-5 w-5 stroke-green-600 flex items-center' />
+                <AlertTitle className='font-bold'>User Created Successfully</AlertTitle>
+                <AlertDescription className='text-green-600' >
+                  Share these credentials with the user via a secure channel.
                 </AlertDescription>
               </Alert>
             </div>
@@ -270,7 +266,7 @@ export function UsersActionDialog({
                         className='col-span-3'
                         items={apiRoles.map((r) => ({
                           label: r.name.charAt(0).toUpperCase() + r.name.slice(1),
-                          value: r.name,
+                          value: r.name.toLowerCase(),
                         }))}
                       />
                       <FormMessage className='col-span-4 col-start-3' />
