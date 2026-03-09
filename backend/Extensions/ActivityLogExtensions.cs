@@ -53,6 +53,7 @@ public static class ActivityLogExtensions
             "authentication" => "authentication",
             "privilege" => "privilege",
             "account management" => "account management",
+            "settings" => "settings",
             _ => "privilege"
         };
 }

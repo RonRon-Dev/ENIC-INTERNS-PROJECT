@@ -92,7 +92,7 @@ public class AuthController(IAuthService service, IWebHostEnvironment env) : Con
     }
 
     [Authorize]
-    [HttpPut("update-password")]
+    [HttpPatch("update-password")]
     public async Task<IActionResult> UpdatePassword(ResetPasswordRequest request)
     {
         var response = await service.UpdatePasswordAsync(request);

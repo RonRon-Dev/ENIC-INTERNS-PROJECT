@@ -6,6 +6,7 @@ using backend.Services.Auth;
 using backend.Services.Dashboard;
 using backend.Services.Interface;
 using backend.Services.User;
+using backend.Services.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 // using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -187,6 +188,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ActivityLoggerService>();
 
 var app = builder.Build();
