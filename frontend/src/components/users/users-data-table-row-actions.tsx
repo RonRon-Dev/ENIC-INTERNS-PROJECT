@@ -11,13 +11,19 @@ import {
 import { type User } from '../tables-data/users-column'
 import { useUsers } from '@/components/users/users-provider'
 import { type CellContext } from '@tanstack/react-table'
+import { useAuth } from '@/auth-context'
 
 type DataTableRowActionsProps = CellContext<User, unknown>
 
 export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const { setOpen, setCurrentRow } = useUsers()
+  const { user } = useAuth()
   const isPending = row.original.status === 'pending'
   const isDeactivated = row.original.status === 'deactivated'
+  const isSuperadmin = row.original.role === 'superadmin'
+  const isSelf = row.original.username === user?.userName
+
+  if (isSuperadmin || isSelf) return null
 
   return (
     <>
@@ -84,20 +90,20 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              { isDeactivated ? (
-              <DropdownMenuItem
-                onClick={() => {
-                  setCurrentRow(row.original)
-                  setOpen('activate')
-                }}
-                className='text-green-600 focus:text-green-700'
-              >
-                Activate
-                <DropdownMenuShortcut>
-                  <UserCheck size={16} />
-                </DropdownMenuShortcut>
-              </DropdownMenuItem>
-               ) : (<DropdownMenuItem
+              {isDeactivated ? (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setCurrentRow(row.original)
+                    setOpen('activate')
+                  }}
+                  className='text-green-600 focus:text-green-700'
+                >
+                  Activate
+                  <DropdownMenuShortcut>
+                    <UserCheck size={16} />
+                  </DropdownMenuShortcut>
+                </DropdownMenuItem>
+              ) : (<DropdownMenuItem
                 onClick={() => {
                   setCurrentRow(row.original)
                   setOpen('deactivate')
@@ -109,7 +115,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
                   <Trash2 size={16} />
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
-            )}
+              )}
             </>
           )}
         </DropdownMenuContent>

@@ -71,7 +71,7 @@ export default function SubToolTestPage() {
 
   return (
     <div className="flex w-full flex-col items-center justify-center">
-      <div className="w-full flex flex-col items-center gap-6 rounded-xl border-2 border-dashed border-border bg-muted/30 p-12 text-center">
+      <div className="w-full flex flex-col items-center gap-6 rounded-xl border-2 border-spacing-1 border-dashed border-border bg-muted/30 p-12 text-center">
 
         {/* Top — module icon + construction overlay */}
         <div className="relative flex items-center justify-center">

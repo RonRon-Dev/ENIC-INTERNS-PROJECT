@@ -23,7 +23,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
 );
 
-// CORS
+// CORS — origins loaded from config, not hardcoded
+var allowedOrigins = builder.Configuration
+    .GetSection("AllowedOrigins")
+    .Get<string[]>() ?? ["http://localhost:5173"];
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(
@@ -67,7 +71,7 @@ builder
             ValidAudience = audience,
 
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(2), // ✅ tolerate small time drift
+            ClockSkew = TimeSpan.FromMinutes(2),
 
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
@@ -146,7 +150,7 @@ builder
 
 builder.Services.AddAuthorization();
 
-// Swagger (Authorize button)
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {

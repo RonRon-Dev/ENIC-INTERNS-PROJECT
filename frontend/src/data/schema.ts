@@ -88,6 +88,7 @@ type ActivityLog = {
   date: string;
   type: ActivityType;
   payload?: Record<string, any>;
+  isSuccess: boolean;
 };
 
 // ---------------------------------------------------------------------------

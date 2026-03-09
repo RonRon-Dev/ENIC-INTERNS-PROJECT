@@ -1,20 +1,22 @@
-import type { ElementType, ComponentType } from "react";
 import {
+  BadgeDollarSign,
+  BotIcon,
+  CirclePile,
+  ExternalLinkIcon,
+  HandshakeIcon,
+  HardHat,
   Home,
   LayoutDashboard,
   User2Icon,
-  CirclePile,
-  HardHat,
-  BadgeDollarSign,
-  HandshakeIcon,
-  BotIcon,
 } from "lucide-react";
+import type { ComponentType, ElementType } from "react";
 import { lazy } from "react";
 import type { UserRole } from "./schema";
 
 export interface SubTool {
   title: string;
-  url: string;
+  url?: string;
+  externalUrl?: string; // if set, opens in new tab instead of navigating
   description?: string;
   allowedRoles?: UserRole[];
   component?: ComponentType;
@@ -23,6 +25,7 @@ export interface SubTool {
 export interface Tool {
   title: string;
   url?: string;
+  externalUrl?: string; // if set, opens in new tab instead of navigating
   description?: string;
   icon?: ElementType;
   allowedRoles?: UserRole[];
@@ -36,12 +39,28 @@ export interface Tool {
 //   2. Uncomment the lazy import below
 //   3. Set component: ComponentName on the matching tool/subtool entry
 //   4. Done — route, sidebar, home card, command menu all just work
+//
+// To add an external tool:
+//   1. Add a new Tool entry with externalUrl instead of url
+//   2. No component or route needed — it opens in a new tab automatically
+//   Example:
+//     {
+//       title: "Legacy HR System",
+//       externalUrl: "https://hr.company.com",
+//       icon: ExternalLinkIcon,
+//       description: "Existing HR portal",
+//       allowedRoles: ["superadmin", "admin"],
+//     }
 // ---------------------------------------------------------------------------
 const Dashboard = lazy(() => import("@/pages/AdminDashboardPage"));
 const UserManagementPage = lazy(() => import("@/pages/UserManagementPage"));
 // const AIAssistant = lazy(() => import("@/pages/AIAssistantPage"));
-const AssetListPage = lazy(() => import("@/pages/tools/inventory/AssetListPage"));
-// const AssetReports = lazy(() => import("@/pages/tools/inventory/AssetReportsPage"));
+const AssetListPage = lazy(
+  () => import("@/pages/tools/inventory/AssetListPage")
+);
+const DataCleaningPage = lazy(
+  () => import("@/pages/tools/operations/DataCleaningPage")
+);
 // const TaskBoard = lazy(() => import("@/pages/tools/operations/TaskBoardPage"));
 // const ShiftSchedules = lazy(() => import("@/pages/tools/operations/ShiftSchedulesPage"));
 // const ExpenseTracker = lazy(() => import("@/pages/tools/finance/ExpenseTrackerPage"));
@@ -101,19 +120,19 @@ export const toolsData: Tool[] = [
     allowedRoles: ["superadmin", "operations"],
     subtools: [
       {
-        title: "Task Board",
-        url: "/operations/tasks",
-        description: "View and manage tasks",
+        title: "Data Cleaning",
+        url: "/operations/automation",
+        description: "Process data tables from clients",
         allowedRoles: ["superadmin", "operations"],
-        // component: TaskBoard,
+        component: DataCleaningPage,
       },
-      {
-        title: "Shift Schedules",
-        url: "/operations/shifts",
-        description: "Manage employee shifts",
-        allowedRoles: ["superadmin"],
-        // component: ShiftSchedules,
-      },
+      // {
+      //   title: "Shift Schedules",
+      //   url: "/operations/shifts",
+      //   description: "Manage employee shifts",
+      //   allowedRoles: ["superadmin"],
+      //   component: ShiftSchedules,
+      // },
     ],
   },
   {
@@ -167,6 +186,15 @@ export const toolsData: Tool[] = [
     description: "AI-powered workflow assistant",
     allowedRoles: ["superadmin", "admin"],
     // component: AIAssistant,
+  },
+
+  // ── External Tools —
+  {
+    title: "Legacy HR System",
+    externalUrl: "https://hr.company.com",
+    icon: ExternalLinkIcon,
+    description: "Existing HR portal hosted separately",
+    allowedRoles: ["superadmin", "admin", "operations"],
   },
 ];
 
