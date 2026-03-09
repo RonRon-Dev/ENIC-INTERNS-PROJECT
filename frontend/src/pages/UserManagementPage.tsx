@@ -1,16 +1,16 @@
-import { Card, CardTitle } from "@/components/ui/card";
-import { DataTable, columns } from "@/components/tables-data/users-column";
 import { DataTable as RequestDataTable, getColumns } from "@/components/tables-data/requests-column";
-import type { User } from "@/components/tables-data/users-column"
-import { ShieldCheck, UserCheck, UserCog, Users2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react"
-import { UsersDialogs } from '@/components/users/users-dialogs'
-import { UsersProvider, useUsers } from '@/components/users/users-provider'
-import { UsersPrimaryButtons } from "@/components/users/users-primary-buttons";
-import { Skeleton } from "@/components/ui/skeleton";
-import { usersApi } from "@/services/users";
+import type { User } from "@/components/tables-data/users-column";
+import { DataTable, columns } from "@/components/tables-data/users-column";
 import { Button } from "@/components/ui/button";
+import { Card, CardTitle } from "@/components/ui/card";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import { Skeleton } from "@/components/ui/skeleton";
+import { UsersDialogs } from '@/components/users/users-dialogs';
+import { UsersPrimaryButtons } from "@/components/users/users-primary-buttons";
+import { UsersProvider, useUsers } from '@/components/users/users-provider';
+import { usersApi } from "@/services/users";
+import { ShieldCheck, UserCheck, UserCog, Users2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 type UserStats = {
   totalUsers: number
@@ -161,77 +161,42 @@ function UserManagementContent() {
           ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      {/* <div className="grid grid-cols-2 gap-6"> */}
 
-        <div>
-          {/* Header */}
-          <div className="flex flex-wrap items-end justify-between gap-2 mt-4">
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight">User List</h2>
-              <p className="text-muted-foreground">Manage your users and their roles here.</p>
-            </div>
-            <UsersPrimaryButtons />
+      <div>
+        {/* Header */}
+        <div className="flex flex-wrap items-end gap-2 mt-4">
+          <div className="mr-auto">
+            <h2 className="text-2xl font-bold tracking-tight">User List</h2>
+            <p className="text-muted-foreground">Manage your users and their roles here.</p>
           </div>
-
-          {/* User Table */}
-          <div>
-            {loading ? <SkeletonTable /> : <DataTable columns={columns} data={data} />}
-          </div>
-
-        </div>
-
-        <div>
-          {/* Pending Requests */}
-          <div className="flex flex-wrap items-end justify-between gap-2 mt-6">
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight">Pending Requests</h2>
-              <p className="text-muted-foreground">Users waiting for approval or password reset.</p>
-            </div>
-          </div>
-          <div>
-            {loading ? <SkeletonTable /> : requests.length === 0 ? (
-              <p className="text-muted-foreground text-sm py-4">No pending requests.</p>
-            ) : (
-              <div className="border rounded-md overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="border-b bg-muted/50">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-medium">Name</th>
-                      <th className="px-4 py-3 text-left font-medium">Username</th>
-                      <th className="px-4 py-3 text-left font-medium">Request Type</th>
-                      <th className="px-4 py-3 text-left font-medium">Date</th>
-                      <th className="px-4 py-3 text-right font-medium">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {requests.map((req) => (
-                      <tr key={req.requestId} className="border-b hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 capitalize">{req.name}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{req.userName}</td>
-                        <td className="px-4 py-3">
-                          <Badge variant="outline">{req.requestType}</Badge>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {new Date(req.requestDate).toLocaleDateString('en-US', {
-                            year: 'numeric', month: 'short', day: 'numeric',
-                          })}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <Button size="sm" onClick={() => handleOpenRequest(req)}>
-                            {req.requestType === 'Account Registration' ? 'Approve' : 'Approve Reset'}
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          <Drawer direction="right">
+            <DrawerTrigger asChild>
+              <Button variant="outline">Requests <UserCog className="size-4" /></Button>
+            </DrawerTrigger>
+            <DrawerContent direction="right">
+              <DrawerHeader>
+                <DrawerTitle>Pending Requests</DrawerTitle>
+                <DrawerDescription>Review and manage pending user requests.</DrawerDescription>
+              </DrawerHeader>
+              <div className="px-4">
+                {loading ? <SkeletonTable /> :
+                  <RequestDataTable
+                    columns={getColumns(handleOpenRequest)}
+                    data={requests}
+                    onApprove={handleOpenRequest}
+                  />
+                }
               </div>
-            )}
-          </div>
-
+            </DrawerContent>
+          </Drawer>
+          <UsersPrimaryButtons />
         </div>
 
-      </div>
+        {/* User Table */}
+        <div>
+          {loading ? <SkeletonTable /> : <DataTable columns={columns} data={data.filter(u => u.status !== 'pending')} />}
+        </div>
 
         {/* </div> */}
       </div>
