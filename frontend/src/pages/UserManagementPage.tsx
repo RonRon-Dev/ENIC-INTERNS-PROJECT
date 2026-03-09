@@ -1,5 +1,6 @@
 import { Card, CardTitle } from "@/components/ui/card";
 import { DataTable, columns } from "@/components/tables-data/users-column";
+import { DataTable as RequestDataTable, getColumns } from "@/components/tables-data/requests-column";
 import type { User } from "@/components/tables-data/users-column"
 import { ShieldCheck, UserCheck, UserCog, Users2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react"
@@ -8,8 +9,8 @@ import { UsersProvider, useUsers } from '@/components/users/users-provider'
 import { UsersPrimaryButtons } from "@/components/users/users-primary-buttons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usersApi } from "@/services/users";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 
 type UserStats = {
   totalUsers: number
@@ -126,7 +127,7 @@ function UserManagementContent() {
 
   const statConfig = [
     { label: 'Total Users', icon: Users2, value: stats.totalUsers },
-    { label: 'Pending', icon: UserCog, value: stats.pendingUsers },
+    { label: 'Requests', icon: UserCog, value: stats.pendingUsers },
     { label: 'Active Users', icon: UserCheck, value: stats.activeUsers },
     { label: 'Assigned Users', icon: ShieldCheck, value: stats.assignedUsers },
   ]
@@ -232,6 +233,8 @@ function UserManagementContent() {
 
       </div>
 
+        {/* </div> */}
+      </div>
       <UsersDialogs />
     </>
   )

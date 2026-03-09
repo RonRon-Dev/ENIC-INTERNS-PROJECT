@@ -37,7 +37,7 @@ const statusOptions = Array.from(userTypes, ([value, badge]) => ({
   value,
   label: value.charAt(0).toUpperCase() + value.slice(1),
   badge,
-}))
+})).filter(({ value }) => value !== 'pending')
 
 const roleOptions = roles.map(({ label, value, icon }) => ({
   label: label.charAt(0).toUpperCase() + label.slice(1),
@@ -54,12 +54,12 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: 'username',
     header: ({ column }) => (
-      <div className="ml-3">
+      <div>
         <DataTableColumnHeader column={column} title="Username" />
       </div>
     ),
     cell: ({ row }) => (
-      <div className="ml-5">{row.original.username}</div>
+      <div className="ml-1">{row.original.username}</div>
     ),
     enableHiding: false,
   },
@@ -92,15 +92,13 @@ export const columns: ColumnDef<User>[] = [
     filterFn: includesArrayFilter,
     cell: ({ row }) => {
       const role = row.getValue('role') as string
-      const option = roles.find((r) => r.value === role)
+      const option = roles.find((r) => r.value.toLowerCase() === role.toLowerCase())
       const Icon = option?.icon
 
       return (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 border rounded-md px-2 py-1 w-max bg-muted">
           {Icon && <Icon className="size-3.5 text-muted-foreground" />}
-          <span className="capitalize">
-            {option?.label ?? role}
-          </span>
+          <span className="capitalize">{option?.label ?? role}</span>
         </div>
       )
     },

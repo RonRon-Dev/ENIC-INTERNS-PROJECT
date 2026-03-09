@@ -428,7 +428,7 @@ export default function AboutDevPage() {
       {/* Team */}
       <FadeIn delay={200} className="space-y-8">
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold tracking-tight">The Team</h2>
+          <h2 className="text-2xl font-bold tracking-tight">The Original Contributors</h2>
           <p className="text-sm text-muted-foreground">
             Hover any card to meet the developer.
           </p>

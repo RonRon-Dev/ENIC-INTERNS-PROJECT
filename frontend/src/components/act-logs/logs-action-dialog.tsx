@@ -1,135 +1,98 @@
 'use client'
 
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader
+} from '@/components/ui/dialog'
+import { roles, userTypes } from '@/data/const'
 import { type ActivityLog } from '@/data/schema'
-import { roles, activityTypes, userTypes } from '@/data/const'
+import { CircleCheck, CircleX } from 'lucide-react'
+import { Avatar, AvatarFallback } from '../ui/avatar'
 
 type DescViewDialogProps = {
-    open: boolean
-    onOpenChange: (open: boolean) => void
-    currentRow: ActivityLog
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <div className='flex flex-col gap-0.5'>
-            <span className='text-xs text-muted-foreground'>{label}</span>
-            <div className='text-sm'>{children}</div>
-        </div>
-    )
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  currentRow: ActivityLog
 }
 
 export function DescViewDialog({
-    open,
-    onOpenChange,
-    currentRow,
+  open,
+  onOpenChange,
+  currentRow,
 }: DescViewDialogProps) {
-    const roleConfig = roles.find((r) => r.value === currentRow.user.role)
-    const RoleIcon = roleConfig?.icon
-    const displayName = currentRow.user.name
-        .toLowerCase()
-        .replace(/\b\w/g, (c) => c.toUpperCase())
+  const roleConfig = roles.find((r) => r.value === currentRow.user.role)
+  const RoleIcon = roleConfig?.icon
+  const displayName = currentRow.user.name
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
 
-    const badgeClass = activityTypes.get(currentRow.type)
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className='sm:max-w-lg p-0 pb-10'>
+        <DialogHeader className='flex-row items-center p-8 pb-2'>
+          <Avatar className="h-10 w-10 rounded border bg-muted mr-3 text-muted-foreground p-4">
+            <AvatarFallback>
+              {displayName.split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase()
+              }
+            </AvatarFallback>
+          </Avatar>
+          <div className='flex w-full justify-between'>
+            <div className='flex flex-col'>
+              <div className='font-bold'>{displayName}</div>
+              <div className='font-medium text-muted-foreground text-sm'>{currentRow.user.username}</div>
+            </div>
+            <div className='flex flex-col items-end gap-2'>
+              <Badge className='w-fit gap-x-1 py-1'>
+                {RoleIcon && <RoleIcon className='h-4 w-4' />}
+                <span>{currentRow.user.role.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}</span>
+              </Badge>
 
-    const date = new Date(currentRow.date + 'T00:00:00').toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-    })
+              <Badge
+                variant='outline'
+                className={userTypes.get(currentRow.user.status) + ' w-fit'}
+              >
+                {currentRow.user.status.charAt(0).toUpperCase() + currentRow.user.status.slice(1)}
+              </Badge>
+            </div>
+          </div>
+        </DialogHeader>
 
-    const [hourStr, minute] = currentRow.time.split(':')
-    const hour = parseInt(hourStr, 10)
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const hour12 = hour % 12 || 12
-    const time = `${hour12}:${minute} ${ampm}`
+        {/* Description spans full width */}
+        <div className='px-10 grid grid-cols-2 border-y py-4 mb-4 gap-y-2'>
+          <span className='text-muted-foreground text-sm'>Reference ID</span>
+          <span className='text-right text-sm'>{currentRow.id}</span>
 
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className='sm:max-w-lg'>
-                <DialogHeader className='text-start'>
-                    <DialogTitle>Activity Log</DialogTitle>
-                    <DialogDescription>
-                        Viewing activity details for{' '}
-                        <span className='font-medium text-foreground'>{displayName}</span>.
-                    </DialogDescription>
-                </DialogHeader>
+          <span className='text-muted-foreground text-sm'>Date & Time</span>
+          <span className='text-right text-sm'>
+            {new Date(currentRow.date + 'T' + currentRow.time).toLocaleDateString('en-US', {
+              year: 'numeric', month: '2-digit', day: '2-digit',
+            })}{' '}
+            {new Date(currentRow.date + 'T' + currentRow.time).toLocaleTimeString('en-US', {
+              hour: 'numeric', minute: '2-digit', hour12: true,
+            })}
+          </span>
 
-                {/* Description spans full width */}
-                <div className='space-y-1.5 py-1'>
-                    <p className='text-xs font-semibold uppercase tracking-wider'>Description</p>
-                    <p className='text-sm text-muted-foreground leading-relaxed min-h-20 bg-muted p-3 rounded-md'>
-                        {currentRow.description.charAt(0).toUpperCase() + currentRow.description.slice(1)}
-                    </p>
-                </div>
+          <span className='text-muted-foreground text-sm'>Action Taken</span>
+          <span className='text-right text-sm'>{currentRow.description}</span>
 
-                <div className='grid grid-row-2 gap-4 py-1'>
-                    <div className='space-y-1'>
-                        {/* Left — User Info */}
-                        <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>User</p>
-                        <div className='flex gap-10'>
-                            <Field label='Name'>
-                                <span className='font-medium'>{displayName}</span>
-                            </Field>
-                            <Field label='Username'>
-                                <span className='font-mono text-sm text-primary'>{currentRow.user.username}</span>
-                            </Field>
-                            <Field label='Role'>
-                                <div className='flex items-center gap-1.5'>
-                                    {RoleIcon && <RoleIcon className='h-4 w-4 text-muted-foreground' />}
-                                    <span>{currentRow.user.role.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}</span>
-                                </div>
-                            </Field>
-                            <Field label='Status'>
-                                <Badge
-                                    variant='outline'
-                                    className={userTypes.get(currentRow.user.status)}
-                                >
-                                    {currentRow.user.status.charAt(0).toUpperCase() + currentRow.user.status.slice(1)}
-                                </Badge>
-                            </Field>
-                        </div>
-                    </div>
-
-                    <div className='space-y-1'>
-                        {/* Right — Activity Info */}
-                        <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>Activity</p>
-                        <div className='flex gap-10'>
-                            <Field label='Type'>
-                                <Badge variant='outline' className={badgeClass + ' capitalize'}>
-                                    {currentRow.type}
-                                </Badge>
-                            </Field>
-                            <Field label='Date'>{date}</Field>
-                            <Field label='Time'>{time}</Field>
-                        </div>
-                    </div>
-                </div>
-            </DialogContent>
-        </Dialog>
-    )
+          <span className='text-muted-foreground text-sm'>Result</span>
+          <div className='flex justify-end'>
+            <Badge
+              variant='outline'
+              className={`gap-x-1 py-1 ${currentRow.isSuccess
+                ? 'text-green-600 border-green-600 bg-green-50' : 'text-red-500 border-red-500 bg-red-50'}
+              `}>
+              {currentRow.isSuccess ? <CircleCheck className="w-4 h-4" /> : <CircleX className="w-4 h-4" />}
+              {currentRow.isSuccess ? 'Success' : 'Failed'}
+            </Badge>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 }
-
-// function Row({
-//     label,
-//     children,
-// }: {
-//     label: string
-//     children: React.ReactNode
-// }) {
-//     return (
-//         <div className='grid grid-cols-6 items-start gap-x-4'>
-//             <span className='col-span-2 text-end text-sm text-muted-foreground pt-0.5'>
-//                 {label}
-//             </span>
-//             <div className='col-span-4 text-sm'>{children}</div>
-//         </div>
-//     )
-// }
