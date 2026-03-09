@@ -65,11 +65,11 @@ export function useColumns() {
       ),
     },
     {
-      id: 'username',
-      accessorFn: (row) => row.user.username,
+      id: 'name',
+      accessorFn: (row) => row.user.name,
       header: ({ column }) => (
         <div>
-          <DataTableColumnHeader column={column} title="Username" />
+          <DataTableColumnHeader column={column} title="Name" />
         </div>
       ),
       cell: ({ row }) => (
