@@ -8,7 +8,7 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { getIam, logout } from "./services/auth";
+import { authenticationApi } from "@/services/auth";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -44,7 +44,7 @@ const COUNTDOWN_SECONDS = 60;
 const AuthContext = createContext<AuthContextType | null>(null);
 
 async function getAuthenticatedUser() {
-  const data = await getIam();
+  const data = await authenticationApi.getIam();
   return {
     name: data.name,
     userName: data.userName,
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     countdownIntervalRef.current = null;
     setIdleSecondsLeft(null);
 
-    logout().catch(() => {});
+    authenticationApi.logout().catch(() => {});
 
     setUser(null);
     setSessionExpired(true);

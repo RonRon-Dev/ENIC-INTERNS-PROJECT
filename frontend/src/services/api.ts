@@ -1,5 +1,5 @@
 import axios, { AxiosError } from "axios";
-import { refreshToken } from "./auth";
+import { authenticationApi } from "./auth";
 
 const api = axios.create({
   baseURL: "/api",
@@ -64,7 +64,7 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      await refreshToken();
+      await authenticationApi.refreshToken();
       processQueue();
       return api(originalRequest);
     } catch (refreshError) {

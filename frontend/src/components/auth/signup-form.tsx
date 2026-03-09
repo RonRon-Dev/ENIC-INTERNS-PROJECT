@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { signup } from "@/services/auth";
+import { authenticationApi } from "@/services/auth";
 import { registerSchema } from "@/validations";
 import type { SignupRequest } from "@/validations";
 import {
@@ -62,7 +62,7 @@ export default function SignupForm({
     try {
       NProgress.start()
       setServerError(null);
-      const response = await signup(data);
+      const response = await authenticationApi.signup(data);
       if (!response.success) {
         setServerError(response.message);
         NProgress.done();

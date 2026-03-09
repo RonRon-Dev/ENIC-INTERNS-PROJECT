@@ -11,7 +11,7 @@ import {
 import { forgotPasswordSchema, type ForgotPasswordRequest } from "@/validations";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { forgotPassword } from "@/services/auth";
+import { authenticationApi } from "@/services/auth";
 
 interface ForgotPasswordFormProps {
   onBack: () => void;
@@ -36,7 +36,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
   const onSubmit = async (data: ForgotPasswordRequest) => {
     try {
       setServerError(null);
-      const response = await forgotPassword(data);
+      const response = await authenticationApi.forgotPassword(data);
       setIsSent(true);
       if (!response.success) {
         setServerError(response.message);
