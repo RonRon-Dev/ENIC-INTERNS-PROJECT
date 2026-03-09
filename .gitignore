@@ -5,3 +5,4 @@ backend/appsettings.Development.json
 backend/appsettings.json
 backend/Migrations/
 appsettings.json
+Migrations
