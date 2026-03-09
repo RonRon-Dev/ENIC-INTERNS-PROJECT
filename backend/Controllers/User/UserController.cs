@@ -73,7 +73,7 @@ public class UserController(IUserService service) : ControllerBase
     }
 
     [Authorize(Roles = "Admin,Superadmin")]
-    [HttpPut("assign-role/{id:int}")]
+    [HttpPatch("assign-role/{id:int}")]
     public async Task<ActionResult<UpdateUserResponse>> AssignRole(int id, UpdateUserRequest request)
     {
         /* if (!ModelState.IsValid)
@@ -105,7 +105,7 @@ public class UserController(IUserService service) : ControllerBase
     }
     
     [Authorize(Roles = "Admin,Superadmin")]
-    [HttpPut("disable-user/{id:int}")]
+    [HttpPatch("disable-user/{id:int}")]
     public async Task<ActionResult<UpdateUserResponse>> DisableUser(int id)
     {
         var currentUser = User.GetCurrentUser();
@@ -116,7 +116,7 @@ public class UserController(IUserService service) : ControllerBase
     }
 
     [Authorize(Roles = "Admin,Superadmin")]
-    [HttpPut("enable-user/{id:int}")]
+    [HttpPatch("enable-user/{id:int}")]
     public async Task<ActionResult<UpdateUserResponse>> EnableUser(int id)
     {
         var currentUser = User.GetCurrentUser();
@@ -127,7 +127,7 @@ public class UserController(IUserService service) : ControllerBase
     }
 
     [Authorize(Roles = "Admin,Superadmin")]
-    [HttpPut("approve-registration")]
+    [HttpPatch("approve-registration")]
     public async Task<ActionResult<UpdateUserResponse>> ApproveRegistration(ApproveRegistrationRequest request)
     {
         if (!ModelState.IsValid)
@@ -143,7 +143,7 @@ public class UserController(IUserService service) : ControllerBase
 
     // ADMIN: approve reset -> generates temp password/code 
     [Authorize(Roles = "Admin,Superadmin")]
-    [HttpPut("approve-reset-password")]
+    [HttpPatch("approve-reset-password")]
     public async Task<ActionResult> ApproveResetPasswordAsync(ApproveResetPasswordRequest request)
     {
         var currentUser = User.GetCurrentUser();
@@ -157,7 +157,7 @@ public class UserController(IUserService service) : ControllerBase
 
     // ADMIN: directly reset any user's password (no pending request needed)
     [Authorize(Roles = "Admin,Superadmin")]
-    [HttpPut("admin-reset-password")]
+    [HttpPatch("admin-reset-password")]
     public async Task<ActionResult> AdminResetPassword([FromBody] AdminResetPasswordRequest request)
     {
         var currentUser = User.GetCurrentUser();

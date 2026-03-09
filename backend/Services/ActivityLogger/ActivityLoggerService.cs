@@ -53,6 +53,18 @@ public class ActivityLoggerService
         await LogAsync("account management", userId, userName, description, isSuccess, payload);
     }
 
+    public async Task LogSettingsAsync(
+        int? userId,
+        string userName,
+        string description,
+        bool isSuccess,
+        object? additionalData = null
+    )
+    {
+        var payload = BuildPayload(additionalData);
+        await LogAsync("settings", userId, userName, description, isSuccess, payload);
+    }
+
     private object BuildPayload(
         object? additionalData
     )

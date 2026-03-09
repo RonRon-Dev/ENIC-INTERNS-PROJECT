@@ -11,6 +11,7 @@ using backend.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using backend.Services.ActivityLogger;
+using BCrypt.Net;
 
 namespace backend.Services.Auth;
 
@@ -400,11 +401,6 @@ public class AuthService(
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private static DateTime PhTime =>
-        TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
-            TimeZoneInfo.FindSystemTimeZoneById(
-                OperatingSystem.IsWindows() ? "Singapore Standard Time" : "Asia/Manila"));
 
     private string GenerateToken(Users user)
     {

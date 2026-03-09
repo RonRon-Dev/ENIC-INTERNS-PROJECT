@@ -90,4 +90,13 @@ type ActivityLog = {
   payload?: Record<string, any>;
 };
 
-export type { ActivityLog };
+// ---------------------------------------------------------------------------
+// Roles
+// ---------------------------------------------------------------------------
+
+type Roles = {
+  id: number;
+  name: string;
+}
+
+export type { ActivityLog, Roles};
