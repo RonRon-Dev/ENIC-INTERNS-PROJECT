@@ -186,13 +186,13 @@ export const toolsData: Tool[] = [
     // component: AIAssistant,
   },
 
-  // ── External tool example — uncomment and fill in to use ──────────────────
+  // ── External Tools —
   {
     title: "Legacy HR System",
     externalUrl: "https://hr.company.com",
     icon: ExternalLinkIcon,
     description: "Existing HR portal hosted separately",
-    allowedRoles: ["superadmin", "admin"],
+    allowedRoles: ["superadmin", "admin", "operations"],
   },
 ];
 
