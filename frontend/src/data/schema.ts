@@ -87,6 +87,7 @@ type ActivityLog = {
   time: string;
   date: string;
   type: ActivityType;
+  payload?: Record<string, any>;
 };
 
 export type { ActivityLog };

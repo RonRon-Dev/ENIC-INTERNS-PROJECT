@@ -10,6 +10,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { type ActivityLog } from '@/data/schema'
 import { roles, activityTypes, userTypes } from '@/data/const'
+import { useAuth } from '@/auth-context'
 
 type DescViewDialogProps = {
     open: boolean
@@ -31,6 +32,7 @@ export function DescViewDialog({
     onOpenChange,
     currentRow,
 }: DescViewDialogProps) {
+    const { user } = useAuth();
     const roleConfig = roles.find((r) => r.value === currentRow.user.role)
     const RoleIcon = roleConfig?.icon
     const displayName = currentRow.user.name
@@ -116,20 +118,3 @@ export function DescViewDialog({
         </Dialog>
     )
 }
-
-// function Row({
-//     label,
-//     children,
-// }: {
-//     label: string
-//     children: React.ReactNode
-// }) {
-//     return (
-//         <div className='grid grid-cols-6 items-start gap-x-4'>
-//             <span className='col-span-2 text-end text-sm text-muted-foreground pt-0.5'>
-//                 {label}
-//             </span>
-//             <div className='col-span-4 text-sm'>{children}</div>
-//         </div>
-//     )
-// }

@@ -15,7 +15,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { PasswordInput } from "@/components/password-input";
-import { updatePassword } from '@/services/auth'
+import { authenticationApi } from '@/services/auth'
 import { useAuth } from '@/auth-context'
 
 const schema = z.object({
@@ -49,7 +49,7 @@ export function PasswordResetDialog({ open, onOpenChange }: PasswordResetDialogP
       try {
         setLoading(true)
         setServerError(null)
-        const res = await updatePassword(user.userName, values.password)
+        const res = await authenticationApi.updatePassword(user.userName, values.password)
         if (res?.success === false) {
           setServerError(res.message ?? 'Failed to update password.')
           return
