@@ -39,6 +39,7 @@ function buildBreadcrumbMap(): Record<string, string> {
 
     if (tool.subtools) {
       for (const sub of tool.subtools) {
+        if (!sub.url) continue; 
         const segments = sub.url.split("/").filter(Boolean);
         if (segments[0]) map[segments[0]] = tool.title;
         if (segments[1]) map[segments[1]] = sub.title;
@@ -137,14 +138,14 @@ export default function AppLayout() {
                     Back
                   </Button>
                 )}
-                {!isHome && <Search className="mr-20" />}
+                {!isHome && <Search className="" />}
 
                 <ThemeToggle />
               </div>
             </header>
 
             {/* Page Content */}
-            <div className="flex flex-1 flex-col gap-4 px-[100px] pt-10">
+            <div className="flex flex-1 flex-col gap-4 px-[100px] py-10">
               <Outlet />
             </div>
           </SidebarInset>
@@ -155,10 +156,10 @@ export default function AppLayout() {
 }
 
 function ThemeToggle() {
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme } = useTheme();
 
-  const next = theme === 'dark' ? 'light' : 'dark'
-  const Icon = theme === 'dark' ? Sun : Moon
+  const next = theme === "dark" ? "light" : "dark";
+  const Icon = theme === "dark" ? Sun : Moon;
 
   return (
     <Button
@@ -169,5 +170,5 @@ function ThemeToggle() {
     >
       <Icon className="h-4 w-4" />
     </Button>
-  )
+  );
 }

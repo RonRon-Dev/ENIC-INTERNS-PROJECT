@@ -29,35 +29,57 @@ import { DataTableToolbar } from "../data-table-components/data-table-toolbar"
 import { DataTableColumnHeader } from "../data-table-components/data-table-header"
 import { type ActivityLog } from '@/data/schema'
 export type { ActivityLog }
-import { activityTypes } from '@/data/const'
 import { roles } from '@/data/const'
 import { useLogs } from '@/components/act-logs/logs-provider'
+import { CircleCheck, CircleX, Info } from "lucide-react"
 
 export function useColumns() {
   const { setOpen, setCurrentRow } = useLogs()
 
   const columns: ColumnDef<ActivityLog>[] = [
     {
-      id: 'username',                            
-      accessorFn: (row) => row.user.username,
-      header: ({ column }) => (
-        <div className="ml-3">
-          <DataTableColumnHeader column={column} title="Username" />
-        </div>
-      ),
+      id: 'ID',
+      header: 'Ref. ID',
+      accessorKey: 'id',
+    },
+    {
+      id: 'dateTime',
+      header: 'Date & Time',
+      accessorFn: (row) => {
+        const date = new Date(row.date + 'T' + row.time);
+        const formatted = date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        });
+        const time = date.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+        return `${formatted}, ${time}`;
+      },
       cell: ({ row }) => (
-        <div className="ml-5">{row.original.user.username}</div>
+        <span className="text-muted-foreground">{row.getValue('dateTime')}</span>
       ),
-      enableHiding: false,
     },
     {
       id: 'name',
-      header: 'Name',
-      accessorFn: (row) => `${row.user.name}`,
-      enableHiding: false,
-      cell: ({ row }) => (
-        <div className="capitalize">{row.original.user.name}</div>
+      accessorFn: (row) => row.user.name,
+      header: ({ column }) => (
+        <div>
+          <DataTableColumnHeader column={column} title="Name" />
+        </div>
       ),
+      cell: ({ row }) => (
+        <div className="flex flex-col ml-1">
+          <div className="capitalize font-bold">{row.original.user.name}</div>
+          <div className="text-xs text-muted-foreground">
+            {row.original.user.username}
+          </div>
+        </div>
+      ),
+      enableHiding: false,
     },
     {
       id: 'role',
@@ -73,70 +95,64 @@ export function useColumns() {
         const Icon = option?.icon
 
         return (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 border rounded-md px-2 py-1 w-max bg-muted">
             {Icon && <Icon className="size-3.5 text-muted-foreground" />}
             <span className="capitalize">{option?.label ?? role}</span>
           </div>
         )
       },
     },
-    {
-      id: 'type',
-      accessorKey: 'type',
-      header: 'Type',
-      filterFn: (row, id, value) => {
-        if (!value?.length) return true
-        return value.includes(row.getValue(id))
-      },
-      cell: ({ row }) => {
-        const type = row.getValue('type') as string
-        const badge = activityTypes.get(type as ActivityLog['type'])
+    // {
+    //   id: 'type',
+    //   accessorKey: 'type',
+    //   header: 'Type',
+    //   filterFn: (row, id, value) => {
+    //     if (!value?.length) return true
+    //     return value.includes(row.getValue(id))
+    //   },
+    //   cell: ({ row }) => {
+    //     const type = row.getValue('type') as string
+    //     const badge = activityTypes.get(type as ActivityLog['type'])
 
-        return (
-          <Badge variant="outline" className={badge + ' capitalize'}>
-            {type}
-          </Badge>
-        )
-      },
-    },
+    //     return (
+    //       <Badge variant="outline" className={badge + ' capitalize'}>
+    //         {type}
+    //       </Badge>
+    //     )
+    //   },
+    // },
     {
       id: 'description',
-      header: 'Description',
+      header: 'Action Taken',
       accessorFn: (row) => row.description,
       cell: ({ row }) => (
         <button
-          className="max-w-[150px] truncate text-left underline underline-offset-4 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 max-w-[150px] text-left hover:text-foreground transition-colors cursor-pointer"
           onClick={() => {
             setCurrentRow(row.original)
             setOpen('desc')
           }}
         >
-          {row.original.description.charAt(0).toUpperCase() + row.original.description.slice(1)}
+          <Info className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate">
+            {row.original.description.charAt(0).toUpperCase() + row.original.description.slice(1)}
+          </span>
         </button>
       ),
     },
+
     {
-      id: 'date',
-      header: 'Date',
-      accessorFn: (row) => {
-        const date = new Date(row.date + 'T00:00:00'); // prevent timezone shift
-        return date.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        });
-      },
-    },
-    {
-      id: 'time',
-      header: 'Time',
-      accessorFn: (row) => {
-        const [hourStr, minute] = row.time.split(':');
-        const hour = parseInt(hourStr, 10);
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        const hour12 = hour % 12 || 12;
-        return `${hour12}:${minute} ${ampm}`;
-      },
+      id: 'Remarks',
+      header: 'Remarks',
+      accessorFn: (row) => row.description,
+      cell: ({ row }) => (
+        <Badge
+          variant='outline'
+          className={`gap-x-1 py-1 ${row.original.isSuccess ? 'text-green-600 border-green-600 bg-green-50' : 'text-red-500 border-red-500 bg-red-50'}`}>
+          {row.original.isSuccess ? <CircleCheck className="w-4 h-4" /> : <CircleX className="w-4 h-4" />}
+          {row.original.isSuccess ? 'Success' : 'Failed'}
+        </Badge>
+      ),
     },
     // {
     //   id: 'actions',
@@ -184,13 +200,6 @@ export function DataTable<TData, TValue>({
     icon,
   }))
 
-  const activityTypeOptions = Array.from(activityTypes.keys()).map((key) => ({
-    label: key
-      .toLowerCase()
-      .replace(/\b\w/g, (char) => char.toUpperCase()),
-    value: key,
-  }))
-
   return (
     <div>
       <DataTableToolbar
@@ -202,11 +211,6 @@ export function DataTable<TData, TValue>({
             columnId: 'role',
             title: 'Role',
             options: roleOptions,
-          },
-          {
-            columnId: 'type',
-            title: 'Type',
-            options: activityTypeOptions,
           },
         ]}
       />

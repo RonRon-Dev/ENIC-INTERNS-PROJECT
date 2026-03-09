@@ -1,5 +1,5 @@
 import type { NavGroup, UserRole } from "./schema";
-import { toolsData, hasAccess } from "./tools";
+import { hasAccess, toolsData } from "./tools";
 
 // ---------------------------------------------------------------------------
 // Build filtered nav groups for a given role.
@@ -27,7 +27,9 @@ export function buildNavGroups(userRole: UserRole | undefined): NavGroup[] {
   const managementTitles = ["Dashboard", "User Management"];
   const managementItems = toolsData
     .filter(
-      (t) => managementTitles.includes(t.title) && hasAccess(userRole, t.allowedRoles)
+      (t) =>
+        managementTitles.includes(t.title) &&
+        hasAccess(userRole, t.allowedRoles)
     )
     .map((t) => ({
       title: t.title,
@@ -49,10 +51,12 @@ export function buildNavGroups(userRole: UserRole | undefined): NavGroup[] {
         !excludedTitles.includes(t.title) && hasAccess(userRole, t.allowedRoles)
     )
     .map((tool) => {
-      // Filter subtools the user can access
-      const visibleSubtools = (tool.subtools ?? []).filter((sub) =>
-        // Subtool inherits parent roles if its own allowedRoles is not set
-        hasAccess(userRole, sub.allowedRoles ?? tool.allowedRoles)
+      // Filter subtools the user can access AND have an internal url
+      // External-only subtools (externalUrl only, no url) are excluded from sidebar
+      const visibleSubtools = (tool.subtools ?? []).filter(
+        (sub) =>
+          !!sub.url &&
+          hasAccess(userRole, sub.allowedRoles ?? tool.allowedRoles)
       );
 
       if (tool.url) {
@@ -74,7 +78,7 @@ export function buildNavGroups(userRole: UserRole | undefined): NavGroup[] {
         allowedRoles: tool.allowedRoles,
         items: visibleSubtools.map((sub) => ({
           title: sub.title,
-          url: sub.url,
+          url: sub.url!, // safe — filtered above to only include subtools with url
           description: sub.description,
           allowedRoles: sub.allowedRoles,
         })),
