@@ -36,15 +36,8 @@ export const authenticationApi = {
     const response = await api.post("/auth/logout");
     return response.data;
   },
-  /* updatePassword: async (data: requests.LoginRequest) => {
-    const response = await api.put("/auth/update-password", {
-      userName: data.username,
-      newPassword: data.password,
-    });
-    return response.data;
-  }, */
   updatePassword: async (userName: string, newPassword: string) => {
-    const response = await api.put("/auth/update-password", {
+    const response = await api.patch("/auth/update-password", {
       userName,
       newPassword,
     });
