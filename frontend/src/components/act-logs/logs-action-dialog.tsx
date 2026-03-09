@@ -110,8 +110,7 @@ export function DescViewDialog({
               variant='outline'
               className={
                 currentRow.isSuccess
-                  ? 'text-green-600 border-green-600'
-                  : 'text-red-500 border-red-500'
+                  ? 'text-green-600 border-green-600 bg-green-50' : 'text-red-500 border-red-500 bg-red-50'
               }
             >
               {currentRow.isSuccess ? 'Success' : 'Failed'}
