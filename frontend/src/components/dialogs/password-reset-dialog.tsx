@@ -5,6 +5,7 @@ import { ConfirmDialog } from '../confirm-dialog'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useState } from 'react'
 import {
   Form,
   FormControl,
@@ -14,6 +15,8 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { PasswordInput } from "@/components/password-input";
+import { updatePassword } from '@/services/auth'
+import { useAuth } from '@/auth-context'
 
 const schema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -31,17 +34,34 @@ type PasswordResetDialogProps = {
 }
 
 export function PasswordResetDialog({ open, onOpenChange }: PasswordResetDialogProps) {
+  const { user, setUser } = useAuth()
+  const [loading, setLoading] = useState(false)
+  const [serverError, setServerError] = useState<string | null>(null)
+
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { password: '', confirmPassword: '' },
   })
 
   const handleReset = () => {
-    form.handleSubmit((values) => {
-      console.log('New password:', values.password)
-      // call your API here
-      onOpenChange(false)
-      form.reset()
+    form.handleSubmit(async (values) => {
+      if (!user) return
+      try {
+        setLoading(true)
+        setServerError(null)
+        const res = await updatePassword(user.userName, values.password)
+        if (res?.success === false) {
+          setServerError(res.message ?? 'Failed to update password.')
+          return
+        }
+        setUser({ ...user, forcePasswordChange: false })
+        onOpenChange(false)
+        form.reset()
+      } catch {
+        setServerError('Something went wrong. Please try again.')
+      } finally {
+        setLoading(false)
+      }
     })()
   }
 
@@ -51,7 +71,8 @@ export function PasswordResetDialog({ open, onOpenChange }: PasswordResetDialogP
       hideCancel
       onOpenChange={onOpenChange}
       handleConfirm={handleReset}
-      confirmText='Update Password'
+      confirmText={loading ? 'Updating…' : 'Update Password'}
+      isLoading={loading}
       title={
         <span className='flex items-center gap-2'>
           <KeyRound className='h-4 w-4 text-teal-600' />
@@ -98,6 +119,9 @@ export function PasswordResetDialog({ open, onOpenChange }: PasswordResetDialogP
               </div>
             </form>
           </Form>
+          {serverError && (
+            <p className='text-xs text-destructive'>{serverError}</p>
+          )}
           <div className='flex items-center gap-1.5 text-xs text-muted-foreground'>
             <ShieldCheck className='h-3.5 w-3.5' />
             <span>Your session is secure</span>

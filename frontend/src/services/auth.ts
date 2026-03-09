@@ -40,3 +40,11 @@ export const logout = async () => {
   const response = await api.post("/auth/logout");
   return response.data;
 };
+
+export const updatePassword = async (userName: string, newPassword: string) => {
+  const response = await api.put("/auth/update-password", {
+    userName,
+    newPassword,
+  });
+  return response.data;
+};

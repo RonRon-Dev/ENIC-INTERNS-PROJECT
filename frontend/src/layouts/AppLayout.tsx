@@ -12,7 +12,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import NProgress from "@/lib/nprogress";
 import { SearchProvider } from "@/components/search-provider";
 import { Search } from "@/components/search";
@@ -21,8 +21,8 @@ import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from 'next-themes'
 import { Sun, Moon } from 'lucide-react'
-// import { useDialog } from "@/components/dialogs/dialog-provider";
-// import {  useRef } from "react";
+import { useDialog } from "@/components/dialogs/dialog-provider";
+import { useAuth } from "@/auth-context";
 
 function toTitleCase(segment: string) {
   return segment.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -53,19 +53,21 @@ export default function AppLayout() {
   const location = useLocation();
   const pathnames = location.pathname.split("/").filter(Boolean);
   const isHome = location.pathname === "/home";
-  // const { setOpen } = useDialog()
-  // const hasOpened = useRef(false)
+  const { setOpen } = useDialog();
+  const { user } = useAuth();
+  const hasOpened = useRef(false);
   const breadcrumbNameMap = useMemo(() => buildBreadcrumbMap(), []);
 
   const breadcrumbSegments =
     pathnames.length <= 2 ? pathnames : pathnames.slice(-2);
 
-  // dialog — guarded against double-mount
-  // useEffect(() => {
-  //   if (hasOpened.current) return
-  //   hasOpened.current = true
-  //   setOpen('passwordReset')
-  // }, [setOpen])
+  // open password reset dialog once if forcePasswordChange is true
+  useEffect(() => {
+    if (!user?.forcePasswordChange) return;
+    if (hasOpened.current) return;
+    hasOpened.current = true;
+    setOpen('passwordReset');
+  }, [user?.forcePasswordChange, setOpen]);
 
   useEffect(() => {
     NProgress.start();
