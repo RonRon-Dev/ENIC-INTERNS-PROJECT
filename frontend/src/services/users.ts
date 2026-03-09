@@ -16,4 +16,6 @@ export const usersApi = {
     api.put('/users/approve-registration', { userId, roleId }),
   approveResetPassword: (userName: string) =>
     api.put('/users/approve-reset-password', { userName }),
+  adminResetPassword: (userId: number) =>
+    api.put('/users/admin-reset-password', { userId }),
 }

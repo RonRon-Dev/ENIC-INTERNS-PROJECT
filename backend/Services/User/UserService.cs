@@ -418,6 +418,59 @@ public class UserService(
 
     // Deleting a user by ID. This should also handle any related data cleanup if necessary (e.g., activity logs).
 
+    public async Task<ResetPasswordResponse> AdminResetPasswordAsync(AdminResetPasswordRequest request, int currentUserId)
+    {
+        if (request.UserId <= 0)
+            return new ResetPasswordResponse
+            {
+                Success = false,
+                Message = "UserId is required.",
+                TemporaryPassword = ""
+            };
+
+        var user = await context.Users.FirstOrDefaultAsync(u => u.Id == request.UserId);
+        if (user is null)
+            return new ResetPasswordResponse
+            {
+                Success = false,
+                Message = "User not found.",
+                TemporaryPassword = ""
+            };
+
+        if (!user.IsActive)
+            return new ResetPasswordResponse
+            {
+                Success = false,
+                Message = "User account is disabled.",
+                TemporaryPassword = ""
+            };
+
+        var code = GenerateTempPassword(10);
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(code, 10);
+        user.ForcePasswordChange = true;
+
+        context.ActivityLogs.Add(new ActivityLogs
+        {
+            UserId = user.Id,
+            UserName = user.UserName,
+            ActivityType = "privilege",
+            Description = "Admin Reset Password (Temp Password Generated)",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { targetUserId = user.Id, adminUserId = currentUserId }),
+            IsSuccess = true,
+            Timestamp = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+
+        return new ResetPasswordResponse
+        {
+            Success = true,
+            Message = "Password reset successfully. Temporary password generated.",
+            TemporaryPassword = code
+        };
+    }
+
     private static DateTime PhTime =>
         TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
             TimeZoneInfo.FindSystemTimeZoneById(

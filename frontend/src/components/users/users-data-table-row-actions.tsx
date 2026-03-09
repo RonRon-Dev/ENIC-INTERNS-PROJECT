@@ -75,7 +75,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
               <DropdownMenuItem
                 onClick={() => {
                   setCurrentRow(row.original)
-                  setOpen('approveReset')
+                  setOpen('adminReset')
                 }}
               >
                 Reset Pwd

@@ -140,5 +140,20 @@ public class UserController(IUserService service) : ControllerBase
             ? Ok(new { message = response.Message, temporaryPassword = response.TemporaryPassword })
             : BadRequest(new { message = response.Message });
     }
-    
+
+    // ADMIN: directly reset any user's password (no pending request needed)
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpPut("admin-reset-password")]
+    public async Task<ActionResult> AdminResetPassword([FromBody] AdminResetPasswordRequest request)
+    {
+        var currentUser = User.GetCurrentUser();
+        if (currentUser <= 0)
+            return Unauthorized(new { message = "Invalid user." });
+
+        var response = await service.AdminResetPasswordAsync(request, currentUser);
+
+        return response.Success
+            ? Ok(new { message = response.Message, temporaryPassword = response.TemporaryPassword })
+            : BadRequest(new { message = response.Message });
+    }
 }
