@@ -9,9 +9,8 @@ import { UsersProvider, useUsers } from '@/components/users/users-provider'
 import { UsersPrimaryButtons } from "@/components/users/users-primary-buttons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usersApi } from "@/services/users";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 
 type UserStats = {
   totalUsers: number

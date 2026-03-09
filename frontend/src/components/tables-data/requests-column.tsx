@@ -85,7 +85,7 @@ export function getColumns(onApprove: (req: UserRequest) => void): ColumnDef<Use
   ]
 }
 
-export function DataTable({ columns, data, onApprove }: DataTableProps) {
+export function DataTable({ columns, data }: DataTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
