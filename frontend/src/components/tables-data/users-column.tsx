@@ -37,7 +37,7 @@ const statusOptions = Array.from(userTypes, ([value, badge]) => ({
   value,
   label: value.charAt(0).toUpperCase() + value.slice(1),
   badge,
-}))
+})).filter(({ value }) => value !== 'pending')
 
 const roleOptions = roles.map(({ label, value, icon }) => ({
   label: label.charAt(0).toUpperCase() + label.slice(1),
