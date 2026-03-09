@@ -87,6 +87,7 @@ type ActivityLog = {
   time: string;
   date: string;
   type: ActivityType;
+  isSuccess: boolean;
 };
 
 export type { ActivityLog };

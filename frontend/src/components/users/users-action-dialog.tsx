@@ -65,6 +65,17 @@ export function UsersActionDialog({
   const [tempPassword, setTempPassword] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [resetKey, setResetKey] = useState(0)
+
+  const resetState = () => {
+    form.reset()
+    setTempPassword(null)
+    setError(null)
+    setCopied(false)
+    setIsSubmitting(false)
+    setResetKey((k) => k + 1)
+  }
 
   const onSubmit = async (values: UserForm) => {
     if (isEdit) {
@@ -102,25 +113,21 @@ export function UsersActionDialog({
       setIsSubmitting(false)
     }
   }
-  const fullName = form.watch("name");
+
+  const fullName = form.watch('name')
 
   useEffect(() => {
     if (isEdit) return
-
     if (fullName?.trim()) {
       const names = fullName.toLowerCase().trim().split(/\s+/)
-      const generated =
-        names.length >= 2
-          ? `${names[0].charAt(0)}.${names[names.length - 1]}`
-          : names[0]
-
-      form.setValue("username", generated)
+      const generated = names.length >= 2
+        ? `${names[0].charAt(0)}.${names[names.length - 1]}`
+        : names[0]
+      form.setValue('username', generated)
     } else {
-      form.setValue("username", "")
+      form.setValue('username', '')
     }
   }, [fullName, isEdit, form])
-
-  const [copied, setCopied] = useState(false)
 
   const copyUsername = () => {
     const username = form.getValues('username')
@@ -130,20 +137,20 @@ export function UsersActionDialog({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const [resetKey, setResetKey] = useState(0)
+  const [copiedTemp, setCopiedTemp] = useState(false)
 
-  const handleReset = () => {
-    form.reset()
-    setResetKey((k) => k + 1)
+  const copyTempPassword = () => {
+    if (!tempPassword) return
+    navigator.clipboard.writeText(tempPassword)
+    setCopiedTemp(true)
+    setTimeout(() => setCopiedTemp(false), 2000)
   }
 
   return (
     <Dialog
       open={open}
       onOpenChange={(state) => {
-        form.reset()
-        setTempPassword(null)
-        setError(null)
+        if (!state) resetState()
         onOpenChange(state)
       }}
     >
@@ -155,120 +162,138 @@ export function UsersActionDialog({
             Click save when you&apos;re done.
           </DialogDescription>
         </DialogHeader>
+
         <div className='h-105 w-[calc(100%+0.75rem)] overflow-y-auto py-1 pe-3'>
-          <Form {...form}>
-            <form
-              id='user-form'
-              onSubmit={form.handleSubmit(onSubmit)}
-              className='space-y-4 px-0.5'
-            >
-              <FormField
-                control={form.control}
-                name='name'
-                render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
-                    <FormLabel className='col-span-2 text-end'>
-                      Full Name
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder='John Doe'
-                        className={'col-span-4 capitalize' + (isEdit ? ' bg-muted/50' : '')}
-                        readOnly={isEdit}
-                        // autoComplete='off'
-                        {...field}
-                      // value={fullName}
-                      // onChange={(e) => setFullName(e.target.value)}
-                      />
-                    </FormControl>
-                    <FormMessage className='col-span-4 col-start-3' />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='username'
-                render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
-                    <FormLabel className='col-span-2 text-end'>Username</FormLabel>
-                    <FormControl>
-                      <div className='col-span-3 relative'>
+          {tempPassword ? (
+            <div className='space-y-4'>
+              <Alert>
+                <AlertTitle>User Created Successfully</AlertTitle>
+                <AlertDescription>
+                  Share these credentials with the user via a secure channel.
+                </AlertDescription>
+              </Alert>
+              <div className='space-y-2 rounded-md border bg-muted/50 p-4 text-sm'>
+                <div className='flex items-center justify-between'>
+                  <span className='text-muted-foreground'>Username</span>
+                  <span className='font-mono font-medium'>{form.getValues('username')}</span>
+                </div>
+                <div className='flex items-center justify-between'>
+                  <span className='text-muted-foreground'>Temp Password</span>
+                  <div className='flex items-center gap-2'>
+                    <span className='font-mono font-bold tracking-widest'>{tempPassword}</span>
+                    <button
+                      type='button'
+                      onClick={copyTempPassword}
+                      className='p-1 hover:bg-background rounded transition-colors'
+                    >
+                      {copiedTemp
+                        ? <Check className='h-4 w-4 text-green-600' />
+                        : <Copy className='h-4 w-4 text-muted-foreground' />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <Alert>
+                <AlertDescription>
+                  The user must change this password on next login.
+                </AlertDescription>
+              </Alert>
+            </div>
+          ) : (
+            <Form {...form}>
+              <form
+                id='user-form'
+                onSubmit={form.handleSubmit(onSubmit)}
+                className='space-y-4 px-0.5'
+              >
+                <FormField
+                  control={form.control}
+                  name='name'
+                  render={({ field }) => (
+                    <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
+                      <FormLabel className='col-span-2 text-end'>Full Name</FormLabel>
+                      <FormControl>
                         <Input
-                          // placeholder='auto-generated'
-                          className='bg-muted/50 font-mono text-primary pr-10'
-                          // readOnly={!isEdit}
+                          placeholder='John Doe'
+                          className={'col-span-4 capitalize' + (isEdit ? ' bg-muted/50' : '')}
                           readOnly={isEdit}
                           {...field}
-                          onChange={(e) => {
-                            if (isEdit) return
-                            let value = e.target.value
-                            value = value.replace(/\s/g, '').toLowerCase()
-                            field.onChange(value)
-                          }}
                         />
-                        {/* {!isEdit && ( */}
-                        <button
-                          type='button'
-                          onClick={copyUsername}
-                          className='absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-background rounded transition-colors'
-                        >
-                          {copied
-                            ? <Check className='h-4 w-4 text-green-600' />
-                            : <Copy className='h-4 w-4 text-muted-foreground' />}
-                        </button>
-                        {/* )} */}
-                      </div>
-                    </FormControl>
-                    <FormMessage className='col-span-4 col-start-3' />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='role'
-                render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
-                    <FormLabel className='col-span-2 text-end'>Role</FormLabel>
-                    <SelectDropdown
-                      key={resetKey}
-                      defaultValue={field.value}
-                      onValueChange={field.onChange}
-                      placeholder='Select a role'
-                      className='col-span-3'
-                      items={apiRoles.map((r) => ({
-                        label: r.name.charAt(0).toUpperCase() + r.name.slice(1),
-                        value: r.name,
-                      }))}
-                    />
-                    <FormMessage className='col-span-4 col-start-3' />
-                  </FormItem>
-                )}
-              />
-
-            </form>
-          </Form>
-        </div>
-        <DialogFooter>
-          {tempPassword && (
-            <Alert className='w-full text-left mb-2'>
-              <AlertTitle>User Created</AlertTitle>
-              <AlertDescription>
-                Temporary password: <span className='font-mono font-bold'>{tempPassword}</span>
-                <br />Share this with the user via secure channel.
-              </AlertDescription>
-            </Alert>
+                      </FormControl>
+                      <FormMessage className='col-span-4 col-start-3' />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name='username'
+                  render={({ field }) => (
+                    <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
+                      <FormLabel className='col-span-2 text-end'>Username</FormLabel>
+                      <FormControl>
+                        <div className='col-span-3 relative'>
+                          <Input
+                            className='bg-muted/50 font-mono text-primary pr-10'
+                            readOnly={isEdit}
+                            {...field}
+                            onChange={(e) => {
+                              if (isEdit) return
+                              field.onChange(e.target.value.replace(/\s/g, '').toLowerCase())
+                            }}
+                          />
+                          <button
+                            type='button'
+                            onClick={copyUsername}
+                            className='absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-background rounded transition-colors'
+                          >
+                            {copied
+                              ? <Check className='h-4 w-4 text-green-600' />
+                              : <Copy className='h-4 w-4 text-muted-foreground' />}
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage className='col-span-4 col-start-3' />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name='role'
+                  render={({ field }) => (
+                    <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
+                      <FormLabel className='col-span-2 text-end'>Role</FormLabel>
+                      <SelectDropdown
+                        key={resetKey}
+                        defaultValue={field.value}
+                        onValueChange={field.onChange}
+                        placeholder='Select a role'
+                        className='col-span-3'
+                        items={apiRoles.map((r) => ({
+                          label: r.name.charAt(0).toUpperCase() + r.name.slice(1),
+                          value: r.name,
+                        }))}
+                      />
+                      <FormMessage className='col-span-4 col-start-3' />
+                    </FormItem>
+                  )}
+                />
+              </form>
+            </Form>
           )}
+        </div>
+
+        <DialogFooter>
           {error && (
             <Alert variant='destructive' className='w-full text-left mb-2'>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          {isEdit && (
+          {isEdit && !tempPassword && (
             <Button
               type='button'
               variant='outline'
               disabled={!form.formState.isDirty}
-              onClick={handleReset}
+              onClick={() => { form.reset(); setResetKey((k) => k + 1) }}
             >
               Reset changes
             </Button>
@@ -277,7 +302,7 @@ export function UsersActionDialog({
             type={tempPassword ? 'button' : 'submit'}
             form='user-form'
             disabled={isSubmitting || (isEdit && (!form.formState.isValid || !form.formState.isDirty))}
-            onClick={tempPassword ? () => { form.reset(); setTempPassword(null); onOpenChange(false) } : undefined}
+            onClick={tempPassword ? () => { resetState(); onOpenChange(false) } : undefined}
           >
             {tempPassword ? 'Done' : isSubmitting ? 'Saving...' : isEdit ? 'Save changes' : 'Create user'}
           </Button>

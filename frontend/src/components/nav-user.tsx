@@ -49,10 +49,10 @@ export function NavUser() {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="data-[state=open]:bg-sidebar-accent-foreground data-[state=open]:text-primary hover:bg-sidebar-accent-foreground hover:text-primary"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarFallback className="rounded-lg">
+                <AvatarFallback className="rounded-lg bg-muted text-muted-foreground">
                   {initials}
                 </AvatarFallback>
               </Avatar>
