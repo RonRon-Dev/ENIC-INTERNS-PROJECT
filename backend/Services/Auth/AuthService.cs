@@ -316,6 +316,32 @@ public class AuthService(
 
         user.UserRequests ??= new List<UserRequests>();
 
+        var now = DateTime.UtcNow;
+        var cooldownMinutes = 10;
+
+        var pendingReset = user.UserRequests
+            .Where(r => r.RequestType == "Reset Password" && r.RequestStatus == "Pending")
+            .OrderByDescending(r => r.RequestDate)
+            .FirstOrDefault();
+
+        if (pendingReset != null)
+        {
+            var minutesSince = (now - pendingReset.RequestDate).TotalMinutes;
+
+            if (minutesSince < cooldownMinutes)
+            {
+                var remaining = (int)Math.Ceiling(cooldownMinutes - minutesSince);
+                return new ForgotPasswordResponse
+                {
+                    Success = false,
+                    Message = $"You already requested a password reset. Please try again in {remaining} minute(s)."
+                };
+            }
+
+            // Cooldown passed — expire the old pending request
+            pendingReset.RequestStatus = "Expired";
+        }
+
         user.UserRequests.Add(new UserRequests
         {
             RequestType = "Reset Password",
