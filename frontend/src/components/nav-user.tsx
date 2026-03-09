@@ -19,12 +19,11 @@ import {
 } from "@/components/ui/sidebar";
 import { logout } from "@/services/auth";
 import { ChevronsUpDown, Code2, LogOut, Settings } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
-  const { user, setUser } = useAuth(); // dynamically get user from context
+  const { user, setUser } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {

@@ -58,7 +58,9 @@ const UserManagementPage = lazy(() => import("@/pages/UserManagementPage"));
 const AssetListPage = lazy(
   () => import("@/pages/tools/inventory/AssetListPage")
 );
-// const AssetReports = lazy(() => import("@/pages/tools/inventory/AssetReportsPage"));
+const DataCleaningPage = lazy(
+  () => import("@/pages/tools/operations/DataCleaningPage")
+);
 // const TaskBoard = lazy(() => import("@/pages/tools/operations/TaskBoardPage"));
 // const ShiftSchedules = lazy(() => import("@/pages/tools/operations/ShiftSchedulesPage"));
 // const ExpenseTracker = lazy(() => import("@/pages/tools/finance/ExpenseTrackerPage"));
@@ -118,19 +120,19 @@ export const toolsData: Tool[] = [
     allowedRoles: ["superadmin", "operations"],
     subtools: [
       {
-        title: "Task Board",
-        url: "/operations/tasks",
-        description: "View and manage tasks",
+        title: "Data Cleaning",
+        url: "/operations/automation",
+        description: "Process data tables from clients",
         allowedRoles: ["superadmin", "operations"],
-        // component: TaskBoard,
+        component: DataCleaningPage,
       },
-      {
-        title: "Shift Schedules",
-        url: "/operations/shifts",
-        description: "Manage employee shifts",
-        allowedRoles: ["superadmin"],
-        // component: ShiftSchedules,
-      },
+      // {
+      //   title: "Shift Schedules",
+      //   url: "/operations/shifts",
+      //   description: "Manage employee shifts",
+      //   allowedRoles: ["superadmin"],
+      //   component: ShiftSchedules,
+      // },
     ],
   },
   {

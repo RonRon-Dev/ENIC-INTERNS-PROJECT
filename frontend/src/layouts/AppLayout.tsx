@@ -136,7 +136,7 @@ export default function AppLayout() {
                     Back
                   </Button>
                 )}
-                {!isHome && <Search className="mr-20" />}
+                {!isHome && <Search className="" />}
 
                 <ThemeToggle />
               </div>
