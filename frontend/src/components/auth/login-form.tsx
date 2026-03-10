@@ -14,7 +14,6 @@ import { notifToast } from "@/lib/notifToast";
 import NProgress from "@/lib/nprogress";
 import { authenticationApi } from "@/services/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
@@ -38,7 +37,6 @@ export function LoginForm({
 }) {
   const { refreshUser } = useAuth()
   const navigate = useNavigate();
-  const [serverError, setServerError] = useState<string | null>(null);
 
   const form = useForm<UserForm>({
     mode: "onChange",
@@ -51,38 +49,26 @@ export function LoginForm({
 
   const onSubmit = async (data: UserForm) => {
     try {
-      NProgress.start();
-      setServerError(null);
-
-      const response = await authenticationApi.login(data);
-
+      NProgress.start()
+      const response = await authenticationApi.login(data)
       if (!response.success) {
-        setServerError(response.message);
-        return;
-      }
-
-      await refreshUser();
-      navigate("/home");
-    } catch (error) {
-      const res = (error as { response?: { data?: { errors?: Record<string, string>; message?: string } } })?.response?.data
-      if (!res) {
-        setServerError('Something went wrong')
+        notifToast({ reason: response.message }, 'error')
         return
       }
-      if (res.errors) {
+      await refreshUser()
+      navigate('/home')
+    } catch (error) {
+      const res = (error as { response?: { data?: { errors?: Record<string, string>; message?: string } } })?.response?.data
+      if (res?.errors) {
         Object.entries(res.errors).forEach(([key, value]) => {
-          form.setError(key as keyof UserForm, {
-            type: 'server',
-            message: value,
-          })
+          form.setError(key as keyof UserForm, { type: 'server', message: value })
         })
       }
-      if (res.message) setServerError(res.message)
-      notifToast({ reason: res?.message }, 'error')
+      notifToast({ reason: res?.message ?? 'Something went wrong' }, 'error')
     } finally {
-      NProgress.done();
+      NProgress.done()
     }
-  };
+  }
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">

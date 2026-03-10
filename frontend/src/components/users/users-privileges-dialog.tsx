@@ -407,10 +407,10 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                       className='flex-1'
                       onClick={() => matrixForm.reset({ pageRoles: { ...initialPageRoles } })}
                     >
-                      Reset All
+                      Reset
                     </Button>
                     <Button type='submit' form='matrix-form' size='sm' className='flex-1'>
-                      Save All
+                      Save
                     </Button>
                   </div>
                 )}

@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { roles } from '@/data/const'
-import { type ActivityLog } from '@/data/schema'
+import { type ActivityLog, type Roles } from '@/data/schema'
 import type {
   ColumnDef,
   ColumnFiltersState,
@@ -166,6 +166,7 @@ export function useColumns() {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  roles: Roles[]
 }
 
 export function DataTable<TData, TValue>({

@@ -51,7 +51,7 @@ export function PreferencesForm() {
 
   function onSubmit(data: PreferencesFormValues) {
     setTheme(data.theme)
-    notifToast(data, 'appsettings')
+    notifToast({}, 'appsettings')
     form.reset(data)
   }
 
