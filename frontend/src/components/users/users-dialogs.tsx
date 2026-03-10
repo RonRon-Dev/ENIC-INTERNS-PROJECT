@@ -1,5 +1,4 @@
 import { UsersActionDialog, UsersDeactivateDialog, UsersActivateDialog, UsersApproveDialog, UsersRejectDialog, UsersApproveResetDialog, UsersAdminResetDialog, UsersUnlockDialog } from '@/components/users/users-action-dialog'
-import { useUsers } from '@/components/users/users-provider'
 import { UsersAddRoleDialog } from '@/components/users/users-add-role-dialog'
 import { useUsers } from '@/components/users/users-provider'
 import { UsersPrivilegesDialog } from './users-privileges-dialog'

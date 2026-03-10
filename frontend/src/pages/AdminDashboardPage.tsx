@@ -1,21 +1,22 @@
-import { LogsDialogs } from "@/components/act-logs/logs-dialogs";
-import { LogsProvider } from "@/components/act-logs/logs-provider";
 import {
   DataTable,
   useColumns,
 } from "@/components/tables-data/activity-logs-column";
 import { roles as roleIcons } from "@/data/const";
-import { type ActivityLog, type Roles } from "@/data/schema";
-import { SkeletonTable } from "@/pages/UserManagementPage";
 import { dashboardApi } from "@/services/dashboard";
 import { usersApi } from "@/services/users";
+import { type Roles, type ActivityLog } from "@/data/schema";
+import { SkeletonTable } from "@/pages/UserManagementPage";
+import { LogsProvider } from "@/components/act-logs/logs-provider";
+import { LogsDialogs } from "@/components/act-logs/logs-dialogs";
 import { useEffect, useState } from "react";
 
 function DashboardContent() {
   const [data, setData] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<Roles[]>([]);
-  const columns = useColumns();
+  const columns = useColumns({ roles });
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -24,13 +25,7 @@ function DashboardContent() {
           dashboardApi.getActivityLogs(),
         ]);
 
-        const rolesData = rolesRes.data as Roles[]
-        const rolesWithIcons = rolesData.map((role) => ({
-          ...role,
-          icon: roleIcons.find((r) => r.value.toLowerCase() === role.name.toLowerCase())?.icon,
-        }))
-
-        setRoles(rolesWithIcons);
+        setRoles(rolesRes.data);
         setData(logsRes.data);
       } catch (err) {
         console.error("Failed to load data:", err);

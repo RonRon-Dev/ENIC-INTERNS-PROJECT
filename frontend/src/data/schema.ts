@@ -161,6 +161,7 @@ type DeviceData = {
 type Roles = {
   id: number;
   name: string;
+  icon?: string;
 };
 
 export type { ActivityLog, Payload, AccMgmtPayload, SettingsPayload, PrivilegePayload, IPData, DeviceData, Roles };

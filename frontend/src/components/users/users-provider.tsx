@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from 'react'
 
 export type ApiRole = { id: number; name: string }
 
-type UsersDialogType = 'add' | 'edit' | 'deactivate' | 'activate' | 'role' | 'approve' | 'reject' | 'approveReset' | 'adminReset' | 'unlock'
+type UsersDialogType = 'add' | 'edit' | 'deactivate' | 'activate' | 'role' | 'approve' | 'reject' | 'approveReset' | 'adminReset' | 'unlock' | 'privileges' | 'assignRole'
 
 type UsersContextType = {
   open: UsersDialogType | null
