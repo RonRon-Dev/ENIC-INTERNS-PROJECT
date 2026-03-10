@@ -1,6 +1,5 @@
 import { useAuth } from "@/auth-context";
 import { PasswordInput } from '@/components/password-input';
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -17,7 +16,7 @@ import { notifToast } from '@/lib/show-submitted-data';
 import { settingsApi } from "@/services/settings";
 import { updateAccountSchema, type UpdateAccountRequest } from "@/validations";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Minus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
@@ -38,6 +37,14 @@ export function AccountForm() {
     },
   });
 
+  const passwordRules = [
+    { label: 'At least 8 characters', test: (v: string) => v.length >= 8 },
+    { label: 'One uppercase letter', test: (v: string) => /[A-Z]/.test(v) },
+    { label: 'One number', test: (v: string) => /[0-9]/.test(v) },
+    { label: 'One special character', test: (v: string) => /[^A-Za-z0-9]/.test(v) },
+  ]
+
+
   const password = form.watch('password')
   const fullname = form.watch('fullname')
 
@@ -47,11 +54,25 @@ export function AccountForm() {
     const generated = names.length >= 2
       ? `${names[0].charAt(0)}.${names[names.length - 1]}`
       : names[0]
+
+    const current = form.getValues('username')
+    if (current === generated) return  // ← skip if unchanged
+
     form.setValue('username', generated, {
       shouldDirty: true,
       shouldValidate: true,
     })
   }, [fullname, form])
+
+  useEffect(() => {
+    if (!user) return
+    form.reset({
+      fullname: user.name || '',
+      username: user.userName || '',
+      password: '',
+      confirmPassword: '',
+    })
+  }, [user])
 
   const onSubmit = async (data: UpdateAccountRequest) => {
     try {
@@ -62,7 +83,7 @@ export function AccountForm() {
         setServerError(response.message)
         return
       }
-      notifToast(data, 'edit')
+      notifToast({ name: data.username, role: undefined, reason: response.message }, 'edit')
       form.reset({ ...data, password: '', confirmPassword: '' })
     } catch (error) {
       const res = (error as { response?: { data?: { errors?: Record<string, string>; message?: string } } })?.response?.data
@@ -75,6 +96,7 @@ export function AccountForm() {
           })
         })
       }
+      notifToast({ name: data.username, role: undefined, reason: res?.message }, "error");
       if (res.message) setServerError(res.message)
     } finally {
       NProgress.done()
@@ -164,7 +186,22 @@ export function AccountForm() {
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
+                {password && (
+                  <div className="pt-2 space-y-1">
+                    {passwordRules.map(({ label, test }) => {
+                      const passed = test(field.value ?? '')
+                      return (
+                        <div key={label} className={`flex items-center gap-1.5 text-xs ${passed ? 'text-success' : 'text-muted-foreground'}`}>
+                          {passed
+                            ? <Check className="size-3 shrink-0" />
+                            : <Minus className="size-3 shrink-0" />
+                          }
+                          {label}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </FormItem>
             )}
           />
@@ -183,13 +220,16 @@ export function AccountForm() {
           />
         </div>
 
-        {serverError && (
+        {/* {serverError && (
           <Alert variant='destructive'>
             <AlertDescription>{serverError}</AlertDescription>
           </Alert>
-        )}
-        <Button disabled={!form.formState.isDirty} type="submit">
-          Update account
+        )} */}
+        <Button
+          disabled={!form.formState.isDirty || form.formState.isSubmitting}
+          type="submit"
+        >
+          {form.formState.isSubmitting ? 'Updating...' : 'Update account'}
         </Button>
       </form>
     </Form>

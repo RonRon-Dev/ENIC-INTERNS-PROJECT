@@ -69,7 +69,7 @@ const modeConfig: Record<
   },
   error: {
     title: 'Error',
-    description: (name?: string) => `${name} invalid input.`,
+    description: (reason?: string) => `${reason} error occurred.`,
     icon: UserX,
     iconClass: 'text-red-600 bg-red-300',
   }
@@ -93,9 +93,9 @@ export function notifToast(
       <div className="flex flex-col flex-1 min-w-0">
         <p className="text-sm font-semibold">{config.title}</p>
         <p className="text-xs text-muted-foreground font-normal">{config.description(name, role)}</p>
-        {reason != 'undefined' && (
-          <p className="text-xs text-muted-foreground font-normal">Reason: {reason}</p>
-        )}
+        {/* {reason != 'undefined' && (
+          <p className="text-xs text-muted-foreground font-normal">{reason}</p>
+        )} */}
       </div>
     </div>
   ))
