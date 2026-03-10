@@ -85,7 +85,7 @@ public class UserService(
     public async Task<List<RoleResponse>> GetRolesAsync() =>
         await context.Roles
             .OrderBy(r => r.Name)
-            .Select(r => new RoleResponse { Id = r.Id, Name = r.Name })
+            .Select(r => new RoleResponse { Id = r.Id, Name = r.Name, Icon = r.Icon })
             .ToListAsync();
 
     public async Task<UserStatsResponse> GetUserStatsAsync()

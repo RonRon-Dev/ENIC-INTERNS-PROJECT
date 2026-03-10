@@ -11,35 +11,26 @@ public class DatabaseSeeder
 
         var roles = new[]
         {
-            "Guest",
-            "Admin",
-            "Superadmin",
-            "Dev",
-            "Operations",
-            "Marketing",
-            "Managers",
-            "Documentations",
-            "IT",
-            "Others",
+            new { Name = "Guest", Icon = "User" },
+            new { Name = "Admin", Icon = "Shield" },
+            new { Name = "Superadmin", Icon = "ShieldCheck" },
+            new { Name = "Dev", Icon = "Code" },
+            new { Name = "Operations", Icon = "Settings" },
+            new { Name = "Marketing", Icon = "Megaphone" },
+            new { Name = "Managers", Icon = "Users" },
+            new { Name = "Documentations", Icon = "FileText" },
+            new { Name = "IT", Icon = "Cpu" },
         };
 
-        // Rename legacy "Developer" role to "Dev" if it exists
-        var developerRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Developer");
-        if (developerRole != null)
+        foreach (var role in roles)
         {
-            developerRole.Name = "Dev";
+            if (!await context.Roles.AnyAsync(r => r.Name == role.Name))
+            {
+                await context.Roles.AddAsync(new Roles { Name = role.Name, Icon = role.Icon });
+            }
             await context.SaveChangesAsync();
         }
 
-        foreach (var roleName in roles)
-        {
-            if (!await context.Roles.AnyAsync(r => r.Name == roleName))
-            {
-                await context.Roles.AddAsync(new Roles { Name = roleName });
-            }
-        }
-
-        await context.SaveChangesAsync();
 
         const string superadminUsername = "enic.mis@superadmin";
         if (!await context.Users.AnyAsync(u => u.UserName == superadminUsername))
