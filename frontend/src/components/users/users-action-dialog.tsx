@@ -95,7 +95,7 @@ export function UsersActionDialog({
     setError(null)
     setTempPassword(null)
     setCopied(false)
-    setCopiedTemp(false)
+    setCopiedCredentials(false)
     setCountdown(0)
     setResetKey((k) => k + 1)
   }, [open])
@@ -177,18 +177,20 @@ export function UsersActionDialog({
     const username = form.getValues('username')
     if (!username) return
     navigator.clipboard.writeText(username)
+    notifToast({ reason: 'Username copied to clipboard' }, 'copy')
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const [copiedTemp, setCopiedTemp] = useState(false)
+  const [copiedCredentials, setCopiedCredentials] = useState(false)
 
-  const copyTempPassword = () => {
+  const copyCredentials = () => {
     if (!tempPassword) return
     const username = form.getValues('username')
     navigator.clipboard.writeText(`Username: ${username}\nPassword: ${tempPassword}`)
-    setCopiedTemp(true)
-    setTimeout(() => setCopiedTemp(false), 2000)
+    notifToast({ reason: 'Temporary password copied to clipboard' }, 'copy')
+    setCopiedCredentials(true)
+    setTimeout(() => setCopiedCredentials(false), 2000)
   }
 
   return (
@@ -214,10 +216,10 @@ export function UsersActionDialog({
               <div className='relative space-y-2 rounded-md border bg-muted/50 p-4 text-sm'>
                 <button
                   type='button'
-                  onClick={copyTempPassword}
+                  onClick={copyCredentials}
                   className='absolute top-2 right-2 p-1 hover:bg-background rounded transition-colors'
                 >
-                  {copiedTemp
+                  {copiedCredentials
                     ? <Check className='h-4 w-4 text-green-600' />
                     : <Copy className='h-4 w-4 text-muted-foreground' />}
                 </button>

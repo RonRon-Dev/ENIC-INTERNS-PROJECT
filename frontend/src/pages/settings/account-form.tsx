@@ -22,7 +22,6 @@ import { useForm } from "react-hook-form";
 
 export function AccountForm() {
   const [copied, setCopied] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
 
   const { user } = useAuth();
 
@@ -77,27 +76,25 @@ export function AccountForm() {
   const onSubmit = async (data: UpdateAccountRequest) => {
     try {
       NProgress.start()
-      setServerError(null)
       const response = await settingsApi.updateAccount(data)
       if (!response.success) {
-        setServerError(response.message)
+        notifToast({ reason: response.message }, 'error')
         return
       }
-      notifToast({ name: data.username, role: undefined, reason: response.message }, 'edit')
+      notifToast({ name: data.username }, 'edit')
       form.reset({ ...data, password: '', confirmPassword: '' })
     } catch (error) {
       const res = (error as { response?: { data?: { errors?: Record<string, string>; message?: string } } })?.response?.data
-      if (!res) { setServerError('Something went wrong'); return }
+      if (!res) {
+        notifToast({ reason: 'Something went wrong' }, 'error')
+        return
+      }
       if (res.errors) {
         Object.entries(res.errors).forEach(([key, value]) => {
-          form.setError(key as keyof UpdateAccountRequest, {
-            type: 'server',
-            message: value,
-          })
+          form.setError(key as keyof UpdateAccountRequest, { type: 'server', message: value })
         })
       }
-      notifToast({ name: data.username, role: undefined, reason: res?.message }, "error");
-      if (res.message) setServerError(res.message)
+      notifToast({ reason: res.message ?? 'Something went wrong' }, 'error')
     } finally {
       NProgress.done()
     }
@@ -107,8 +104,12 @@ export function AccountForm() {
     const username = form.getValues('username')
     if (!username) return
     navigator.clipboard.writeText(username)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+      .then(() => {
+        setCopied(true)
+        notifToast({ reason: 'Username copied to clipboard' }, 'copy')
+        setTimeout(() => setCopied(false), 2000)
+      })
+      .catch(() => { })
   }
 
   return (

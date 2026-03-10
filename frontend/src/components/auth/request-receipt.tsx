@@ -1,3 +1,4 @@
+import { notifToast } from "@/lib/notifToast";
 import { Check, CheckCircle2, ChevronLeft, Clock, Copy } from "lucide-react";
 import { useState } from "react";
 
@@ -9,15 +10,17 @@ interface RequestReceiptFormProps {
 export function RequestReceiptForm({ onBack, username }: RequestReceiptFormProps) {
   const [copied, setCopied] = useState(false);
   const copyUsername = async () => {
-    if (!username) return;
+    if (!username) return
     try {
-      await navigator.clipboard.writeText(username);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(username)
+      setCopied(true)
+      notifToast({ reason: 'Username copied to clipboard' }, 'copy')
+      setTimeout(() => setCopied(false), 2000)
     } catch (error) {
-      console.error("Copy failed", error);
+      console.error('Copy failed', error)
     }
-  };
+  }
+
 
   const handleBack = () => {
     if (username) navigator.clipboard.writeText(username).catch(() => { })

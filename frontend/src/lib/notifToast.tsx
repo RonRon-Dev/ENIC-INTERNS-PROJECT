@@ -1,7 +1,7 @@
-import { ShieldCheck, ShieldOff, UserCheck, UserCog, UserPlus, UserX } from 'lucide-react'
+import { Check, ShieldCheck, ShieldOff, UserCheck, UserCog, UserPlus, UserX } from 'lucide-react'
 import { toast } from 'sonner'
 
-type ToastMode = 'create' | 'edit' | 'approve' | 'reject' | 'activate' | 'deactivate' | 'addrole' | 'appsettings' | 'error' | 'updateprivileges'
+type ToastMode = 'create' | 'edit' | 'approve' | 'reject' | 'activate' | 'deactivate' | 'addrole' | 'appsettings' | 'error' | 'updateprivileges' | 'copy'
 
 type ToastData = {
   name?: string
@@ -25,6 +25,12 @@ const modeConfig: Record<ToastMode, {
   appsettings: { title: 'Settings Updated', description: () => 'Your application settings have been saved.', icon: UserCog, iconClass: 'text-purple-600 bg-purple-300' },
   error: { title: 'Error', description: ({ reason }) => reason ?? 'Something went wrong.', icon: UserX, iconClass: 'text-red-600 bg-red-500' },
   updateprivileges: { title: 'Privilege Updated', description: ({ name }) => `${name} page privileges have been updated.`, icon: ShieldCheck, iconClass: 'text-blue-600 bg-blue-300' },
+  copy: {
+    title: 'Copied',
+    description: ({ reason }) => reason ?? 'Copied to clipboard.',
+    icon: Check,
+    iconClass: 'text-green-600 bg-green-300',
+  },
 }
 
 function formatName(value?: string) {
