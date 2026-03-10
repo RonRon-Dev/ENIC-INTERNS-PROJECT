@@ -1,5 +1,5 @@
-import { Shield, User, ShieldCheck, Code, Megaphone, Settings, Users, FileText, Cpu } from 'lucide-react'
-import { type UserStatus, type ActivityLog } from './schema'
+import { Code, Cpu, FileText, Megaphone, Settings, Shield, ShieldCheck, User, Users } from 'lucide-react'
+import { type ActivityLog, type UserStatus } from './schema'
 
 export const userTypes = new Map<UserStatus, string>([
   ['active', 'bg-teal-100/30 text-teal-900 dark:text-teal-200 border-teal-200'],

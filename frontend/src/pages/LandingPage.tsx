@@ -159,7 +159,7 @@ export default function EurolinkPage() {
             </a>
             <a
               href="#contact"
-              className="inline-flex items-center gap-2 text-[11px] font-medium tracking-[0.1em] uppercase px-6 py-3.5 border border-border rounded-sm text-muted-foreground hover:text-foreground hover:border-border/60 transition-all duration-200"
+              className="inline-flex items-center gap-2 text-[11px] font-medium tracking-[0.1em] uppercase px-6 py-3.5 border rounded-sm text-muted-foreground hover:text-foreground hover:border-border/60 transition-all duration-200"
             >
               Get in Touch
             </a>
@@ -541,7 +541,7 @@ export default function EurolinkPage() {
           </div>
 
           <Reveal delay={150}>
-            <div className="bg-muted/10 border border-border p-10">
+            <div className="bg-muted/10 border p-10">
               <div className="font-serif text-xl font-semibold text-foreground mb-7">
                 Send a Message
               </div>

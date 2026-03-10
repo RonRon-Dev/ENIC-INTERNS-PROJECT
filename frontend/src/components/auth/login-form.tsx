@@ -1,10 +1,6 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { authenticationApi } from "@/services/auth";
 import { useAuth } from "@/auth-context";
+import { PasswordInput } from "@/components/password-input";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -13,10 +9,14 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { PasswordInput } from "@/components/password-input";
-import { z } from "zod";
+import { Input } from "@/components/ui/input";
+import { notifToast } from "@/lib/notifToast";
 import NProgress from "@/lib/nprogress";
+import { authenticationApi } from "@/services/auth";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+import { z } from "zod";
 
 const formSchema = z.object({
   username: z.string().min(1, "Username is required."),
@@ -35,9 +35,8 @@ export function LoginForm({
   onToggleSignup: () => void;
   onToggleForgot: () => void;
 }) {
-  const { refreshUser, setUser } = useAuth();
+  const { refreshUser } = useAuth()
   const navigate = useNavigate();
-  const [serverError, setServerError] = useState<string | null>(null);
 
   const form = useForm<UserForm>({
     mode: "onChange",
@@ -50,42 +49,26 @@ export function LoginForm({
 
   const onSubmit = async (data: UserForm) => {
     try {
-      NProgress.start();
-      setServerError(null);
-
-      const response = await authenticationApi.login(data);
-
+      NProgress.start()
+      const response = await authenticationApi.login(data)
       if (!response.success) {
-        setServerError(response.message);
-        return;
+        notifToast({ reason: response.message }, 'error')
+        return
       }
-
-      await refreshUser();
-      navigate("/home");
-    } catch (error: any) {
-      const res = error.response?.data;
-
-      if (!res) {
-        setServerError("Something went wrong");
-        return;
-      }
-
-      if (res.errors) {
+      await refreshUser()
+      navigate('/home')
+    } catch (error) {
+      const res = (error as { response?: { data?: { errors?: Record<string, string>; message?: string } } })?.response?.data
+      if (res?.errors) {
         Object.entries(res.errors).forEach(([key, value]) => {
-          form.setError(key as keyof UserForm, {
-            type: "server",
-            message: value as string,
-          });
-        });
+          form.setError(key as keyof UserForm, { type: 'server', message: value })
+        })
       }
-
-      if (res.message) {
-        setServerError(res.message);
-      }
+      notifToast({ reason: res?.message ?? 'Something went wrong' }, 'error')
     } finally {
-      NProgress.done();
+      NProgress.done()
     }
-  };
+  }
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -140,9 +123,9 @@ export function LoginForm({
             )}
           />
 
-          {serverError && (
+          {/* {serverError && (
             <p className="text-destructive text-sm">{serverError}</p>
-          )}
+          )} */}
 
           <Button
             type="submit"

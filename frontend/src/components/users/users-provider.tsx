@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react'
-import useDialogState from '@/hooks/use-dialog-state'
 import { type User } from '@/data/schema'
+import useDialogState from '@/hooks/use-dialog-state'
 import { usersApi } from '@/services/users'
+import React, { useEffect, useRef, useState } from 'react'
 
 export type ApiRole = { id: number; name: string }
 
@@ -24,18 +24,18 @@ export function UsersProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useDialogState<UsersDialogType>(null)
   const [currentRow, setCurrentRow] = useState<User | null>(null)
   const [apiRoles, setApiRoles] = useState<ApiRole[]>([])
-  const refreshRef = useRef<() => void>(() => {})
+  const refreshRef = useRef<() => void>(() => { })
 
   const refreshRoles = async () => {
     try {
       const res = await usersApi.getRoles()
       setApiRoles(res.data)
-    } catch {}
+    } catch { }
   }
 
   useEffect(() => {
     refreshRoles()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [])
 
   const refresh = () => refreshRef.current()

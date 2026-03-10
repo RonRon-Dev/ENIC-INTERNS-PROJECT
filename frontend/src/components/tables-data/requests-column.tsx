@@ -1,26 +1,27 @@
 "use client"
 
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table"
 import type { CellContext, ColumnDef, ColumnFiltersState, SortingState } from "@tanstack/react-table"
 import {
   flexRender,
   getCoreRowModel,
-  useReactTable,
   getFilteredRowModel,
-  getSortedRowModel,
   getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
 } from "@tanstack/react-table"
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table"
+import { MoreHorizontal, UserCheck, UserX } from "lucide-react"
 import { useState } from "react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { DataTableColumnHeader } from "../data-table-components/data-table-header"
 import { DataTablePagination } from "../data-table-components/data-table-pagination"
 import { DataTableToolbar } from "../data-table-components/data-table-toolbar"
-import { DataTableColumnHeader } from "../data-table-components/data-table-header"
-import { useUsers } from "../users/users-provider"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from "../ui/dropdown-menu"
-import { MoreHorizontal, UserCheck, UserX } from "lucide-react"
+import { useUsers } from "../users/users-provider"
+import type { User } from "./users-column"
 
 export type UserRequest = {
   requestId: number
@@ -38,7 +39,6 @@ export type UserRequest = {
 interface DataTableProps {
   columns: ColumnDef<UserRequest>[]
   data: UserRequest[]
-  onApprove: (req: UserRequest) => void
 }
 
 export function getColumns(onApprove: (req: UserRequest) => void): ColumnDef<UserRequest>[] {
@@ -181,7 +181,7 @@ export function RequestRowActions({ row, onApprove }: RequestRowActionsProps) {
               status: 'pending',
               role: ((row.original.currentRole?.name ?? 'guest').toLowerCase() === 'developer'
                 ? 'dev'
-                : (row.original.currentRole?.name ?? 'guest').toLowerCase()) as any,
+                : (row.original.currentRole?.name ?? 'guest').toLowerCase()) as User['role'],
             })
             setOpen('reject')
           }}

@@ -1,11 +1,5 @@
+import { PasswordInput } from "@/components/password-input";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { authenticationApi } from "@/services/auth";
-import { registerSchema } from "@/validations";
-import type { SignupRequest } from "@/validations";
 import {
   Form,
   FormControl,
@@ -15,8 +9,16 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { PasswordInput } from "@/components/password-input";
+import { Input } from "@/components/ui/input";
+import { notifToast } from "@/lib/notifToast";
 import NProgress from "@/lib/nprogress";
+import { authenticationApi } from "@/services/auth";
+import type { SignupRequest } from "@/validations";
+import { registerSchema } from "@/validations";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Check, Minus } from "lucide-react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
 
 export default function SignupForm({
   onToggle,
@@ -25,7 +27,6 @@ export default function SignupForm({
   onToggle: () => void;
   onToggleReceipt: (username: string) => void
 }) {
-  const [serverError, setServerError] = useState<string | null>(null);
 
   const form = useForm<SignupRequest>({
     mode: "onChange",
@@ -61,39 +62,35 @@ export default function SignupForm({
   const onSubmit = async (data: SignupRequest) => {
     try {
       NProgress.start()
-      setServerError(null);
-      const response = await authenticationApi.signup(data);
+      const response = await authenticationApi.signup(data)
       if (!response.success) {
-        setServerError(response.message);
-        NProgress.done();
-        return;
+        notifToast({ reason: response.message }, 'error')
+        return
       }
-      onToggleReceipt(data.username);
-    } catch (error: any) {
-      const res = error.response?.data;
-
-
+      onToggleReceipt(data.username)
+    } catch (error) {
+      const res = (error as { response?: { data?: { errors?: Record<string, string>; message?: string } } })?.response?.data
       if (!res) {
-        setServerError("Something went wrong");
-        return;
+        notifToast({ reason: 'Something went wrong' }, 'error')
+        return
       }
-
       if (res.errors) {
         Object.entries(res.errors).forEach(([key, value]) => {
-          form.setError(key as keyof SignupRequest, {
-            type: "server",
-            message: value as string,
-          });
-        });
+          form.setError(key as keyof SignupRequest, { type: 'server', message: value })
+        })
       }
-
-      if (res.message) {
-        setServerError(res.message);
-      }
+      notifToast({ reason: res.message ?? 'Something went wrong' }, 'error')
+    } finally {
+      NProgress.done()
     }
+  }
 
-    NProgress.done();
-  };
+  const passwordRules = [
+    { label: 'At least 8 characters', test: (v: string) => v.length >= 8 },
+    { label: 'One uppercase letter', test: (v: string) => /[A-Z]/.test(v) },
+    { label: 'One number', test: (v: string) => /[0-9]/.test(v) },
+    { label: 'One special character', test: (v: string) => /[^A-Za-z0-9]/.test(v) },
+  ]
 
   return (
     <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -156,7 +153,22 @@ export default function SignupForm({
                   <FormControl>
                     <PasswordInput {...field} />
                   </FormControl>
-                  <FormMessage />
+                  {form.formState.dirtyFields.password && (
+                    <div className="mt-2 space-y-1">
+                      {passwordRules.map(({ label, test }) => {
+                        const passed = test(field.value ?? '')
+                        return (
+                          <div key={label} className={`flex items-center gap-1.5 text-xs ${passed ? 'text-success' : 'text-muted-foreground'}`}>
+                            {passed
+                              ? <Check className="size-3 shrink-0" />
+                              : <Minus className="size-3 shrink-0" />
+                            }
+                            {label}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </FormItem>
               )}
             />
@@ -179,14 +191,13 @@ export default function SignupForm({
             />
           </div>
 
-          {serverError && (
+          {/* {serverError && (
             <p className="text-destructive text-sm">{serverError}</p>
-          )}
+          )} */}
 
           <Button
-            // type="submit"
+            type="submit"
             className="w-full disabled:opacity-100 !mt-10"
-          // disabled={!form.formState.isValid || form.formState.isSubmitting}
           >
             Submit Request
           </Button>

@@ -13,9 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
+  useSidebar
 } from "@/components/ui/sidebar";
 import { authenticationApi } from "@/services/auth";
 import { ChevronsUpDown, Code2, LogOut, Settings } from "lucide-react";
@@ -45,7 +44,7 @@ export function NavUser() {
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          {/* <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
               className="data-[state=open]:bg-sidebar-accent-foreground data-[state=open]:text-primary hover:bg-sidebar-accent-foreground hover:text-primary"
@@ -63,6 +62,23 @@ export function NavUser() {
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
+          </DropdownMenuTrigger> */}
+
+          <DropdownMenuTrigger asChild>
+            <div className="sidebar-user-trigger w-full flex justify-start rounded-lg px-2 py-3 gap-2 cursor-pointer items-center">
+              <Avatar className="h-8 w-8 rounded-lg">
+                <AvatarFallback className="rounded-lg bg-muted text-muted-foreground">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-semibold">{user.name}</span>
+                <span className="truncate text-xs capitalize">
+                  {user.roleName}
+                </span>
+              </div>
+              <ChevronsUpDown className="ml-auto size-4" />
+            </div>
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
