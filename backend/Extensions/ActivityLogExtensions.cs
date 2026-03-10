@@ -27,7 +27,7 @@ public static class ActivityLogExtensions
             Date = log.Timestamp.ToString("yyyy-MM-dd"),
             Time = log.Timestamp.ToString("HH:mm"),
             Type = NormalizeType(log.ActivityType),
-            Success = log.IsSuccess ? "success" : "failure",
+            Success = log.IsSuccess,
             Payload = log.Payload.ParseJsonPayload()
         };
     }
@@ -36,7 +36,6 @@ public static class ActivityLogExtensions
     {
         if (string.IsNullOrEmpty(payloadJson))
             return null;
-
         try
         {
             return JsonSerializer.Deserialize<object>(payloadJson);

@@ -198,12 +198,24 @@ public class UserService(
 
         var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
 
+        var payload = new 
+        { 
+            target_user = new 
+            {
+                id = entity.Id,
+                name = entity.Name,
+                username = entity.UserName,
+                past_role = pastRole,
+                new_role = role.Name
+            }
+        };
+
         await logger.LogPrivilegeChangeAsync(
             authUser.Id,
             authUser.UserName,
-            $"Role assigned: {role.Name}",
+            $"Assign New Role to User (Role: {role.Name})",
             true,
-            new { name = entity.Name, username = entity.UserName, past_role = pastRole, new_role = role.Name }
+            payload
         );
 
         await context.SaveChangesAsync();
@@ -216,7 +228,9 @@ public class UserService(
     
     public async Task<UpdateUserResponse> EnableUserAsync(int id, int currentUser)
     {
-        var user = await context.Users.FirstOrDefaultAsync(u => u.Id == id);
+        var user = await context.Users
+          .Include(u => u.Role)
+          .FirstOrDefaultAsync(u => u.Id == id);
         if (user is null) 
             return new UpdateUserResponse
             {
@@ -230,15 +244,19 @@ public class UserService(
 
         var payload = new 
         { 
-            name = user.Name,
-            username = user.UserName,
-            role = user.Role != null ? user.Role.Name : "No Role"
+            tartget_user = new 
+            {
+                id = user.Id,
+                name = user.Name,
+                username = user.UserName,
+                role = user.Role.Name,
+            }
         };
 
-        await logger.LogAccountManagementAsync(
+        await logger.LogPrivilegeChangeAsync(
             authUser.Id,
             authUser.UserName,
-            "Enable User",
+            $"Enable User {user.UserName}",
             true,
             payload
         );
@@ -254,7 +272,10 @@ public class UserService(
 
     public async Task<UpdateUserResponse> DisableUserAsync(int id, int currentUser)
     {
-        var user = await context.Users.FirstOrDefaultAsync(u => u.Id == id);
+        var user = await context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Id == id);
+
         if (user is null) 
             return new UpdateUserResponse
             {
@@ -270,15 +291,19 @@ public class UserService(
 
         var payload = new 
         { 
-            name = user.Name,
-            username = user.UserName,
-            role = user.Role != null ? user.Role.Name : "No Role"
+            target_user = new 
+            {
+                id = user.Id,
+                name = user.Name,
+                username = user.UserName,
+                role = user.Role.Name,
+            }
         };
 
-        await logger.LogAccountManagementAsync(
+        await logger.LogPrivilegeChangeAsync(
             authUser.Id,
             authUser.UserName,
-            "Disable User",
+            $"Disable User {user.UserName}",
             true,
             payload
         );
@@ -326,10 +351,14 @@ public class UserService(
 
         var payload = new 
         { 
-            name = user.Name,
-            username = user.UserName,
-            role = role.Name,
-            is_verified = user.IsVerified,
+            target_user = new 
+            {
+                id = user.Id,
+                name = user.Name,
+                username = user.UserName,
+                role = role.Name,
+                is_verified = user.IsVerified
+            }
         };
 
         await logger.LogAccountManagementAsync(
@@ -362,6 +391,7 @@ public class UserService(
 
         var user = await context.Users
             .Include(u => u.UserRequests)
+            .Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.UserName.ToLower() == username.ToLower());
 
         if (user is null)
@@ -398,10 +428,16 @@ public class UserService(
 
         var payload = new 
         { 
-            name = user.Name,
-            username = user.UserName,
-            role = user.Role != null ? user.Role.Name : "No Role",
-            generated_temp_password = true
+            target_user = new 
+            {
+                id = user.Id,
+                name = user.Name,
+                username = user.UserName,
+                role = user.Role != null ? user.Role.Name : "No Role",
+                is_verified = user.IsVerified,
+                ForcePasswordChange = user.ForcePasswordChange
+            },
+            temp_generated_password = true
         };
 
         await logger.LogAccountManagementAsync(
@@ -424,9 +460,9 @@ public class UserService(
     }
 
     // Deleting a user by ID. This should also handle any related data cleanup if necessary (e.g., activity logs).
-
     public async Task<ResetPasswordResponse> AdminResetPasswordAsync(AdminResetPasswordRequest request, int currentUserId)
     {
+        var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUserId);
         if (request.UserId <= 0)
             return new ResetPasswordResponse
             {
@@ -457,18 +493,29 @@ public class UserService(
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(code, 10);
         user.ForcePasswordChange = true;
 
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = user.Id,
-            UserName = user.UserName,
-            ActivityType = "privilege",
-            Description = "Admin Reset Password (Temp Password Generated)",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { targetUserId = user.Id, adminUserId = currentUserId }),
-            IsSuccess = true,
-            Timestamp = DateTime.UtcNow
-        });
+        var payload = new 
+        { 
+            target_user = new 
+            {
+                id = user.Id,
+                name = user.Name,
+                username = user.UserName,
+                role = user.Role != null ? user.Role.Name : "No Role",
+                is_verified = user.IsVerified,
+                ForcePasswordChange = user.ForcePasswordChange
+            },
+            temp_generated_password = true
+        };
 
         await context.SaveChangesAsync();
+
+        await logger.LogAccountManagementAsync(
+            authUser.Id,
+            authUser.UserName,
+            "Admin Reset User Password",
+            true,
+            payload
+        );
 
         return new ResetPasswordResponse
         {
@@ -493,18 +540,16 @@ public class UserService(
         context.Roles.Add(role);
 
         var admin = await context.Users.FindAsync(currentUserId);
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = currentUserId,
-            UserName = admin?.UserName ?? "admin",
-            ActivityType = "privilege",
-            Description = $"Role Created: {name}",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { role = name }),
-            IsSuccess = true,
-            Timestamp = DateTime.UtcNow
-        });
 
         await context.SaveChangesAsync();
+
+        await logger.LogPrivilegeChangeAsync(
+            currentUserId,
+            admin?.UserName ?? "admin",
+            $"Role Created: {name}",
+            true,
+            new { role = name }
+        );
 
         return (true, "Role created successfully.", new RoleResponse { Id = role.Id, Name = role.Name });
     }
