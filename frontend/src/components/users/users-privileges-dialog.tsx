@@ -85,9 +85,7 @@ type PrivilegeForm = z.infer<typeof formSchema>
 export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
   const [selected, setSelected] = useState<PageEntry | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-  const [pageRoles, setPageRoles] = useState<Record<string, string[]>>(() => ({ ...initialPageRoles }))
 
-  const isMatrixDirty = JSON.stringify(pageRoles) !== JSON.stringify(initialPageRoles)
   const isHome = selected?.url === '/home'
   const homeEntry = categories.find((c) => c.url === '/home')
 
@@ -115,16 +113,6 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
     setExpanded((prev) => ({ ...prev, [title]: !prev[title] }))
   }
 
-  const toggleMatrixRole = (url: string, role: string) => {
-    setPageRoles((prev) => {
-      const current = prev[url] ?? []
-      const updated = current.includes(role)
-        ? current.filter((r) => r !== role)
-        : [...current, role]
-      return { ...prev, [url]: updated }
-    })
-  }
-
   const isHomeUrl = (url: string) => url === '/home'
 
   const onSubmit = (data: PrivilegeForm) => {
@@ -132,6 +120,19 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
     console.log('Save', selected?.url, toSave)
     form.reset({ allowedRoles: data.allowedRoles })
     notifToast({ name: selected?.title }, 'updateprivileges')
+  }
+
+
+  const matrixForm = useForm<{ pageRoles: Record<string, string[]> }>({
+    defaultValues: { pageRoles: { ...initialPageRoles } },
+  })
+
+  const isMatrixDirty = matrixForm.formState.isDirty
+
+  const onMatrixSubmit = (data: { pageRoles: Record<string, string[]> }) => {
+    console.log('Save matrix', data.pageRoles)
+    matrixForm.reset(data) // resets dirty state with new values as baseline
+    notifToast({ name: 'Page Matrix' }, 'updateprivileges')
   }
 
   return (
@@ -143,7 +144,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
           setSelected(null)
           setExpanded({})
           form.reset()
-          setPageRoles({ ...initialPageRoles })
+          matrixForm.reset({ pageRoles: { ...initialPageRoles } })
         }
       }}
     >
@@ -320,79 +321,104 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
 
           {/* ── Matrix tab ── */}
           <TabsContent value='matrix' className='overflow-hidden mt-0 flex flex-col h-full'>
-            <div className='overflow-auto flex-1 p-4'>
-              <Table>
-                <TableHeader>
-                  <TableRow className='bg-background'>
-                    <TableHead className='sticky top-0 bg-background z-10 text-xs font-medium uppercase tracking-wide min-w-[160px]'>
-                      Page
-                    </TableHead>
-                    {roles.map(({ value, label, icon: Icon }) => (
-                      <TableHead key={value} className='sticky top-0 bg-background z-10 text-center p-2'>
-                        <div className='flex flex-col items-center gap-1'>
-                          <Icon className='size-3.5 text-muted-foreground' />
-                          <span className='text-xs font-medium text-muted-foreground capitalize whitespace-nowrap'>{label}</span>
-                        </div>
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {allPages.map((page) => (
-                    <TableRow key={page.url}>
-                      <TableCell className='py-2.5 pr-4'>
-                        <div className='flex flex-col'>
-                          {page.parent && (
-                            <span className='text-xs text-muted-foreground'>{page.parent}</span>
-                          )}
-                          <span className={cn('font-medium', page.parent ? 'text-xs' : 'text-sm')}>
-                            {page.title}
-                          </span>
-                        </div>
-                      </TableCell>
-                      {roles.map(({ value }) => {
-                        const checked = (pageRoles[page.url] ?? []).includes(value)
-                        const locked = isHomeUrl(page.url)
-                        return (
-                          <TableCell key={value} className='py-2.5 px-2 text-center'>
-                            <div
-                              className={cn(
-                                'size-4 flex items-center justify-center mx-auto transition-colors',
-                                locked ? 'cursor-not-allowed' : 'cursor-pointer',
-                              )}
-                              onClick={() => { if (!locked) toggleMatrixRole(page.url, value) }}
-                            >
-                              {checked
-                                ? <Check className={cn('size-3.5', locked ? 'text-success/40' : 'text-success')} />
-                                : <Minus className='size-3.5 text-muted-foreground/20 hover:text-muted-foreground/50' />
-                              }
+            <Form {...matrixForm}>
+              <form
+                id='matrix-form'
+                onSubmit={matrixForm.handleSubmit(onMatrixSubmit)}
+                className='flex flex-col h-full overflow-hidden'
+              >
+                <div className='overflow-auto flex-1 p-4'>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className='bg-background'>
+                        <TableHead className='sticky top-0 bg-background z-10 text-xs font-medium uppercase tracking-wide min-w-[160px]'>
+                          Page
+                        </TableHead>
+                        {roles.map(({ value, label, icon: Icon }) => (
+                          <TableHead key={value} className='sticky top-0 bg-background z-10 text-center p-2'>
+                            <div className='flex flex-col items-center gap-1'>
+                              <Icon className='size-3.5 text-muted-foreground' />
+                              <span className='text-xs font-medium text-muted-foreground capitalize whitespace-nowrap'>{label}</span>
                             </div>
-                          </TableCell>
-                        )
-                      })}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
-        </Tabs>
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allPages.map((page) => (
+                        <FormField
+                          key={page.url}
+                          control={matrixForm.control}
+                          name={`pageRoles.${page.url}`}
+                          render={({ field }) => (
+                            <TableRow>
+                              <TableCell className='py-2.5 pr-4'>
+                                <div className='flex flex-col'>
+                                  {page.parent && (
+                                    <span className='text-xs text-muted-foreground'>{page.parent}</span>
+                                  )}
+                                  <span className={cn('font-medium', page.parent ? 'text-xs' : 'text-sm')}>
+                                    {page.title}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              {roles.map(({ value }) => {
+                                const checked = (field.value ?? []).includes(value)
+                                const locked = isHomeUrl(page.url)
+                                return (
+                                  <TableCell key={value} className='py-2.5 px-2 text-center'>
+                                    <div
+                                      className={cn(
+                                        'size-4 flex items-center justify-center mx-auto transition-colors',
+                                        locked ? 'cursor-not-allowed' : 'cursor-pointer',
+                                      )}
+                                      onClick={() => {
+                                        if (locked) return
+                                        const current = field.value ?? []
+                                        field.onChange(
+                                          current.includes(value)
+                                            ? current.filter((r) => r !== value)
+                                            : [...current, value]
+                                        )
+                                      }}
+                                    >
+                                      {checked
+                                        ? <Check className={cn('size-3.5', locked ? 'text-success/40' : 'text-success')} />
+                                        : <Minus className='size-3.5 text-muted-foreground/20 hover:text-muted-foreground/50' />
+                                      }
+                                    </div>
+                                  </TableCell>
+                                )
+                              })}
+                            </TableRow>
+                          )}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
 
-        {isMatrixDirty && (
-          <div className='flex gap-2 p-4 border-t'>
-            <Button type='button' size='sm' variant='outline' className='flex-1'
-              onClick={() => setPageRoles({ ...initialPageRoles })}>
-              Reset All
-            </Button>
-            <Button size='sm' className='flex-1'
-              onClick={() => {
-                console.log('Save matrix', pageRoles)
-                notifToast({ name: 'Page Matrix' }, 'updateprivileges')
-              }}>
-              Save All
-            </Button>
-          </div>
-        )}
+                {isMatrixDirty && (
+                  <div className='flex gap-2 p-4 border-t'>
+                    <Button
+                      type='button'
+                      size='sm'
+                      variant='outline'
+                      className='flex-1'
+                      onClick={() => matrixForm.reset({ pageRoles: { ...initialPageRoles } })}
+                    >
+                      Reset All
+                    </Button>
+                    <Button type='submit' form='matrix-form' size='sm' className='flex-1'>
+                      Save All
+                    </Button>
+                  </div>
+                )}
+              </form>
+            </Form>
+          </TabsContent>
+
+        </Tabs>
       </DialogContent>
     </Dialog>
   )
