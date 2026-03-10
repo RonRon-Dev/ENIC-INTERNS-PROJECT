@@ -164,20 +164,22 @@ export default function SignupForm({
                   <FormControl>
                     <PasswordInput {...field} />
                   </FormControl>
-                  <div className="mt-2 space-y-1">
-                    {passwordRules.map(({ label, test }) => {
-                      const passed = test(field.value ?? '')
-                      return (
-                        <div key={label} className={`flex items-center gap-1.5 text-xs ${passed ? 'text-success' : 'text-muted-foreground'}`}>
-                          {passed
-                            ? <Check className="size-3 shrink-0" />
-                            : <Minus className="size-3 shrink-0" />
-                          }
-                          {label}
-                        </div>
-                      )
-                    })}
-                  </div>
+                  {form.formState.dirtyFields.password && (
+                    <div className="mt-2 space-y-1">
+                      {passwordRules.map(({ label, test }) => {
+                        const passed = test(field.value ?? '')
+                        return (
+                          <div key={label} className={`flex items-center gap-1.5 text-xs ${passed ? 'text-success' : 'text-muted-foreground'}`}>
+                            {passed
+                              ? <Check className="size-3 shrink-0" />
+                              : <Minus className="size-3 shrink-0" />
+                            }
+                            {label}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </FormItem>
               )}
             />

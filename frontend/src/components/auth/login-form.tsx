@@ -36,7 +36,7 @@ export function LoginForm({
   onToggleSignup: () => void;
   onToggleForgot: () => void;
 }) {
-  const { refreshUser, setUser } = useAuth();
+  const { refreshUser } = useAuth()
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -63,27 +63,22 @@ export function LoginForm({
 
       await refreshUser();
       navigate("/home");
-    } catch (error: any) {
-      const res = error.response?.data;
+    } catch (error) {
+      const res = (error as { response?: { data?: { errors?: Record<string, string>; message?: string } } })?.response?.data
       if (!res) {
-        setServerError("Something went wrong");
-        return;
+        setServerError('Something went wrong')
+        return
       }
-
       if (res.errors) {
         Object.entries(res.errors).forEach(([key, value]) => {
           form.setError(key as keyof UserForm, {
-            type: "server",
-            message: value as string,
-          });
-        });
+            type: 'server',
+            message: value,
+          })
+        })
       }
-
-      if (res.message) {
-        setServerError(res.message);
-      }
-      notifToast({ name: data.username, reason: res?.message }, "error");
-
+      if (res.message) setServerError(res.message)
+      notifToast({ reason: res?.message }, 'error')
     } finally {
       NProgress.done();
     }
