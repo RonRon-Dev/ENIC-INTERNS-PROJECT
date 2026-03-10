@@ -102,25 +102,6 @@ export function useColumns() {
         )
       },
     },
-    // {
-    //   id: 'type',
-    //   accessorKey: 'type',
-    //   header: 'Type',
-    //   filterFn: (row, id, value) => {
-    //     if (!value?.length) return true
-    //     return value.includes(row.getValue(id))
-    //   },
-    //   cell: ({ row }) => {
-    //     const type = row.getValue('type') as string
-    //     const badge = activityTypes.get(type as ActivityLog['type'])
-
-    //     return (
-    //       <Badge variant="outline" className={badge + ' capitalize'}>
-    //         {type}
-    //       </Badge>
-    //     )
-    //   },
-    // },
     {
       id: 'description',
       header: 'Action Taken',
@@ -148,9 +129,9 @@ export function useColumns() {
       cell: ({ row }) => (
         <Badge
           variant='outline'
-          className={`gap-x-1 py-1 ${row.original.isSuccess ? 'text-green-600 border-green-600 bg-green-50' : 'text-red-500 border-red-500 bg-red-50'}`}>
-          {row.original.isSuccess ? <CircleCheck className="w-4 h-4" /> : <CircleX className="w-4 h-4" />}
-          {row.original.isSuccess ? 'Success' : 'Failed'}
+          className={`gap-x-1 py-1 ${row.original.success ? 'text-green-600 border-green-600 bg-green-50' : 'text-red-500 border-red-500 bg-red-50'}`}>
+          {row.original.success ? <CircleCheck className="w-4 h-4" /> : <CircleX className="w-4 h-4" />}
+          {row.original.success ? 'Success' : 'Failed'}
         </Badge>
       ),
     },

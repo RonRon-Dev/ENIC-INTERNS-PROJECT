@@ -23,6 +23,7 @@ const activityTypeSchema = z.union([
   z.literal("authentication"),
   z.literal("privilege"),
   z.literal("account management"),
+  z.literal("settings"),
 ]);
 
 export type UserRole = z.infer<typeof userRoleSchema>;
@@ -88,8 +89,69 @@ type ActivityLog = {
   date: string;
   type: ActivityType;
   payload?: Record<string, any>;
-  isSuccess: boolean;
+  success: boolean;
 };
+
+type Payload = {
+  IpAddress: string;
+  UserAgent: string;
+  AdditionalData: {};
+};
+
+type AccMgmtPayload = {
+  target_user: {
+    id: string;
+    is_verified: boolean;
+    name: string;
+    username: string;
+    role: UserRole;
+  };
+  temp_generated_password: boolean;
+};
+
+type SettingsPayload = {
+  UpdatedFields: string[];
+  OldValues: {
+    Username?: string;
+    Name?: string;
+  };
+  NewValues: {
+    Username?: string;
+    Name?: string;
+  };
+};
+
+type PrivilegePayload = {
+  target_user: {
+    id: string;
+    is_verified: boolean;
+    name: string;
+    username: string;
+    role: UserRole;
+    new_role: UserRole;
+    past_role: UserRole;
+  };
+};
+
+type IPData = {
+  original: string;
+  cleaned: string;
+  type: "Loopback" | "Private" | "Docker" | "Public";
+  variant: "default" | "secondary" | "outline";
+  isInternal: boolean;
+}
+
+type DeviceData = {
+  browser: string;
+  browserVersion: string;
+  os: string;
+  osVersion: string;
+  deviceType: "Desktop" | "Mobile" | "Tablet" | "Bot" | "Unknown";
+  isBot: boolean;
+  vendor: string;
+  raw: string;
+}
+
 
 // ---------------------------------------------------------------------------
 // Roles
@@ -98,6 +160,6 @@ type ActivityLog = {
 type Roles = {
   id: number;
   name: string;
-}
+};
 
-export type { ActivityLog, Roles};
+export type { ActivityLog, Payload, AccMgmtPayload, SettingsPayload, PrivilegePayload, IPData, DeviceData, Roles };
