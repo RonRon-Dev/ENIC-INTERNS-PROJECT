@@ -55,7 +55,7 @@ export default function DataCleaningPage() {
     totalPages,
     clampedPage,
     pagedRows,
-    page,
+    // page,
     setPage,
     selectedIds,
     selectedCount,
@@ -267,8 +267,8 @@ export default function DataCleaningPage() {
                       {range.from && range.to
                         ? `${range.from} → ${range.to}`
                         : range.from
-                        ? `from ${range.from}`
-                        : `until ${range.to}`}
+                          ? `from ${range.from}`
+                          : `until ${range.to}`}
                     </span>
                     <button
                       className="ml-0.5 hover:text-primary/50"

@@ -17,8 +17,8 @@
 //   EXPORT_ERROR { message: string }
 //   ERROR    { message: string }
 
-import * as XLSX from "xlsx";
 import JSZip from "jszip";
+import * as XLSX from "xlsx";
 
 declare const self: Worker;
 
@@ -136,13 +136,15 @@ function getRawXml(row: Record<string, unknown>): string {
 function buildFileBytes(
   data: Record<string, unknown>[],
   format: string
-): Uint8Array | string {
+): Uint8Array<ArrayBuffer> | string {
   if (format === "xml") return data.map(getRawXml).join("\n");
   const ws = XLSX.utils.json_to_sheet(data);
   if (format === "xlsx") {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Export");
-    return XLSX.write(wb, { bookType: "xlsx", type: "array" }) as Uint8Array;
+    const raw = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as Uint8Array;
+    // Copy to guarantee a plain ArrayBuffer (not SharedArrayBuffer)
+    return new Uint8Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as ArrayBuffer);
   }
   const delim = format === "tsv" ? "\t" : ",";
   return XLSX.utils.sheet_to_csv(ws, { FS: delim });
@@ -180,7 +182,7 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({ type: "ERROR", message: String(err) });
     }
 
-  // ── COMMIT ──
+    // ── COMMIT ──
   } else if (msg.type === "COMMIT") {
     if (!storedWorksheet) {
       self.postMessage({ type: "ERROR", message: "No worksheet — please re-upload." });
@@ -222,12 +224,12 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({ type: "ERROR", message: String(err) });
     }
 
-  // ── QUERY ──
+    // ── QUERY ──
   } else if (msg.type === "QUERY") {
     const result = runQuery(msg);
     self.postMessage({ type: "RESULT", ...result });
 
-  // ── SELECT ──
+    // ── SELECT ──
   } else if (msg.type === "SELECT") {
     if (msg.mode === "toggle" && msg.id !== undefined) {
       if (selectedIds.has(msg.id)) selectedIds.delete(msg.id);
@@ -249,7 +251,7 @@ self.onmessage = async (e: MessageEvent) => {
     }
     self.postMessage({ type: "SELECTION", selectedCount: selectedIds.size });
 
-  // ── EXPORT ──
+    // ── EXPORT ──
   } else if (msg.type === "EXPORT") {
     try {
       const config = msg.config;
@@ -277,9 +279,10 @@ self.onmessage = async (e: MessageEvent) => {
       if (config.mode === "single") {
         const projected = exportRows.map(project);
         const bytes = buildFileBytes(projected, config.format);
+        const blobData = typeof bytes === "string" ? bytes : bytes.buffer as ArrayBuffer
         const blob = config.format === "xlsx"
-          ? new Blob([bytes as Uint8Array], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
-          : new Blob([bytes as string], { type: "text/plain" });
+          ? new Blob([blobData], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+          : new Blob([blobData], { type: "text/plain" })
         const url = URL.createObjectURL(blob);
         self.postMessage({
           type: "EXPORT_DONE",
@@ -328,8 +331,8 @@ self.onmessage = async (e: MessageEvent) => {
           const uniqueName = cnt === 0 ? safeName : `${safeName}_${cnt + 1}`;
           const raw = buildFileBytes([project(row)], config.format);
           const ab = typeof raw === "string"
-            ? new TextEncoder().encode(raw).buffer
-            : (raw as Uint8Array).buffer.slice(0); // copy to own buffer
+            ? new TextEncoder().encode(raw).buffer as ArrayBuffer
+            : raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as ArrayBuffer;
           fileList.push({ fileName: `${uniqueName}.${config.format}`, bytes: ab });
         }
 
@@ -368,7 +371,7 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({ type: "EXPORT_ERROR", message: String(err) });
     }
 
-  // ── RESET ──
+    // ── RESET ──
   } else if (msg.type === "RESET") {
     allRows = [];
     columns = [];
