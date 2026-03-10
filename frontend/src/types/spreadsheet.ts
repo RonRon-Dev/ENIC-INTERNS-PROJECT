@@ -20,8 +20,8 @@ export type ActiveFilters = Record<string, Set<string>>;
 /** col → { from, to } ISO date strings. Empty string = unbounded. */
 export type DateRangeFilters = Record<string, { from: string; to: string }>;
 
-export type ExportFormat = "xlsx" | "csv" | "tsv";
-export type ExportMode = "single" | "per-row";
+export type ExportFormat = "xlsx" | "csv" | "tsv" | "xml";
+export type ExportMode = "single" | "per-row" | "folder";
 
 export interface ExportConfig {
   format: ExportFormat;
@@ -29,4 +29,6 @@ export interface ExportConfig {
   fileName: string;
   fileNameCol: string;
   zipFileName: string;
+  /** Per-row only: skip rows where the filename column is null/empty */
+  skipNullNames: boolean;
 }

@@ -55,7 +55,7 @@ export default function DataCleaningPage() {
     totalPages,
     clampedPage,
     pagedRows,
-    // page,
+    page,
     setPage,
     selectedIds,
     selectedCount,
@@ -66,6 +66,8 @@ export default function DataCleaningPage() {
     parseFile,
     handleExport,
     resetData,
+    rowsReady,
+    setRowsReady,
   } = useSpreadsheetData();
 
   const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -94,7 +96,6 @@ export default function DataCleaningPage() {
 
           {hasData && (
             <div className="flex items-center gap-2">
-              {/* File info pill */}
               <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground">
                 <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" />
                 <span className="font-mono max-w-[140px] truncate">
@@ -177,8 +178,32 @@ export default function DataCleaningPage() {
           />
         )}
 
+        {/* ── Waiting for column confirmation ── */}
+        {hasData && !rowsReady && !isLoading && (
+          <div className="flex flex-col flex-1 items-center justify-center gap-3 text-center">
+            <div className="rounded-full bg-muted p-4">
+              <Columns3 className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Configure your columns
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Review and select which columns to include, then close the panel
+                to load the table.
+              </p>
+            </div>
+            <button
+              className="text-xs text-primary underline underline-offset-2"
+              onClick={() => setShowColDialog(true)}
+            >
+              Open Column Settings
+            </button>
+          </div>
+        )}
+
         {/* ── Data view ── */}
-        {hasData && (
+        {hasData && rowsReady && (
           <div className="flex flex-col flex-1 min-h-0 gap-3">
             {/* Search */}
             <div className="flex items-center gap-3 shrink-0">
@@ -333,7 +358,7 @@ export default function DataCleaningPage() {
         )}
       </div>
 
-      {/* ── Overlays ── */}
+      {/* ── Dialogs ── */}
       <HeaderPickerDialog
         key={rawSheetData.length + (rawSheetData[0]?.join("") ?? "")}
         open={showHeaderPicker}
@@ -366,7 +391,11 @@ export default function DataCleaningPage() {
         visibility={colVisibility}
         onChange={setColVisible}
         onReorder={setColumns}
-        onClose={() => setShowColDialog(false)}
+        onClose={() => {
+          setShowColDialog(false);
+          // Mark rows as ready to render on first close after import
+          if (!rowsReady) setRowsReady(true);
+        }}
       />
 
       <ExportDialog

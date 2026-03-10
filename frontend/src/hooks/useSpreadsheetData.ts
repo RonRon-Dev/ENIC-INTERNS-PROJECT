@@ -1,6 +1,7 @@
 // ─── useSpreadsheetData ───────────────────────────────────────────────────────
-// Encapsulates all data logic for the spreadsheet tool.
-// The page component owns no business logic — it only wires UI to this hook.
+// Thin message-passing shell. ALL data lives in the worker.
+// Main thread only holds: 50 displayed rows, column names, UI state.
+// No full Row[] ever crosses the thread boundary after COMMIT.
 
 import type {
   ActiveFilters,
@@ -10,156 +11,326 @@ import type {
   Row,
   SortState,
 } from "@/types/spreadsheet";
-import { inputToDate, parseDate } from "@/utils/dateUtils";
-import JSZip from "jszip";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 
-const PAGE_SIZE = 50;
-const ZIP_THRESHOLD = 5;
+export const PAGE_SIZE = 50;
+export const ZIP_THRESHOLD = 5;
 
-export { PAGE_SIZE, ZIP_THRESHOLD };
+// ── Query state shape sent to worker ─────────────────────────────────────────
+interface QueryMsg {
+  type: "QUERY";
+  search: string;
+  filters: Record<string, string[]>;
+  dateFilters: Record<string, { from: string; to: string }>;
+  sort: SortState;
+  page: number;
+}
 
 export function useSpreadsheetData() {
-  // ── Core data ──
-  const [rows, setRows] = useState<Row[]>([]);
+  // ── Worker ──
+  const workerRef = useRef<Worker | null>(null);
+
+  // ── UI-only state (never the full dataset) ──
   const [columns, setColumns] = useState<string[]>([]);
   const [colVisibility, setColVisibility] = useState<ColVisibility>({});
   const [fileName, setFileName] = useState<string | null>(null);
+  const [hasData, setHasData] = useState(false);
+  const [rowsReady, setRowsReady] = useState(false);
 
-  // ── Raw / pending (before header row is confirmed) ──
+  // Header picker
   const [rawSheetData, setRawSheetData] = useState<string[][]>([]);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showHeaderPicker, setShowHeaderPicker] = useState(false);
 
-  // ── Loading ──
+  // Loading
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  // ── Filters / sort / search / pagination ──
+  // Filter / sort / search / page — kept in hook so UI is driven by React state
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [dateRangeFilters, setDateRangeFilters] = useState<DateRangeFilters>(
     {}
   );
   const [sort, setSort] = useState<SortState>({ col: null, dir: null });
-  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchCommitted, setSearchCommitted] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isFiltering, setIsFiltering] = useState(false);
 
-  // ── Selection ──
+  // Query results — only the current page
+  const [pagedRows, setPagedRows] = useState<Row[]>([]);
+  const [processedCount, setProcessedCount] = useState(0);
+  const [totalRows, setTotalRows] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [clampedPage, setClampedPage] = useState(1);
+
+  // Selection — counts only, ids live in worker
+  const [selectedCount, setSelectedCount] = useState(0);
+  const [allFilteredSelected, setAllFilteredSelected] = useState(false);
+  // We keep a local mirror of selectedIds for row-level checkbox state in the table
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  const hasData = rows.length > 0;
+  // ── Latest query ref — for re-issuing after SELECT ───────────────────────
+  const lastQueryRef = useRef<QueryMsg | null>(null);
 
-  // ── Phase 1: Read file raw, open header picker ──
-  const parseFile = useCallback((file: File) => {
-    setIsLoading(true);
-    setProgress(0);
-    setSelectedIds(new Set());
-    setSort({ col: null, dir: null });
-    setSearch("");
-    setPage(1);
+  // ── Spawn worker ──────────────────────────────────────────────────────────
+  const spawnWorker = useCallback(() => {
+    if (workerRef.current) workerRef.current.terminate();
+    const worker = new Worker(
+      new URL("../workers/spreadsheet.worker.ts", import.meta.url),
+      { type: "module" }
+    );
 
-    let tick = 0;
-    const interval = setInterval(() => {
-      tick += Math.random() * 14 + 6;
-      setProgress(Math.min(85, Math.floor(tick)));
-    }, 130);
+    worker.onmessage = (e) => {
+      const msg = e.data;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      clearInterval(interval);
-      setProgress(92);
-      try {
-        const data = new Uint8Array(e.target!.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-
-        const raw = XLSX.utils.sheet_to_json<string[]>(worksheet, {
-          header: 1,
-          defval: "",
-          raw: false,
-        }) as string[][];
-
-        setRawSheetData(raw);
-        setPendingFile(file);
+      if (msg.type === "PREVIEW") {
         setProgress(100);
-
+        setRawSheetData(msg.rows);
         setTimeout(() => {
           setIsLoading(false);
           setProgress(0);
           setShowHeaderPicker(true);
         }, 350);
-      } catch (err) {
-        console.error(err);
-        clearInterval(interval);
+      } else if (msg.type === "READY") {
+        setColumns(msg.cols);
+        setColVisibility(
+          Object.fromEntries(
+            (msg.cols as string[]).map((c: string) => [c, true])
+          )
+        );
+        setTotalRows(msg.totalRows);
+        setHasData(true);
         setIsLoading(false);
         setProgress(0);
-        toast.error("Failed to read file", {
-          description: "Make sure it's a valid .xlsx, .xls, or .csv file.",
+        // Immediately run default query so table has data when user opens ColumnDialog
+        const q: QueryMsg = {
+          type: "QUERY",
+          search: "",
+          filters: {},
+          dateFilters: {},
+          sort: { col: null, dir: null },
+          page: 1,
+        };
+        lastQueryRef.current = q;
+        worker.postMessage(q);
+      } else if (msg.type === "RESULT") {
+        setPagedRows(msg.pagedRows);
+        setProcessedCount(msg.processedCount);
+        setTotalPages(msg.totalPages);
+        setClampedPage(msg.clampedPage);
+        setAllFilteredSelected(msg.allFilteredSelected);
+        setSelectedCount(msg.selectedCount);
+        // Sync local selectedIds mirror from allFilteredIds + count
+        // We only need to know which IDs on the CURRENT PAGE are selected
+        setSelectedIds((prev) => {
+          // Rebuild only from what worker confirmed
+          const next = new Set<number>();
+          (msg.pagedRows as Row[]).forEach((r) => {
+            if (
+              prev.has(r.__id) ||
+              // If allFilteredSelected we know all are selected
+              msg.allFilteredSelected
+            )
+              next.add(r.__id);
+          });
+          return next;
         });
+        setIsFiltering(false);
+      } else if (msg.type === "SELECTION") {
+        setSelectedCount(msg.selectedCount);
+        // Re-run last query to get updated allFilteredSelected and page checkbox states
+        if (lastQueryRef.current) worker.postMessage(lastQueryRef.current);
+      } else if (msg.type === "EXPORT_FOLDER_FILES") {
+        // Worker built all file bytes; we write them via File System Access API
+        const files = msg.files as { fileName: string; bytes: ArrayBuffer }[];
+        (async () => {
+          try {
+            const dirHandle = await (
+              window as unknown as {
+                showDirectoryPicker: (o?: {
+                  mode?: string;
+                }) => Promise<FileSystemDirectoryHandle>;
+              }
+            ).showDirectoryPicker({ mode: "readwrite" });
+
+            for (const { fileName, bytes } of files) {
+              const fh = await dirHandle.getFileHandle(fileName, {
+                create: true,
+              });
+              const writable = await fh.createWritable();
+              await writable.write(bytes);
+              await writable.close();
+            }
+            toast.success("Export complete", { description: msg.description });
+          } catch (err: unknown) {
+            if (err instanceof Error && err.name !== "AbortError") {
+              toast.error("Folder export failed", {
+                description: (err as Error).message,
+              });
+            }
+          }
+        })();
+      } else if (msg.type === "EXPORT_DONE") {
+        if (msg.kind === "file" || msg.kind === "zip") {
+          const a = document.createElement("a");
+          a.href = msg.url;
+          a.download = msg.fileName;
+          a.click();
+          URL.revokeObjectURL(msg.url);
+        } else if (msg.kind === "files") {
+          (msg.files as { url: string; fileName: string }[]).forEach(
+            ({ url, fileName }, i) => {
+              setTimeout(() => {
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = fileName;
+                a.click();
+                URL.revokeObjectURL(url);
+              }, i * 80);
+            }
+          );
+        }
+        toast.success("Export complete", { description: msg.description });
+      } else if (msg.type === "EXPORT_ERROR") {
+        toast.error("Export failed", { description: msg.message });
+      } else if (msg.type === "ERROR") {
+        setIsLoading(false);
+        setProgress(0);
+        toast.error("Error", { description: msg.message });
       }
     };
-    reader.readAsArrayBuffer(file);
+
+    worker.onerror = (err) => {
+      setIsLoading(false);
+      setProgress(0);
+      toast.error("Worker error", { description: err.message });
+    };
+
+    workerRef.current = worker;
+    return worker;
   }, []);
 
-  // ── Phase 2: User confirmed header row ──
-  const commitWithHeaderRow = useCallback(
-    (headerRowIndex: number, onSuccess?: () => void) => {
-      if (!rawSheetData.length || !pendingFile) return;
+  // ── Send query to worker (debounced path calls this after commit) ─────────
+  const sendQuery = useCallback((q: QueryMsg) => {
+    lastQueryRef.current = q;
+    workerRef.current?.postMessage(q);
+  }, []);
 
-      const headerRow = rawSheetData[headerRowIndex];
-      const dataRows = rawSheetData.slice(headerRowIndex + 1);
-
-      const colCounts: Record<string, number> = {};
-      const cols = headerRow.map((h) => {
-        const key = String(h ?? "").trim() || "Column";
-        colCounts[key] = (colCounts[key] ?? 0) + 1;
-        return colCounts[key] > 1 ? `${key}_${colCounts[key]}` : key;
-      });
-
-      const tagged: Row[] = dataRows
-        .filter((r) => r.some((cell) => String(cell ?? "").trim() !== ""))
-        .map((r, i) => {
-          const obj: Row = { __id: i };
-          cols.forEach((col, ci) => {
-            obj[col] = r[ci] ?? "";
-          });
-          return obj;
-        });
-
-      setColumns(cols);
-      setRows(tagged);
-      setColVisibility(Object.fromEntries(cols.map((c) => [c, true])));
-      setFileName(pendingFile.name);
+  // ── Parse file ────────────────────────────────────────────────────────────
+  const parseFile = useCallback(
+    (file: File) => {
+      setIsLoading(true);
+      setProgress(0);
+      setHasData(false);
+      setRowsReady(false);
       setSelectedIds(new Set());
+      setSelectedCount(0);
       setSort({ col: null, dir: null });
-      setSearch("");
+      setSearchInput("");
+      setSearchCommitted("");
       setPage(1);
       setActiveFilters({});
       setDateRangeFilters({});
-      setShowHeaderPicker(false);
 
-      toast.success("File imported successfully", {
-        description: `${tagged.length.toLocaleString()} rows · ${
-          cols.length
-        } columns · "${pendingFile.name}"`,
-      });
+      const worker = spawnWorker();
 
-      onSuccess?.();
+      let tick = 0;
+      const interval = setInterval(() => {
+        tick += Math.random() * 14 + 6;
+        setProgress(Math.min(82, Math.floor(tick)));
+      }, 130);
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        clearInterval(interval);
+        setProgress(90);
+        const buffer = ev.target!.result as ArrayBuffer;
+        // Transferable — zero-copy, buffer moves to worker
+        worker.postMessage({ type: "PARSE", buffer }, [buffer]);
+      };
+      reader.onerror = () => {
+        clearInterval(interval);
+        setIsLoading(false);
+        setProgress(0);
+        toast.error("Failed to read file");
+      };
+      reader.readAsArrayBuffer(file);
+      setPendingFile(file);
     },
-    [rawSheetData, pendingFile]
+    [spawnWorker]
   );
 
+  // ── Commit header row ─────────────────────────────────────────────────────
+  const commitWithHeaderRow = useCallback(
+    (headerRowIndex: number, onSuccess?: () => void) => {
+      if (!workerRef.current || !pendingFile) return;
+      setShowHeaderPicker(false);
+      setIsLoading(true);
+      setProgress(0);
+      setFileName(pendingFile.name);
+
+      // Intercept the READY message once to fire onSuccess + toast
+      const originalOnMessage = workerRef.current.onmessage!;
+      workerRef.current.onmessage = (e) => {
+        if (e.data.type === "READY") {
+          toast.success("File imported", {
+            description: `${(
+              e.data.totalRows as number
+            ).toLocaleString()} rows · ${
+              (e.data.cols as string[]).length
+            } columns · "${pendingFile.name}"`,
+          });
+          onSuccess?.();
+          // Restore normal handler
+          if (workerRef.current)
+            workerRef.current.onmessage = originalOnMessage;
+        }
+        originalOnMessage.call(workerRef.current!, e);
+      };
+
+      workerRef.current.postMessage({ type: "COMMIT", headerRowIndex });
+    },
+    [pendingFile]
+  );
+
+  // ── Dismiss header picker ─────────────────────────────────────────────────
   const dismissHeaderPicker = useCallback(() => {
     setShowHeaderPicker(false);
     setIsLoading(false);
     setPendingFile(null);
     setRawSheetData([]);
+    workerRef.current?.terminate();
+    workerRef.current = null;
   }, []);
 
-  // ── Sort ──
+  // ── Query helpers — all send to worker ───────────────────────────────────
+  const buildQuery = useCallback(
+    (overrides: Partial<QueryMsg> = {}): QueryMsg => ({
+      type: "QUERY",
+      search: searchCommitted,
+      filters: Object.fromEntries(
+        Object.entries(activeFilters).map(([k, v]) => [k, [...v]])
+      ),
+      dateFilters: dateRangeFilters,
+      sort,
+      page,
+      ...overrides,
+    }),
+    [searchCommitted, activeFilters, dateRangeFilters, sort, page]
+  );
+
+  // Re-query whenever filter/sort/page/search state changes
+  useEffect(() => {
+    if (!hasData) return;
+    const q = buildQuery();
+    sendQuery(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasData, searchCommitted, activeFilters, dateRangeFilters, sort, page]);
+
+  // ── Sort ──────────────────────────────────────────────────────────────────
   const handleSort = useCallback((col: string) => {
     setSort((prev) => {
       if (prev.col !== col) return { col, dir: "asc" };
@@ -169,119 +340,25 @@ export function useSpreadsheetData() {
     setPage(1);
   }, []);
 
-  // ── Processed rows ──
-  const processedRows = useMemo(() => {
-    let result = rows;
-
-    const filterEntries = Object.entries(activeFilters).filter(
-      ([, vals]) => vals.size > 0
-    );
-    if (filterEntries.length > 0) {
-      result = result.filter((row) =>
-        filterEntries.every(([col, vals]) => vals.has(String(row[col] ?? "")))
-      );
-    }
-
-    const dateEntries = Object.entries(dateRangeFilters).filter(
-      ([, r]) => r.from || r.to
-    );
-    if (dateEntries.length > 0) {
-      result = result.filter((row) =>
-        dateEntries.every(([col, range]) => {
-          const cellDate = parseDate(String(row[col] ?? ""));
-          if (!cellDate) return false;
-          const from = inputToDate(range.from);
-          const to = inputToDate(range.to);
-          if (from && cellDate < from) return false;
-          if (to && cellDate > to) return false;
-          return true;
-        })
-      );
-    }
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter((row) =>
-        columns.some((col) =>
-          String(row[col] ?? "")
-            .toLowerCase()
-            .includes(q)
-        )
-      );
-    }
-
-    if (sort.col && sort.dir) {
-      const col = sort.col;
-      const dir = sort.dir === "asc" ? 1 : -1;
-      result = [...result].sort((a, b) => {
-        const av = String(a[col] ?? ""),
-          bv = String(b[col] ?? "");
-        const an = parseFloat(av),
-          bn = parseFloat(bv);
-        if (!isNaN(an) && !isNaN(bn)) return (an - bn) * dir;
-        return av.localeCompare(bv) * dir;
-      });
-    }
-
-    return result;
-  }, [rows, columns, search, sort, activeFilters, dateRangeFilters]);
-
-  // ── Pagination ──
-  const totalPages = Math.max(1, Math.ceil(processedRows.length / PAGE_SIZE));
-  const clampedPage = Math.min(page, totalPages);
-  const pagedRows = processedRows.slice(
-    (clampedPage - 1) * PAGE_SIZE,
-    clampedPage * PAGE_SIZE
-  );
-
-  // ── Selection ──
-  const toggleRow = useCallback((id: number) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+  // ── Search ────────────────────────────────────────────────────────────────
+  const updateSearch = useCallback((value: string) => {
+    setSearchInput(value);
+    setIsFiltering(true);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearchCommitted(value);
+      setPage(1);
+    }, 250);
   }, []);
 
-  const allFilteredIds = useMemo(
-    () => processedRows.map((r) => r.__id),
-    [processedRows]
+  useEffect(
+    () => () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    },
+    []
   );
 
-  const allFilteredSelected = useMemo(
-    () =>
-      allFilteredIds.length > 0 &&
-      allFilteredIds.every((id) => selectedIds.has(id)),
-    [allFilteredIds, selectedIds]
-  );
-
-  const toggleAll = useCallback(() => {
-    setSelectedIds((prev) => {
-      const allIds = allFilteredIds;
-      const allSelected =
-        allIds.length > 0 && allIds.every((id) => prev.has(id));
-      const next = new Set(prev);
-      if (allSelected) {
-        allIds.forEach((id) => next.delete(id));
-      } else {
-        allIds.forEach((id) => next.add(id));
-      }
-      return next;
-    });
-  }, [allFilteredIds]);
-
-  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
-
-  // ── Column visibility ──
-  const setColVisible = useCallback((col: string, visible: boolean) => {
-    setColVisibility((prev) => ({ ...prev, [col]: visible }));
-  }, []);
-
-  // ── Filters ──
+  // ── Filters ───────────────────────────────────────────────────────────────
   const updateActiveFilters = useCallback((f: ActiveFilters) => {
     setActiveFilters(f);
     setPage(1);
@@ -298,134 +375,98 @@ export function useSpreadsheetData() {
     setPage(1);
   }, []);
 
-  const updateSearch = useCallback((value: string) => {
-    setSearch(value);
-    setPage(1);
+  // ── Selection ─────────────────────────────────────────────────────────────
+  const toggleRow = useCallback((id: number) => {
+    // Optimistic local update
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    workerRef.current?.postMessage({ type: "SELECT", mode: "toggle", id });
   }, []);
 
-  // ── Export ──
+  const toggleAll = useCallback(() => {
+    if (allFilteredSelected) {
+      // Deselect all filtered — worker needs the IDs
+      // Re-run query to get allFilteredIds then deselect
+      workerRef.current?.postMessage({
+        type: "SELECT",
+        mode: "deselect_query",
+        query: buildQuery(),
+      });
+      setSelectedIds(new Set());
+    } else {
+      workerRef.current?.postMessage({
+        type: "SELECT",
+        mode: "all_query",
+        query: buildQuery(),
+      });
+    }
+  }, [allFilteredSelected, buildQuery]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    workerRef.current?.postMessage({ type: "SELECT", mode: "clear" });
+  }, []);
+
+  // ── Column visibility ─────────────────────────────────────────────────────
+  const setColVisible = useCallback((col: string, visible: boolean) => {
+    setColVisibility((prev) => ({ ...prev, [col]: visible }));
+  }, []);
+
+  // ── Export ────────────────────────────────────────────────────────────────
+  // Worker uses its own internal selectedIds — we just send config + visible cols.
+  // No need to transfer the ID set back to the worker; it already has it.
   const handleExport = useCallback(
-    async (config: ExportConfig) => {
-      const visibleColumns = columns.filter((c) => colVisibility[c] !== false);
-      const selectedRows = rows
-        .filter((r) => selectedIds.has(r.__id))
-        .map((r) => Object.fromEntries(visibleColumns.map((c) => [c, r[c]])));
-
-      const buildFileBytes = (
-        data: Record<string, unknown>[]
-      ): Uint8Array | string => {
-        const ws = XLSX.utils.json_to_sheet(data);
-        if (config.format === "xlsx") {
-          const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, "Export");
-          return XLSX.write(wb, {
-            bookType: "xlsx",
-            type: "array",
-          }) as Uint8Array;
-        }
-        const delim = config.format === "tsv" ? "\t" : ",";
-        return XLSX.utils.sheet_to_csv(ws, { FS: delim });
-      };
-
-      const downloadFile = (data: Record<string, unknown>[], name: string) => {
-        const ws = XLSX.utils.json_to_sheet(data);
-        if (config.format === "xlsx") {
-          const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, "Export");
-          XLSX.writeFile(wb, `${name}.xlsx`);
-        } else {
-          const delim = config.format === "tsv" ? "\t" : ",";
-          const csv = XLSX.utils.sheet_to_csv(ws, { FS: delim });
-          const blob = new Blob([csv], { type: "text/plain" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `${name}.${config.format}`;
-          a.click();
-          URL.revokeObjectURL(url);
-        }
-      };
-
-      if (config.mode === "single") {
-        downloadFile(selectedRows, config.fileName || `export_${Date.now()}`);
-        toast.success("Export complete", {
-          description: `${selectedRows.length} row${
-            selectedRows.length !== 1 ? "s" : ""
-          } saved as "${config.fileName}.${config.format}"`,
-        });
-      } else if (selectedRows.length > ZIP_THRESHOLD) {
-        const zip = new JSZip();
-        const usedNames = new Map<string, number>();
-
-        selectedRows.forEach((row, i) => {
-          const rawName = config.fileNameCol
-            ? String(row[config.fileNameCol] ?? `row_${i + 1}`)
-            : `row_${i + 1}`;
-          const safeName = rawName.replace(/[\\/:*?"<>|]/g, "_");
-          const count = usedNames.get(safeName) ?? 0;
-          usedNames.set(safeName, count + 1);
-          const uniqueName =
-            count === 0 ? safeName : `${safeName}_${count + 1}`;
-          zip.file(`${uniqueName}.${config.format}`, buildFileBytes([row]));
-        });
-
-        try {
-          const zipBlob = await zip.generateAsync({ type: "blob" });
-          const url = URL.createObjectURL(zipBlob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `${config.zipFileName || "export"}.zip`;
-          a.click();
-          URL.revokeObjectURL(url);
-          toast.success("Export complete", {
-            description: `${selectedRows.length} files zipped as "${config.zipFileName}.zip"`,
-          });
-        } catch {
-          toast.error("Zip failed", {
-            description: "Something went wrong while creating the zip file.",
-          });
-        }
-      } else {
-        selectedRows.forEach((row, i) => {
-          const nameVal = config.fileNameCol
-            ? String(row[config.fileNameCol] ?? `row_${i + 1}`)
-            : `row_${i + 1}`;
-          const safeName = nameVal.replace(/[\\/:*?"<>|]/g, "_");
-          setTimeout(() => downloadFile([row], safeName), i * 80);
-        });
-        toast.success("Export complete", {
-          description: `${selectedRows.length} files downloading.`,
-        });
-      }
+    (config: ExportConfig) => {
+      const visibleCols = columns.filter((c) => colVisibility[c] !== false);
+      workerRef.current?.postMessage({
+        type: "EXPORT",
+        config,
+        visibleCols,
+      });
     },
-    [columns, colVisibility, rows, selectedIds]
+    [columns, colVisibility]
   );
 
-  // ── Reset ──
+  // ── Reset ─────────────────────────────────────────────────────────────────
   const resetData = useCallback(() => {
-    setRows([]);
+    workerRef.current?.postMessage({ type: "RESET" });
+    workerRef.current?.terminate();
+    workerRef.current = null;
     setColumns([]);
+    setColVisibility({});
     setFileName(null);
+    setHasData(false);
+    setRowsReady(false);
+    setRawSheetData([]);
+    setPendingFile(null);
     setSelectedIds(new Set());
-    setSearch("");
+    setSelectedCount(0);
+    setSearchInput("");
+    setSearchCommitted("");
     setPage(1);
     setActiveFilters({});
     setDateRangeFilters({});
-    setRawSheetData([]);
-    setPendingFile(null);
+    setPagedRows([]);
+    setProcessedCount(0);
+    setTotalRows(0);
   }, []);
 
   return {
-    // Data
-    rows,
+    // Data shape (no full rows array — main thread never holds it)
+    rows: pagedRows, // alias so existing components don't break
     columns,
     setColumns,
     colVisibility,
     setColVisible,
     fileName,
     hasData,
+    totalRows,
 
-    // Raw / header picker
+    // Header picker
     rawSheetData,
     pendingFile,
     showHeaderPicker,
@@ -448,11 +489,14 @@ export function useSpreadsheetData() {
     handleSort,
 
     // Search
-    search,
+    search: searchInput,
+    searchCommitted,
     updateSearch,
+    isFiltering,
 
-    // Processed / paginated
-    processedRows,
+    // Paginated results
+    processedRows: pagedRows, // alias — components use processedRows for row count display
+    processedCount,
     totalPages,
     clampedPage,
     pagedRows,
@@ -461,13 +505,15 @@ export function useSpreadsheetData() {
 
     // Selection
     selectedIds,
-    selectedCount: selectedIds.size,
+    selectedCount,
     toggleRow,
     toggleAll,
     clearSelection,
     allFilteredSelected,
 
     // Actions
+    rowsReady,
+    setRowsReady,
     parseFile,
     handleExport,
     resetData,
