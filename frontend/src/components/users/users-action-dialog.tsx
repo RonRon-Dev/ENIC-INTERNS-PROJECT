@@ -80,7 +80,7 @@ export function UsersActionDialog({
     setTempPassword(null)
     setError(null)
     setCopied(false)
-    setCopiedTemp(false)
+    setCopiedCredentials(false)
     setIsSubmitting(false)
     setCountdown(0)
     setResetKey((k) => k + 1)
@@ -177,7 +177,7 @@ export function UsersActionDialog({
     const username = form.getValues('username')
     if (!username) return
     navigator.clipboard.writeText(username)
-    notifToast({ reason: 'Username copied to clipboard' }, 'copy')
+    notifToast({ reason: 'Username saved to clipboard' }, 'copy')
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -188,7 +188,7 @@ export function UsersActionDialog({
     if (!tempPassword) return
     const username = form.getValues('username')
     navigator.clipboard.writeText(`Username: ${username}\nPassword: ${tempPassword}`)
-    notifToast({ reason: 'Temporary password copied to clipboard' }, 'copy')
+    notifToast({ reason: 'Credentials saved to clipboard' }, 'copy')
     setCopiedCredentials(true)
     setTimeout(() => setCopiedCredentials(false), 2000)
   }
@@ -232,7 +232,7 @@ export function UsersActionDialog({
                   <span className='font-mono font-bold tracking-widest'>{tempPassword}</span>
                 </div>
               </div>
-              <Alert className='border-green-600 text-green-600 bg-green-50'>
+              <Alert className='border-green-600 text-green-600 bg-green-500/10'>
                 <UserCheck className='h-5 w-5 stroke-green-600 flex items-center' />
                 <AlertTitle className='font-bold'>User Created Successfully</AlertTitle>
                 <AlertDescription className='text-green-600' >

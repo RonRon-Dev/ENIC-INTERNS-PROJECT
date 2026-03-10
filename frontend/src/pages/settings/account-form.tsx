@@ -106,7 +106,7 @@ export function AccountForm() {
     navigator.clipboard.writeText(username)
       .then(() => {
         setCopied(true)
-        notifToast({ reason: 'Username copied to clipboard' }, 'copy')
+        notifToast({ reason: 'Username saved to clipboard' }, 'copy')
         setTimeout(() => setCopied(false), 2000)
       })
       .catch(() => { })

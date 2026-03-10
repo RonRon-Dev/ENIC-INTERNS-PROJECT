@@ -211,8 +211,13 @@ function UserManagementContent() {
           </div>
           <Drawer direction="right">
             <DrawerTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="relative">
                 Requests <UserCog className="size-4" />
+                {requests.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground text-xs rounded-full min-w-[1.1rem] h-[1.1rem] flex items-center justify-center px-1 leading-none">
+                    {requests.length}
+                  </span>
+                )}
               </Button>
             </DrawerTrigger>
             <DrawerContent direction="right">

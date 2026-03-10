@@ -14,7 +14,7 @@ export function RequestReceiptForm({ onBack, username }: RequestReceiptFormProps
     try {
       await navigator.clipboard.writeText(username)
       setCopied(true)
-      notifToast({ reason: 'Username copied to clipboard' }, 'copy')
+      notifToast({ reason: 'Username saved to clipboard' }, 'copy')
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
       console.error('Copy failed', error)
