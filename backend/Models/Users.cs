@@ -14,7 +14,14 @@ public class Users
 
     // force user to change password on first login or after reset
     public bool ForcePasswordChange { get; set; } = false;
-    
+
+    // Lockout
+    public int FailedLoginAttempts { get; set; } = 0;
+    public DateTime? LockoutEndUtc { get; set; } = null;
+
+    // Hard lock after 5 failed attempts (admin must reset)
+    public bool RequiresAdminReset { get; set; } = false;
+
     //reset fields
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiry { get; set; }

@@ -8,4 +8,5 @@ public class UserResponse
     public bool IsVerified { get; set; }
     public bool IsActive { get; set; }
     public RoleResponse? Role { get; set; } = null!;
+    public string Status { get; set; } = "Active";
 }

@@ -1,4 +1,4 @@
-import { KeyRound, MoreHorizontal, Trash2, UserCheck, UserPen, UserX } from 'lucide-react'
+import { KeyRound, LockOpen, MoreHorizontal, Trash2, UserCheck, UserPen, UserX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -20,6 +20,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const { user } = useAuth()
   const isPending = row.original.status === 'pending'
   const isDeactivated = row.original.status === 'deactivated'
+  const isLocked = row.original.status === 'locked'
   const isSuperadmin = row.original.role === 'superadmin'
   const isSelf = row.original.username === user?.userName
 
@@ -90,7 +91,20 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              {isDeactivated ? (
+              {isLocked ? (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setCurrentRow(row.original)
+                    setOpen('unlock')
+                  }}
+                  className='text-orange-600 focus:text-orange-700'
+                >
+                  Unlock
+                  <DropdownMenuShortcut>
+                    <LockOpen size={16} />
+                  </DropdownMenuShortcut>
+                </DropdownMenuItem>
+              ) : isDeactivated ? (
                 <DropdownMenuItem
                   onClick={() => {
                     setCurrentRow(row.original)
@@ -103,18 +117,19 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
                     <UserCheck size={16} />
                   </DropdownMenuShortcut>
                 </DropdownMenuItem>
-              ) : (<DropdownMenuItem
-                onClick={() => {
-                  setCurrentRow(row.original)
-                  setOpen('deactivate')
-                }}
-                className='text-red-500 focus:text-red-600'
-              >
-                Deactivate
-                <DropdownMenuShortcut>
-                  <Trash2 size={16} />
-                </DropdownMenuShortcut>
-              </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setCurrentRow(row.original)
+                    setOpen('deactivate')
+                  }}
+                  className='text-red-500 focus:text-red-600'
+                >
+                  Deactivate
+                  <DropdownMenuShortcut>
+                    <Trash2 size={16} />
+                  </DropdownMenuShortcut>
+                </DropdownMenuItem>
               )}
             </>
           )}

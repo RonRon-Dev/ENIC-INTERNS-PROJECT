@@ -121,11 +121,7 @@ function UserManagementContent() {
         id: String(u.id),
         name: u.name,
         username: u.userName,
-        status: (!u.isVerified
-          ? "pending"
-          : !u.isActive
-            ? "deactivated"
-            : "active") as User["status"],
+        status: (u.status?.toLowerCase() ?? "active") as User["status"],
         role: ((u.role?.name ?? "guest").toLowerCase() === "developer"
           ? "dev"
           : (u.role?.name ?? "guest").toLowerCase()) as User["role"],

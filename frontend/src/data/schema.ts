@@ -5,6 +5,7 @@ const userStatusSchema = z.union([
   z.literal("active"),
   z.literal("deactivated"),
   z.literal("pending"),
+  z.literal("locked"),
 ]);
 
 const userRoleSchema = z.enum([

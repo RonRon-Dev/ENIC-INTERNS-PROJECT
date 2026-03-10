@@ -1,4 +1,4 @@
-import { UsersActionDialog, UsersDeactivateDialog, UsersActivateDialog, UsersApproveDialog, UsersRejectDialog, UsersApproveResetDialog, UsersAdminResetDialog } from '@/components/users/users-action-dialog'
+import { UsersActionDialog, UsersDeactivateDialog, UsersActivateDialog, UsersApproveDialog, UsersRejectDialog, UsersApproveResetDialog, UsersAdminResetDialog, UsersUnlockDialog } from '@/components/users/users-action-dialog'
 import { useUsers } from '@/components/users/users-provider'
 import { UsersAddRoleDialog } from '@/components/users/users-add-role-dialog'
 
@@ -90,6 +90,17 @@ export function UsersDialogs() {
             open={open === 'adminReset'}
             onOpenChange={() => {
               setOpen('adminReset')
+              setTimeout(() => {
+                setCurrentRow(null)
+              }, 500)
+            }}
+            currentRow={currentRow}
+          />
+          <UsersUnlockDialog
+            key={`user-unlock-${currentRow.id}`}
+            open={open === 'unlock'}
+            onOpenChange={() => {
+              setOpen('unlock')
               setTimeout(() => {
                 setCurrentRow(null)
               }, 500)

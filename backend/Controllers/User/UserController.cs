@@ -170,4 +170,15 @@ public class UserController(IUserService service) : ControllerBase
             ? Ok(new { message = response.Message, temporaryPassword = response.TemporaryPassword })
             : BadRequest(new { message = response.Message });
     }
+
+    [Authorize(Roles = "Admin,Superadmin")]
+    [HttpPut("unlock-user/{id:int}")]
+    public async Task<IActionResult> UnlockUser(int id)
+    {
+        var currentUser = User.GetCurrentUser();
+        if (currentUser <= 0) return Unauthorized(new { message = "Invalid user." });
+
+        var response = await service.UnlockUserAsync(id, currentUser);
+        return response.Success ? Ok(response) : BadRequest(response);
+    }
 }

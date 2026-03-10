@@ -805,3 +805,66 @@ export function UsersAdminResetDialog({
     />
   )
 }
+
+type UserUnlockDialogProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  currentRow: User
+}
+
+export function UsersUnlockDialog({
+  open,
+  onOpenChange,
+  currentRow,
+}: UserUnlockDialogProps) {
+  const { refresh } = useUsers()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const handleUnlock = async () => {
+    setIsSubmitting(true)
+    setErrorMsg(null)
+    try {
+      await usersApi.unlockUser(parseInt(currentRow.id))
+      refresh()
+      onOpenChange(false)
+    } catch (err: any) {
+      setErrorMsg(err?.response?.data?.message ?? 'Failed to unlock user.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <ConfirmDialog
+      open={open}
+      onOpenChange={(state) => {
+        if (!state) setErrorMsg(null)
+        onOpenChange(state)
+      }}
+      handleConfirm={handleUnlock}
+      disabled={isSubmitting}
+      title={
+        <span className='text-orange-600'>
+          <UserCheck className='me-1 inline-block stroke-orange-600' size={18} />{' '}
+          Unlock User Account
+        </span>
+      }
+      desc={
+        <div className='space-y-4'>
+          <p>
+            Unlock the account for <span className='font-bold'>{currentRow.username}</span>?
+            <br />
+            This will clear all failed login attempts and allow the user to log in again.
+          </p>
+          {errorMsg && (
+            <Alert variant='destructive'>
+              <AlertDescription>{errorMsg}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+      }
+      confirmText={isSubmitting ? 'Unlocking...' : 'Unlock Account'}
+    />
+  )
+}

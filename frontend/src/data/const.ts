@@ -5,6 +5,7 @@ export const userTypes = new Map<UserStatus, string>([
   ['active', 'bg-teal-100/30 text-teal-900 dark:text-teal-200 border-teal-200'],
   ['deactivated', 'bg-destructive/10 dark:bg-destructive/50 text-destructive dark:text-primary border-destructive/10'],
   ['pending', 'bg-gray-100/30 text-gray-900 dark:text-teal-200 border-gray-200'],
+  ['locked', 'bg-orange-100/30 text-orange-800 dark:text-orange-300 border-orange-300'],
 ])
 
 export const activityTypes = new Map<ActivityLog["type"], string>([

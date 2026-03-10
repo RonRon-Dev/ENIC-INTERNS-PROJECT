@@ -5,7 +5,7 @@ import { usersApi } from '@/services/users'
 
 export type ApiRole = { id: number; name: string }
 
-type UsersDialogType = 'add' | 'edit' | 'deactivate' | 'activate' | 'role' | 'approve' | 'reject' | 'approveReset' | 'adminReset'
+type UsersDialogType = 'add' | 'edit' | 'deactivate' | 'activate' | 'role' | 'approve' | 'reject' | 'approveReset' | 'adminReset' | 'unlock'
 
 type UsersContextType = {
   open: UsersDialogType | null

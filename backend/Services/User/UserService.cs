@@ -15,20 +15,27 @@ public class UserService(
     ActivityLoggerService logger) : IUserService
 {
     // Getting all users with their roles, but not including sensitive information like password hash.
-    public async Task<List<UserResponse>> GetAllUsersAsync() =>
-        await context
-            .Users
+    public async Task<List<UserResponse>> GetAllUsersAsync()
+    {
+        var users = await context.Users
             .Include(u => u.Role)
-            .Select(u => new UserResponse
-            {
-                Id = u.Id,
-                Name = u.Name,
-                UserName = u.UserName,
-                IsVerified = u.IsVerified,
-                IsActive = u.IsActive,
-                Role = u.Role != null ? new RoleResponse { Id = u.Role.Id, Name = u.Role.Name } : null,
-            })
+            .AsNoTracking()
             .ToListAsync();
+
+        return users.Select(u => new UserResponse
+        {
+            Id = u.Id,
+            Name = u.Name,
+            UserName = u.UserName,
+            IsVerified = u.IsVerified,
+            IsActive = u.IsActive,
+            Role = u.Role != null ? new RoleResponse { Id = u.Role.Id, Name = u.Role.Name } : null,
+            Status = (!u.IsActive) ? "Deactivated" :
+                     (!u.IsVerified) ? "Pending" :
+                     (u.RequiresAdminReset || (u.LockoutEndUtc != null && DateTime.UtcNow < u.LockoutEndUtc)) ? "Locked" :
+                     "Active",
+        }).ToList();
+    }
 
     // Getting a single user by ID with their role, but not including sensitive information like password hash.
     public async Task<UserResponse?> GetUserByIdAsync(int id) =>
@@ -500,6 +507,32 @@ public class UserService(
         await context.SaveChangesAsync();
 
         return (true, "Role created successfully.", new RoleResponse { Id = role.Id, Name = role.Name });
+    }
+
+    public async Task<UpdateUserResponse> UnlockUserAsync(int id, int currentUserId)
+    {
+        var user = await context.Users.FirstOrDefaultAsync(u => u.Id == id);
+        if (user is null)
+            return new UpdateUserResponse { Success = false, Message = "User not found." };
+
+        user.FailedLoginAttempts = 0;
+        user.LockoutEndUtc = null;
+        user.RequiresAdminReset = false;
+
+        context.ActivityLogs.Add(new ActivityLogs
+        {
+            UserId = user.Id,
+            UserName = user.UserName,
+            ActivityType = "privilege",
+            Description = "Admin Unlocked User Account",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new { targetUserId = id, adminUserId = currentUserId }),
+            IsSuccess = true,
+            Timestamp = DateTime.UtcNow,
+        });
+
+        await context.SaveChangesAsync();
+
+        return new UpdateUserResponse { Success = true, Message = "User account unlocked." };
     }
 
     private static DateTime PhTime =>
