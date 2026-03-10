@@ -43,9 +43,18 @@ type UserRequest = {
   currentRole: { id: number; name: string } | null;
 };
 
+type UserApiResponse = {
+  id: number
+  name: string
+  userName: string
+  isVerified: boolean
+  isActive: boolean
+  role?: { name: string }
+}
+
 function StatCardSkeleton() {
   return (
-    <Card className="flex p-5 rounded-xl flex-col gap-2">
+    <Card className="flex p-5 rounded-xl flex-col gap-2 border-border">
       <div className="flex items-center gap-2 mb-1">
         <Skeleton className="h-4 w-4 rounded" />
         <Skeleton className="h-4 w-24" />
@@ -64,8 +73,8 @@ export function SkeletonTable() {
         <Skeleton className="h-6 w-32" />
       </div>
 
-      <div className="border rounded-md w-full flex flex-col gap-2 py-4">
-        <div className="border-b flex gap-4 p-4 pt-0">
+      <div className="border border-border rounded-md w-full flex flex-col gap-2 py-4">
+        <div className="border-b border-border flex gap-4 p-4 pt-0">
           <Skeleton className="h-8 flex-1" />
           <Skeleton className="h-8 flex-1" />
           <Skeleton className="h-8 flex-1" />
@@ -117,19 +126,15 @@ function UserManagementContent() {
         usersApi.getStats(),
         usersApi.getUserRequests("Pending"),
       ]);
-      const mappedUsers: User[] = (usersRes.data as any[]).map((u: any) => ({
+      const mappedUsers: User[] = (usersRes.data as UserApiResponse[]).map((u) => ({
         id: String(u.id),
         name: u.name,
         username: u.userName,
-        status: (!u.isVerified
-          ? "pending"
-          : !u.isActive
-            ? "deactivated"
-            : "active") as User["status"],
-        role: ((u.role?.name ?? "guest").toLowerCase() === "developer"
-          ? "dev"
-          : (u.role?.name ?? "guest").toLowerCase()) as User["role"],
-      }));
+        status: (!u.isVerified ? 'pending' : !u.isActive ? 'deactivated' : 'active') as User['status'],
+        role: ((u.role?.name ?? 'guest').toLowerCase() === 'developer'
+          ? 'dev'
+          : (u.role?.name ?? 'guest').toLowerCase()) as User['role'],
+      }))
       setData(mappedUsers);
       setStats(statsRes.data);
       setRequests(requestsRes.data);
@@ -168,6 +173,7 @@ function UserManagementContent() {
     );
   };
 
+
   return (
     <>
       {/* Stat Cards */}
@@ -179,7 +185,7 @@ function UserManagementContent() {
           : statConfig.map(({ label, icon: Icon, value }) => (
             <Card
               key={label}
-              className="flex p-5 transition-all duration-200 rounded-xl flex-col"
+              className="flex p-5 transition-all duration-200 rounded-xl flex-col border-border"
             >
               <div className="flex items-center gap-2 mb-2">
                 <Icon className="size-4" />
@@ -205,8 +211,13 @@ function UserManagementContent() {
           </div>
           <Drawer direction="right">
             <DrawerTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="relative">
                 Requests <UserCog className="size-4" />
+                {requests.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground text-xs rounded-full min-w-[1.1rem] h-[1.1rem] flex items-center justify-center px-1 leading-none">
+                    {requests.length}
+                  </span>
+                )}
               </Button>
             </DrawerTrigger>
             <DrawerContent direction="right">
@@ -223,12 +234,19 @@ function UserManagementContent() {
                   <RequestDataTable
                     columns={getColumns(handleOpenRequest)}
                     data={requests}
-                    onApprove={handleOpenRequest}
                   />
                 )}
               </div>
             </DrawerContent>
           </Drawer>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={() => setOpen('privileges')}
+          >
+            Privileges
+            <ShieldCheck className='size-4' />
+          </Button>
           <UsersPrimaryButtons />
         </div>
 

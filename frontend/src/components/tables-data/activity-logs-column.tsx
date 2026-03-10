@@ -1,19 +1,7 @@
 "use client"
 
-import type {
-  ColumnDef,
-  ColumnFiltersState,
-  SortingState,
-} from "@tanstack/react-table"
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-  getFilteredRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  getFacetedUniqueValues,
-} from "@tanstack/react-table"
+import { useLogs } from '@/components/act-logs/logs-provider'
+import { Badge } from "@/components/ui/badge"
 import {
   Table,
   TableBody,
@@ -22,16 +10,28 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { roles } from '@/data/const'
+import { type ActivityLog, type Roles } from '@/data/schema'
+import type {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+} from "@tanstack/react-table"
+import {
+  flexRender,
+  getCoreRowModel,
+  getFacetedUniqueValues,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table"
+import { CircleCheck, CircleX, Info } from "lucide-react"
 import { useState } from "react"
-import { Badge } from "@/components/ui/badge"
+import { DataTableColumnHeader } from "../data-table-components/data-table-header"
 import { DataTablePagination } from "../data-table-components/data-table-pagination"
 import { DataTableToolbar } from "../data-table-components/data-table-toolbar"
-import { DataTableColumnHeader } from "../data-table-components/data-table-header"
-import { type ActivityLog } from '@/data/schema'
 export type { ActivityLog }
-import { roles } from '@/data/const'
-import { useLogs } from '@/components/act-logs/logs-provider'
-import { CircleCheck, CircleX, Info } from "lucide-react"
 
 export function useColumns() {
   const { setOpen, setCurrentRow } = useLogs()
@@ -90,12 +90,12 @@ export function useColumns() {
         return value.includes(row.getValue(id))
       },
       cell: ({ row }) => {
-        const role = row.getValue('role') as string
+        const role = (row.getValue('role') as string).toLowerCase()
         const option = roles.find((r) => r.value === role)
         const Icon = option?.icon
 
         return (
-          <div className="flex items-center gap-1.5 border rounded-md px-2 py-1 w-max bg-muted">
+          <div className="flex items-center gap-1.5 border border-border rounded-md px-2 py-1 w-max bg-muted">
             {Icon && <Icon className="size-3.5 text-muted-foreground" />}
             <span className="capitalize">{option?.label ?? role}</span>
           </div>
@@ -148,7 +148,7 @@ export function useColumns() {
       cell: ({ row }) => (
         <Badge
           variant='outline'
-          className={`gap-x-1 py-1 ${row.original.isSuccess ? 'text-green-600 border-green-600 bg-green-50' : 'text-red-500 border-red-500 bg-red-50'}`}>
+          className={`gap-x-1 py-1 ${row.original.isSuccess ? 'text-green-600 border-green-600 bg-green-100' : 'text-destructive border-destructive bg-destructive/10'}`}>
           {row.original.isSuccess ? <CircleCheck className="w-4 h-4" /> : <CircleX className="w-4 h-4" />}
           {row.original.isSuccess ? 'Success' : 'Failed'}
         </Badge>
@@ -166,6 +166,7 @@ export function useColumns() {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  roles: Roles[]
 }
 
 export function DataTable<TData, TValue>({

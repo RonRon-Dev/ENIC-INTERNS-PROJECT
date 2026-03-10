@@ -22,9 +22,12 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { type User } from '@/data/schema'
+import { notifToast } from '@/lib/notifToast'
+import NProgress from '@/lib/nprogress'
 import { usersApi } from '@/services/users'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AlertTriangle, Check, Copy, UserCheck, UserX } from 'lucide-react'
+import nProgress from 'nprogress'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -70,13 +73,47 @@ export function UsersActionDialog({
   const [resetKey, setResetKey] = useState(0)
 
   const resetState = () => {
-    form.reset()
+    form.reset(isEdit
+      ? { ...currentRow, isEdit, isResetPassword: false }
+      : { name: '', username: '', role: '', isEdit, isResetPassword: false }
+    )
     setTempPassword(null)
     setError(null)
     setCopied(false)
+    setCopiedCredentials(false)
     setIsSubmitting(false)
+    setCountdown(0)
     setResetKey((k) => k + 1)
   }
+
+  useEffect(() => {
+    if (!open) return
+    form.reset(isEdit
+      ? { ...currentRow, isEdit, isResetPassword: false }
+      : { name: '', username: '', role: '', isEdit, isResetPassword: false }
+    )
+    setError(null)
+    setTempPassword(null)
+    setCopied(false)
+    setCopiedCredentials(false)
+    setCountdown(0)
+    setResetKey((k) => k + 1)
+  }, [open])
+
+  const [countdown, setCountdown] = useState(0)
+
+  // Add this effect right after the existing useEffect
+  useEffect(() => {
+    if (!tempPassword) return
+    setCountdown(3)
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) { clearInterval(interval); return 0 }
+        return c - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [tempPassword])
 
   const onSubmit = async (values: UserForm) => {
     if (isEdit) {
@@ -89,8 +126,10 @@ export function UsersActionDialog({
         refresh()
         form.reset()
         onOpenChange(false)
+        notifToast({ name: values.name, role: values.role }, 'edit')
       } catch (err: any) {
         setError(err?.response?.data?.message ?? 'Failed to update user.')
+        toast.error('Failed to update user.')
       } finally {
         setIsSubmitting(false)
       }
@@ -99,6 +138,7 @@ export function UsersActionDialog({
     setIsSubmitting(true)
     setError(null)
     try {
+      NProgress.start();
       const apiRole = apiRoles.find(r => r.name.toLowerCase() === values.role.toLowerCase())
       if (!apiRole) { setError('Role not found. Please try again.'); return }
       const res = await usersApi.createUser({
@@ -107,10 +147,13 @@ export function UsersActionDialog({
         roleId: apiRole.id,
       })
       setTempPassword(res.data.tempPassword)
+      notifToast({ name: values.name, role: values.role }, 'create')
       refresh()
     } catch (err: any) {
       setError(err?.response?.data?.errors?.UserName?.[0] ?? 'Failed to create user.')
+      toast.error('Failed to create user.')
     } finally {
+      NProgress.done();
       setIsSubmitting(false)
     }
   }
@@ -134,17 +177,20 @@ export function UsersActionDialog({
     const username = form.getValues('username')
     if (!username) return
     navigator.clipboard.writeText(username)
+    notifToast({ reason: 'Username saved to clipboard' }, 'copy')
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const [copiedTemp, setCopiedTemp] = useState(false)
+  const [copiedCredentials, setCopiedCredentials] = useState(false)
 
-  const copyTempPassword = () => {
+  const copyCredentials = () => {
     if (!tempPassword) return
-    navigator.clipboard.writeText(tempPassword)
-    setCopiedTemp(true)
-    setTimeout(() => setCopiedTemp(false), 2000)
+    const username = form.getValues('username')
+    navigator.clipboard.writeText(`Username: ${username}\nPassword: ${tempPassword}`)
+    notifToast({ reason: 'Credentials saved to clipboard' }, 'copy')
+    setCopiedCredentials(true)
+    setTimeout(() => setCopiedCredentials(false), 2000)
   }
 
   return (
@@ -167,28 +213,26 @@ export function UsersActionDialog({
         <div className='h-105 w-[calc(100%+0.75rem)] overflow-y-auto py-1 pe-3'>
           {tempPassword ? (
             <div className='space-y-4'>
-              <div className='space-y-2 rounded-md border bg-muted/50 p-4 text-sm'>
+              <div className='relative space-y-2 rounded-md border bg-muted/50 p-4 text-sm'>
+                <button
+                  type='button'
+                  onClick={copyCredentials}
+                  className='absolute top-2 right-2 p-1 hover:bg-background rounded transition-colors'
+                >
+                  {copiedCredentials
+                    ? <Check className='h-4 w-4 text-green-600' />
+                    : <Copy className='h-4 w-4 text-muted-foreground' />}
+                </button>
                 <div className='flex flex-col items-center'>
                   <span className='text-muted-foreground'>Username</span>
                   <span className='font-mono font-medium'>{form.getValues('username')}</span>
                 </div>
                 <div className='flex flex-col items-center'>
                   <span className='text-muted-foreground'>Temporary Password</span>
-                  <div className='flex items-center gap-2'>
-                    <span className='font-mono font-bold tracking-widest'>{tempPassword}</span>
-                    <button
-                      type='button'
-                      onClick={copyTempPassword}
-                      className='p-1 hover:bg-background rounded transition-colors'
-                    >
-                      {copiedTemp
-                        ? <Check className='h-4 w-4 text-green-600' />
-                        : <Copy className='h-4 w-4 text-muted-foreground' />}
-                    </button>
-                  </div>
+                  <span className='font-mono font-bold tracking-widest'>{tempPassword}</span>
                 </div>
               </div>
-              <Alert className='border-green-600 text-green-600 bg-green-50'>
+              <Alert className='border-green-600 text-green-600 bg-green-500/10'>
                 <UserCheck className='h-5 w-5 stroke-green-600 flex items-center' />
                 <AlertTitle className='font-bold'>User Created Successfully</AlertTitle>
                 <AlertDescription className='text-green-600' >
@@ -212,8 +256,8 @@ export function UsersActionDialog({
                       <FormControl>
                         <Input
                           placeholder='John Doe'
-                          className={'col-span-4 capitalize' + (isEdit ? ' bg-muted/50' : '')}
-                          readOnly={isEdit}
+                          className={'col-span-4 capitalize'}
+                          // readOnly={isEdit}
                           {...field}
                         />
                       </FormControl>
@@ -231,7 +275,7 @@ export function UsersActionDialog({
                         <div className='col-span-3 relative'>
                           <Input
                             className='bg-muted/50 font-mono text-primary pr-10'
-                            readOnly={isEdit}
+                            // readOnly={isEdit}
                             {...field}
                             onChange={(e) => {
                               if (isEdit) return
@@ -277,14 +321,16 @@ export function UsersActionDialog({
               </form>
             </Form>
           )}
-        </div>
-
-        <DialogFooter>
           {error && (
-            <Alert variant='destructive' className='w-full text-left mb-2'>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <div className='w-full flex justify-center'>
+              <Alert variant='destructive' className='w-[80%] text-center mt-2'>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            </div>
           )}
+        </div>
+        <DialogFooter>
+
           {isEdit && !tempPassword && (
             <Button
               type='button'
@@ -298,10 +344,14 @@ export function UsersActionDialog({
           <Button
             type={tempPassword ? 'button' : 'submit'}
             form='user-form'
-            disabled={isSubmitting || (isEdit && (!form.formState.isValid || !form.formState.isDirty))}
+            disabled={isSubmitting || (isEdit && (!form.formState.isValid || !form.formState.isDirty)) || countdown > 0}
             onClick={tempPassword ? () => { resetState(); onOpenChange(false) } : undefined}
           >
-            {tempPassword ? 'Done' : isSubmitting ? 'Saving...' : isEdit ? 'Save changes' : 'Create user'}
+            {tempPassword
+              ? countdown > 0 ? `Done (${countdown})` : 'Done'
+              : isSubmitting ? 'Saving...'
+                : isEdit ? 'Save changes'
+                  : 'Create user'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -328,12 +378,16 @@ export function UsersDeactivateDialog({
     if (value.trim() !== currentRow.username) return
     setIsSubmitting(true)
     try {
+      nProgress.start()
       await usersApi.disableUser(parseInt(currentRow.id))
+      notifToast({ name: currentRow.name, role: currentRow.role }, 'deactivate')
       refresh()
       onOpenChange(false)
     } catch (err) {
+      toast.error('Failed to deactivate user.')
       console.error('Failed to deactivate user:', err)
     } finally {
+      nProgress.done()
       setIsSubmitting(false)
     }
   }
@@ -406,12 +460,16 @@ export function UsersActivateDialog({
     if (value.trim() !== currentRow.username) return
     setIsSubmitting(true)
     try {
+      nProgress.start()
       await usersApi.enableUser(parseInt(currentRow.id))
+      notifToast({ name: currentRow.name, role: currentRow.role }, 'activate')
       refresh()
       onOpenChange(false)
     } catch (err) {
+      toast.error('Failed to activate user.')
       console.error('Failed to activate user:', err)
     } finally {
+      nProgress.done()
       setIsSubmitting(false)
     }
   }
@@ -494,8 +552,9 @@ export function UsersApproveDialog({
     setIsSubmitting(true)
     setErrorMsg(null)
     try {
+      NProgress.start()
       await usersApi.approveRegistration(parseInt(currentRow.id), apiRole.id)
-      toast.success('User approved successfully. They can now log in.')
+      notifToast({ name: currentRow.name, role: roleName }, 'approve')
       form.reset()
       refresh()
       onOpenChange(false)
@@ -503,6 +562,7 @@ export function UsersApproveDialog({
       setErrorMsg(err?.response?.data?.message ?? 'Failed to approve user.')
       toast.error('Failed to approve user.')
     } finally {
+      NProgress.done()
       setIsSubmitting(false)
     }
   }
@@ -658,13 +718,17 @@ export function UsersApproveResetDialog({
     setIsSubmitting(true)
     setErrorMsg(null)
     try {
+      NProgress.start()
       const res = await usersApi.approveResetPassword(currentRow.username)
       setTempPassword(res.data.temporaryPassword)
       refresh()
+      notifToast({ username: currentRow.username, tempPassword: res.data.temporaryPassword }, 'approve')
     } catch (err: any) {
+      toast.error('Failed to approve password reset.')
       setErrorMsg(err?.response?.data?.message ?? 'Failed to approve reset.')
     } finally {
       setIsSubmitting(false)
+      NProgress.done()
     }
   }
 

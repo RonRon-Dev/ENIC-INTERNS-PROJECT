@@ -232,8 +232,8 @@ export default function GeneralHomePage() {
                     {now.getHours() < 12
                       ? "morning"
                       : now.getHours() < 17
-                      ? "afternoon"
-                      : "evening"}
+                        ? "afternoon"
+                        : "evening"}
                     , {firstName.charAt(0).toUpperCase() + firstName.slice(1)}!
                   </h2>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -293,29 +293,29 @@ export default function GeneralHomePage() {
           <div className="flex items-center gap-1.5 flex-wrap">
             {loading
               ? Array.from({ length: 5 }).map((_, i) => (
-                  <PillSkeleton key={i} />
-                ))
+                <PillSkeleton key={i} />
+              ))
               : filterPills.map((pill) => {
-                  const isActive = activeFilter === pill;
-                  const isExternal = pill === FILTER_EXTERNAL;
-                  return (
-                    <button
-                      key={pill}
-                      onClick={() => handleFilterClick(pill)}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-xs font-medium border transition-all duration-150 select-none",
-                        isActive
-                          ? "bg-foreground text-background border-foreground"
-                          : "bg-background text-muted-foreground border-border hover:border-foreground/30 hover:text-foreground"
-                      )}
-                    >
-                      {isExternal && (
-                        <ExternalLink className="h-3 w-3 shrink-0" />
-                      )}
-                      {pill}
-                    </button>
-                  );
-                })}
+                const isActive = activeFilter === pill;
+                const isExternal = pill === FILTER_EXTERNAL;
+                return (
+                  <button
+                    key={pill}
+                    onClick={() => handleFilterClick(pill)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-xs font-medium border transition-all duration-150 select-none",
+                      isActive
+                        ? "bg-foreground text-background border-foreground"
+                        : "bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                    )}
+                  >
+                    {isExternal && (
+                      <ExternalLink className="h-3 w-3 shrink-0" />
+                    )}
+                    {pill}
+                  </button>
+                );
+              })}
           </div>
 
           {/* Result count */}
@@ -400,8 +400,8 @@ export default function GeneralHomePage() {
                   clickable
                     ? "cursor-pointer hover:bg-accent hover:border-accent-foreground/20 hover:shadow-sm"
                     : tool.isAccessible
-                    ? "cursor-default"
-                    : "opacity-50 cursor-not-allowed bg-muted/20 border-dashed"
+                      ? "cursor-default"
+                      : "opacity-50 cursor-not-allowed bg-muted/20 border-dashed"
                 )}
               >
                 {/* Icon */}

@@ -1,20 +1,6 @@
 "use client"
 
-import type {
-  ColumnDef,
-  ColumnFiltersState,
-  SortingState,
-} from "@tanstack/react-table"
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-  getFilteredRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  getFacetedUniqueValues,
-  getFacetedRowModel,
-} from "@tanstack/react-table"
+import { Badge } from "@/components/ui/badge"
 import {
   Table,
   TableBody,
@@ -23,15 +9,29 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { roles, userTypes } from '@/data/const'
+import { type User } from '@/data/schema'
+import type {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+} from "@tanstack/react-table"
+import {
+  flexRender,
+  getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table"
 import { useState } from "react"
-import { Badge } from "@/components/ui/badge"
+import { DataTableColumnHeader } from "../data-table-components/data-table-header"
 import { DataTablePagination } from "../data-table-components/data-table-pagination"
 import { DataTableToolbar } from "../data-table-components/data-table-toolbar"
-import { DataTableColumnHeader } from "../data-table-components/data-table-header"
 import { DataTableRowActions } from "../users/users-data-table-row-actions"
-import { type User } from '@/data/schema'
 export type { User }
-import { userTypes, roles } from '@/data/const'
 
 const statusOptions = Array.from(userTypes, ([value, badge]) => ({
   value,

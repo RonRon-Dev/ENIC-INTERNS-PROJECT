@@ -1,7 +1,5 @@
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
+import { useAuth } from "@/auth-context";
+import { PasswordInput } from '@/components/password-input';
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -13,17 +11,17 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { PasswordInput } from "@/components/password-input";
-import { showSubmittedData } from "@/lib/show-submitted-data";
-import { Copy, Check } from "lucide-react";
-import { updateAccountSchema, type UpdateAccountRequest } from "@/validations";
-import { useAuth } from "@/auth-context";
+import { notifToast } from '@/lib/notifToast';
 import NProgress from "@/lib/nprogress";
 import { settingsApi } from "@/services/settings";
+import { updateAccountSchema, type UpdateAccountRequest } from "@/validations";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Check, Copy, Minus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 
 export function AccountForm() {
-  const [copied, setCopied] = useState(false); // ✅ moved to component level
-  const [serverError, setServerError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const { user } = useAuth();
 
@@ -38,50 +36,64 @@ export function AccountForm() {
     },
   });
 
-  const password = form.watch("password");
+  const passwordRules = [
+    { label: 'At least 8 characters', test: (v: string) => v.length >= 8 },
+    { label: 'One uppercase letter', test: (v: string) => /[A-Z]/.test(v) },
+    { label: 'One number', test: (v: string) => /[0-9]/.test(v) },
+    { label: 'One special character', test: (v: string) => /[^A-Za-z0-9]/.test(v) },
+  ]
+
+
+  const password = form.watch('password')
+
+  useEffect(() => {
+    if (!user) return
+    form.reset({
+      fullname: user.name || '',
+      username: user.userName || '',
+      password: '',
+      confirmPassword: '',
+    })
+  }, [user])
 
   const onSubmit = async (data: UpdateAccountRequest) => {
     try {
-      NProgress.start();
-      setServerError(null);
-      const response = await settingsApi.updateAccount(data);
+      NProgress.start()
+      const response = await settingsApi.updateAccount(data)
       if (!response.success) {
-        setServerError(response.message);
-        NProgress.done();
-        return;
+        notifToast({ reason: response.message }, 'error')
+        return
       }
-    } catch (error: any) {
-      const res = error.response?.data;
-
+      notifToast({ name: data.username }, 'edit')
+      form.reset({ ...data, password: '', confirmPassword: '' })
+    } catch (error) {
+      const res = (error as { response?: { data?: { errors?: Record<string, string>; message?: string } } })?.response?.data
       if (!res) {
-        setServerError("Something went wrong");
-        return;
+        notifToast({ reason: 'Something went wrong' }, 'error')
+        return
       }
-
       if (res.errors) {
         Object.entries(res.errors).forEach(([key, value]) => {
-          form.setError(key as keyof UpdateAccountRequest, {
-            type: "server",
-            message: value as string,
-          });
-        });
+          form.setError(key as keyof UpdateAccountRequest, { type: 'server', message: value })
+        })
       }
-
-      if (res.message) {
-        setServerError(res.message);
-      }
+      notifToast({ reason: res.message ?? 'Something went wrong' }, 'error')
+    } finally {
+      NProgress.done()
     }
-
-    NProgress.done();
   }
 
   const copyUsername = () => {
-    const username = form.getValues("username");
-    if (!username) return;
-    navigator.clipboard.writeText(username);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+    const username = form.getValues('username')
+    if (!username) return
+    navigator.clipboard.writeText(username)
+      .then(() => {
+        setCopied(true)
+        notifToast({ reason: 'Username saved to clipboard' }, 'copy')
+        setTimeout(() => setCopied(false), 2000)
+      })
+      .catch(() => { })
+  }
 
   return (
     <Form {...form}>
@@ -117,11 +129,10 @@ export function AccountForm() {
                     className="font-mono text-primary bg-muted/50 pr-8"
                     {...field}
                     onChange={(e) => {
-                      const value = e.target.value
-                        .replace(/\s/g, "")
-                        .toLowerCase();
-                      field.onChange(value);
+                      const value = e.target.value.replace(/\s/g, '').toLowerCase()
+                      field.onChange(value)
                     }}
+                    readOnly
                   />
                 </FormControl>
                 <button
@@ -158,7 +169,22 @@ export function AccountForm() {
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
+                {password && (
+                  <div className="pt-2 space-y-1">
+                    {passwordRules.map(({ label, test }) => {
+                      const passed = test(field.value ?? '')
+                      return (
+                        <div key={label} className={`flex items-center gap-1.5 text-xs ${passed ? 'text-success' : 'text-muted-foreground'}`}>
+                          {passed
+                            ? <Check className="size-3 shrink-0" />
+                            : <Minus className="size-3 shrink-0" />
+                          }
+                          {label}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </FormItem>
             )}
           />
@@ -177,8 +203,16 @@ export function AccountForm() {
           />
         </div>
 
-        <Button disabled={!form.formState.isDirty} type="submit">
-          Update account
+        {/* {serverError && (
+          <Alert variant='destructive'>
+            <AlertDescription>{serverError}</AlertDescription>
+          </Alert>
+        )} */}
+        <Button
+          disabled={!form.formState.isDirty || form.formState.isSubmitting}
+          type="submit"
+        >
+          {form.formState.isSubmitting ? 'Updating...' : 'Update account'}
         </Button>
       </form>
     </Form>
