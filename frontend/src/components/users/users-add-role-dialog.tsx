@@ -152,12 +152,15 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
             />
           </form>
         </Form>
-        <DialogFooter className='gap-y-2'>
-          {error && (
-            <Alert variant='destructive' className='w-full text-left'>
+        {error && (
+          <div className='w-full flex justify-center'>
+            <Alert variant='destructive' className='w-[80%] text-center mt-2'>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
-          )}
+          </div>
+        )}
+        <DialogFooter className='gap-y-2'>
+
           <DialogClose asChild>
             <Button variant='outline' disabled={isSubmitting}>Cancel</Button>
           </DialogClose>

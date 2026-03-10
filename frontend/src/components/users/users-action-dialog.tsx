@@ -319,17 +319,14 @@ export function UsersActionDialog({
               </form>
             </Form>
           )}
-
           {error && (
             <div className='w-full flex justify-center'>
               <Alert variant='destructive' className='w-[80%] text-center mt-2'>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             </div>
-
           )}
         </div>
-
         <DialogFooter>
 
           {isEdit && !tempPassword && (
