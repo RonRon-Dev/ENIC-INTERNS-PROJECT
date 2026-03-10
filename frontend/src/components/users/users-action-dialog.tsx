@@ -256,8 +256,8 @@ export function UsersActionDialog({
                       <FormControl>
                         <Input
                           placeholder='John Doe'
-                          className={'col-span-4 capitalize' + (isEdit ? ' bg-muted/50' : '')}
-                          readOnly={isEdit}
+                          className={'col-span-4 capitalize'}
+                          // readOnly={isEdit}
                           {...field}
                         />
                       </FormControl>
@@ -275,7 +275,7 @@ export function UsersActionDialog({
                         <div className='col-span-3 relative'>
                           <Input
                             className='bg-muted/50 font-mono text-primary pr-10'
-                            readOnly={isEdit}
+                            // readOnly={isEdit}
                             {...field}
                             onChange={(e) => {
                               if (isEdit) return

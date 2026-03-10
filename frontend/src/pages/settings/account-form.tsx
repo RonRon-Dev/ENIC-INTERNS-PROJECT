@@ -45,23 +45,6 @@ export function AccountForm() {
 
 
   const password = form.watch('password')
-  const fullname = form.watch('fullname')
-
-  useEffect(() => {
-    if (!fullname?.trim()) return
-    const names = fullname.toLowerCase().trim().split(/\s+/)
-    const generated = names.length >= 2
-      ? `${names[0].charAt(0)}.${names[names.length - 1]}`
-      : names[0]
-
-    const current = form.getValues('username')
-    if (current === generated) return  // ← skip if unchanged
-
-    form.setValue('username', generated, {
-      shouldDirty: true,
-      shouldValidate: true,
-    })
-  }, [fullname, form])
 
   useEffect(() => {
     if (!user) return
@@ -146,11 +129,10 @@ export function AccountForm() {
                     className="font-mono text-primary bg-muted/50 pr-8"
                     {...field}
                     onChange={(e) => {
-                      const value = e.target.value
-                        .replace(/\s/g, "")
-                        .toLowerCase();
-                      field.onChange(value);
+                      const value = e.target.value.replace(/\s/g, '').toLowerCase()
+                      field.onChange(value)
                     }}
+                    readOnly
                   />
                 </FormControl>
                 <button
