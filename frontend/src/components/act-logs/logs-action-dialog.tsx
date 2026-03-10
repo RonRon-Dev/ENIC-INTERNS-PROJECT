@@ -6,10 +6,8 @@ import {
   DialogContent,
   DialogHeader
 } from '@/components/ui/dialog'
+import { roles, userTypes } from '@/data/const'
 import { type ActivityLog } from '@/data/schema'
-import { roles, activityTypes, userTypes } from '@/data/const'
-import { useAuth } from '@/auth-context'
-import { CircleCheck, CircleX } from 'lucide-react'
 import { Avatar, AvatarFallback } from '../ui/avatar'
 
 type DescViewDialogProps = {
@@ -23,8 +21,8 @@ export function DescViewDialog({
   onOpenChange,
   currentRow,
 }: DescViewDialogProps) {
-    const { user } = useAuth();
-  const roleConfig = roles.find((r) => r.value === currentRow.user.role)
+  // const { user } = useAuth();
+  const roleConfig = roles.find((r) => r.value === currentRow.user.role.toLowerCase())
   const RoleIcon = roleConfig?.icon
   const displayName = currentRow.user.name
     .toLowerCase()
@@ -85,10 +83,7 @@ export function DescViewDialog({
 
           <span className='text-muted-foreground text-sm'>Result</span>
           <div className='flex justify-end'>
-            <div
-              className={`gap-x-1 flex items-center text-sm ${currentRow.isSuccess
-                ? 'text-green-600 border-green-600' : 'text-red-500 border-red-500'}
-              `}>
+            <div className={`text-sm ${currentRow.isSuccess ? 'text-success' : 'text-destructive'}`}>
               {currentRow.isSuccess ? 'Success' : 'Failed'}
             </div>
           </div>

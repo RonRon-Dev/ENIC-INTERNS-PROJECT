@@ -2,9 +2,9 @@ import { Code, Cpu, FileText, Megaphone, Settings, Shield, ShieldCheck, User, Us
 import { type ActivityLog, type UserStatus } from './schema'
 
 export const userTypes = new Map<UserStatus, string>([
-  ['active', 'bg-teal-100/30 text-teal-500 border-teal-200'],
-  ['deactivated', 'bg-destructive/10 dark:bg-destructive/50 text-destructive border-destructive/10'],
-  ['pending', 'bg-gray-100/30 text-gray-500 dark:text-gray-400 border-gray-200'],
+  ['active', 'bg-success/10 text-success border-success/30'],
+  ['deactivated', 'bg-destructive/10 dark:bg-destructive/20 text-destructive border-destructive/30'],
+  ['pending', 'bg-amber-100/30 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800'],
 ])
 
 export const activityTypes = new Map<ActivityLog["type"], string>([
