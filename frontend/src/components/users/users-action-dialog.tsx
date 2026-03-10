@@ -722,7 +722,7 @@ export function UsersApproveResetDialog({
       const res = await usersApi.approveResetPassword(currentRow.username)
       setTempPassword(res.data.temporaryPassword)
       refresh()
-      notifToast({ username: currentRow.username, tempPassword: res.data.temporaryPassword }, 'approve')
+      notifToast({ name: currentRow.username }, 'approveReset')
     } catch (err: any) {
       toast.error('Failed to approve password reset.')
       setErrorMsg(err?.response?.data?.message ?? 'Failed to approve reset.')

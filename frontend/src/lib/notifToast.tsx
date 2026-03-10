@@ -1,7 +1,7 @@
 import { Check, ShieldCheck, ShieldOff, UserCheck, UserCog, UserPlus, UserX } from 'lucide-react'
 import { toast } from 'sonner'
 
-type ToastMode = 'create' | 'edit' | 'approve' | 'reject' | 'activate' | 'deactivate' | 'addrole' | 'appsettings' | 'error' | 'updateprivileges' | 'copy'
+type ToastMode = 'create' | 'edit' | 'approve' | 'reject' | 'activate' | 'deactivate' | 'addrole' | 'appsettings' | 'error' | 'updateprivileges' | 'copy' | 'approveReset'
 
 type ToastData = {
   name?: string
@@ -29,6 +29,12 @@ const modeConfig: Record<ToastMode, {
     title: 'Copied',
     description: ({ reason }) => reason ?? 'Copied to clipboard.',
     icon: Check,
+    iconClass: 'text-green-600 bg-green-300',
+  },
+  approveReset: {
+    title: 'Password Reset Approved',
+    description: ({ name }) => `${name}'s password reset has been approved.`,
+    icon: ShieldCheck,
     iconClass: 'text-green-600 bg-green-300',
   },
 }

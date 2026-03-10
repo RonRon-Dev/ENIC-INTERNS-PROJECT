@@ -161,7 +161,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
 
         <Tabs defaultValue='pages' className='flex flex-col min-h-0 flex-1'>
           <div className='p-3 border-b flex justify-end'>
-            <TabsList className='h-9 w-[20%]'>
+            <TabsList className='h-9 w-[30%]'>
               <TabsTrigger value='pages' className='text-xs w-full'>By Page</TabsTrigger>
               <TabsTrigger value='matrix' className='text-xs w-full'>Matrix</TabsTrigger>
             </TabsList>
