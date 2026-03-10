@@ -10,8 +10,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { notifToast } from "@/lib/notifToast";
 import NProgress from "@/lib/nprogress";
-import { notifToast } from "@/lib/show-submitted-data";
 import { authenticationApi } from "@/services/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
@@ -65,7 +65,6 @@ export function LoginForm({
       navigate("/home");
     } catch (error: any) {
       const res = error.response?.data;
-      notifToast({ name: data.username, role: undefined, reason: res?.message }, "error");
       if (!res) {
         setServerError("Something went wrong");
         return;
@@ -83,6 +82,8 @@ export function LoginForm({
       if (res.message) {
         setServerError(res.message);
       }
+      notifToast({ name: data.username, reason: res?.message }, "error");
+
     } finally {
       NProgress.done();
     }

@@ -11,8 +11,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { notifToast } from '@/lib/notifToast';
 import NProgress from "@/lib/nprogress";
-import { notifToast } from '@/lib/show-submitted-data';
 import { settingsApi } from "@/services/settings";
 import { updateAccountSchema, type UpdateAccountRequest } from "@/validations";
 import { zodResolver } from "@hookform/resolvers/zod";

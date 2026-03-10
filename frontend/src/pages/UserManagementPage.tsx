@@ -173,6 +173,7 @@ function UserManagementContent() {
     );
   };
 
+
   return (
     <>
       {/* Stat Cards */}
@@ -233,6 +234,14 @@ function UserManagementContent() {
               </div>
             </DrawerContent>
           </Drawer>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={() => setOpen('privileges')}
+          >
+            Privileges
+            <ShieldCheck className='size-4' />
+          </Button>
           <UsersPrimaryButtons />
         </div>
 

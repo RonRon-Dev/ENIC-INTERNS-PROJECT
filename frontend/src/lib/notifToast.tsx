@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-type ToastMode = 'create' | 'edit' | 'approve' | 'reject' | 'activate' | 'deactivate' | 'addrole' | 'appsettings' | 'error'
+type ToastMode = 'create' | 'edit' | 'approve' | 'reject' | 'activate' | 'deactivate' | 'addrole' | 'appsettings' | 'error' | 'updateprivileges'
 
 const modeConfig: Record<
   ToastMode,
@@ -69,9 +69,15 @@ const modeConfig: Record<
   },
   error: {
     title: 'Error',
-    description: (reason?: string) => `${reason} error occurred.`,
+    description: (reason?: string) => `${reason} error.`,
     icon: UserX,
-    iconClass: 'text-red-600 bg-red-300',
+    iconClass: 'text-red-600 bg-red-500',
+  },
+  updateprivileges: {
+    title: 'Privilege Updated',
+    description: (name?: string) => `${name} page privileges have been updated.`,
+    icon: ShieldCheck,
+    iconClass: 'text-blue-600 bg-blue-300',
   }
 }
 
@@ -83,7 +89,6 @@ export function notifToast(
   const Icon = config.icon
   const name = String((data as Record<string, unknown>).name).toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
   const role = String((data as Record<string, unknown>).role).toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
-  const reason = String((data as Record<string, unknown>).reason)
 
   toast.message(() => (
     <div className="flex items-center gap-3 bg-background">

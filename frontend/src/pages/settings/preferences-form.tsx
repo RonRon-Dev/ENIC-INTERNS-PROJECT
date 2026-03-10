@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { notifToast } from '@/lib/show-submitted-data'
+import { notifToast } from '@/lib/notifToast'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTheme } from 'next-themes'
 import { useForm } from 'react-hook-form'

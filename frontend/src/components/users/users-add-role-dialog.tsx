@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { notifToast } from '@/lib/show-submitted-data'
+import { notifToast } from '@/lib/notifToast'
 import { cn } from '@/lib/utils'
 import { usersApi } from '@/services/users'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -84,6 +84,7 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
 
   return (
     <Dialog
+      modal={false}
       open={open}
       onOpenChange={(state) => {
         form.reset()
@@ -160,7 +161,6 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
           </div>
         )}
         <DialogFooter className='gap-y-2'>
-
           <DialogClose asChild>
             <Button variant='outline' disabled={isSubmitting}>Cancel</Button>
           </DialogClose>
@@ -168,6 +168,7 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
             {isSubmitting ? 'Adding...' : 'Add Role'}
           </Button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   )

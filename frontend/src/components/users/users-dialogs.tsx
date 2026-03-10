@@ -1,15 +1,21 @@
-import { UsersActionDialog, UsersDeactivateDialog, UsersActivateDialog, UsersApproveDialog, UsersRejectDialog, UsersApproveResetDialog, UsersAdminResetDialog } from '@/components/users/users-action-dialog'
-import { useUsers } from '@/components/users/users-provider'
+import { UsersActionDialog, UsersActivateDialog, UsersAdminResetDialog, UsersApproveDialog, UsersApproveResetDialog, UsersDeactivateDialog, UsersRejectDialog } from '@/components/users/users-action-dialog'
 import { UsersAddRoleDialog } from '@/components/users/users-add-role-dialog'
+import { useUsers } from '@/components/users/users-provider'
+import { UsersPrivilegesDialog } from './users-privileges-dialog'
 
 export function UsersDialogs() {
   const { open, setOpen, currentRow, setCurrentRow } = useUsers()
+
   return (
     <>
       <UsersActionDialog
         key='user-add'
         open={open === 'add'}
         onOpenChange={() => setOpen('add')}
+      />
+      <UsersPrivilegesDialog
+        open={open === 'privileges'}
+        onOpenChange={() => setOpen(null)}
       />
 
       {/* <UsersInviteDialog
