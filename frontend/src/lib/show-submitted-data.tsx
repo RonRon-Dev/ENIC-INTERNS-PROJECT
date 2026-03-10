@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-type ToastMode = 'create' | 'edit' | 'approve' | 'reject' | 'activate' | 'deactivate' | 'addrole' | 'appsettings'
+type ToastMode = 'create' | 'edit' | 'approve' | 'reject' | 'activate' | 'deactivate' | 'addrole' | 'appsettings' | 'error'
 
 const modeConfig: Record<
   ToastMode,
@@ -66,6 +66,12 @@ const modeConfig: Record<
     description: () => 'Your application settings have been saved.',
     icon: UserCog,
     iconClass: 'text-purple-600 bg-purple-300',
+  },
+  error: {
+    title: 'Error',
+    description: (name?: string) => `${name} invalid input.`,
+    icon: UserX,
+    iconClass: 'text-red-600 bg-red-300',
   }
 }
 

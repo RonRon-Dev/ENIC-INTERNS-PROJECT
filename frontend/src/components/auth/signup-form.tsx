@@ -1,11 +1,5 @@
+import { PasswordInput } from "@/components/password-input";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { authenticationApi } from "@/services/auth";
-import { registerSchema } from "@/validations";
-import type { SignupRequest } from "@/validations";
 import {
   Form,
   FormControl,
@@ -15,8 +9,15 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { PasswordInput } from "@/components/password-input";
+import { Input } from "@/components/ui/input";
 import NProgress from "@/lib/nprogress";
+import { authenticationApi } from "@/services/auth";
+import type { SignupRequest } from "@/validations";
+import { registerSchema } from "@/validations";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Check, Minus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 
 export default function SignupForm({
   onToggle,
@@ -95,6 +96,13 @@ export default function SignupForm({
     NProgress.done();
   };
 
+  const passwordRules = [
+    { label: 'At least 8 characters', test: (v: string) => v.length >= 8 },
+    { label: 'One uppercase letter', test: (v: string) => /[A-Z]/.test(v) },
+    { label: 'One number', test: (v: string) => /[0-9]/.test(v) },
+    { label: 'One special character', test: (v: string) => /[^A-Za-z0-9]/.test(v) },
+  ]
+
   return (
     <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col items-center gap-1 text-center">
@@ -156,7 +164,20 @@ export default function SignupForm({
                   <FormControl>
                     <PasswordInput {...field} />
                   </FormControl>
-                  <FormMessage />
+                  <div className="mt-2 space-y-1">
+                    {passwordRules.map(({ label, test }) => {
+                      const passed = test(field.value ?? '')
+                      return (
+                        <div key={label} className={`flex items-center gap-1.5 text-xs ${passed ? 'text-success' : 'text-muted-foreground'}`}>
+                          {passed
+                            ? <Check className="size-3 shrink-0" />
+                            : <Minus className="size-3 shrink-0" />
+                          }
+                          {label}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </FormItem>
               )}
             />

@@ -1,10 +1,6 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { authenticationApi } from "@/services/auth";
 import { useAuth } from "@/auth-context";
+import { PasswordInput } from "@/components/password-input";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -13,10 +9,15 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { PasswordInput } from "@/components/password-input";
-import { z } from "zod";
+import { Input } from "@/components/ui/input";
 import NProgress from "@/lib/nprogress";
+import { notifToast } from "@/lib/show-submitted-data";
+import { authenticationApi } from "@/services/auth";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+import { z } from "zod";
 
 const formSchema = z.object({
   username: z.string().min(1, "Username is required."),
@@ -64,7 +65,7 @@ export function LoginForm({
       navigate("/home");
     } catch (error: any) {
       const res = error.response?.data;
-
+      notifToast({ name: data.username, role: undefined, reason: res?.message }, "error");
       if (!res) {
         setServerError("Something went wrong");
         return;
@@ -140,9 +141,9 @@ export function LoginForm({
             )}
           />
 
-          {serverError && (
+          {/* {serverError && (
             <p className="text-destructive text-sm">{serverError}</p>
-          )}
+          )} */}
 
           <Button
             type="submit"
