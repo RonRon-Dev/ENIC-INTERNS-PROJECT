@@ -13,7 +13,7 @@ import { useNavigate } from "react-router-dom";
 const NAV_LINKS = [
   { label: 'Features', href: '#features' },
   { label: 'Stack', href: '#stack' },
-  { label: 'About', href: '/landing/developers' },
+  { label: 'About', href: '/overview/developers' },
 ]
 
 const TECH_STACK_MARQUEE = [
@@ -552,7 +552,7 @@ export const AppIcon = (props: React.ComponentProps<"svg">) => (
 
 function Footer() {
   return (
-    <footer className="border-t bg-muted grid place-items-center py-5">
+    <footer className="border-t bg-muted-black grid place-items-center py-5">
       {/* Copyright */}
       <p className="text-xs text-muted-foreground text-center md:text-right">
         © {new Date().getFullYear()} Eurolink Network International Corporation
@@ -563,7 +563,7 @@ function Footer() {
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
-export default function LandingPage() {
+export default function AppOverviewPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
