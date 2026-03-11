@@ -130,9 +130,8 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
   const isMatrixDirty = matrixForm.formState.isDirty
 
   const onMatrixSubmit = (data: { pageRoles: Record<string, string[]> }) => {
-    console.log('Save matrix', data.pageRoles)
-    matrixForm.reset(data) // resets dirty state with new values as baseline
-    notifToast({ name: 'Page Matrix' }, 'updateprivileges')
+    matrixForm.reset(data)
+    notifToast({ name: 'Matrix', }, 'updateprivileges')
   }
 
   return (

@@ -129,7 +129,7 @@ export function UsersActionDialog({
         notifToast({ name: values.name, role: values.role }, 'edit')
       } catch (err: any) {
         setError(err?.response?.data?.message ?? 'Failed to update user.')
-        toast.error('Failed to update user.')
+        notifToast({ reason: err?.response?.data?.message ?? 'Failed to update user.' }, 'error')
       } finally {
         setIsSubmitting(false)
       }
@@ -151,7 +151,7 @@ export function UsersActionDialog({
       refresh()
     } catch (err: any) {
       setError(err?.response?.data?.errors?.UserName?.[0] ?? 'Failed to create user.')
-      toast.error('Failed to create user.')
+      notifToast({ reason: err?.response?.data?.errors?.UserName?.[0] ?? 'Failed to create user.' }, 'error')
     } finally {
       NProgress.done();
       setIsSubmitting(false)
@@ -221,7 +221,8 @@ export function UsersActionDialog({
                 >
                   {copiedCredentials
                     ? <Check className='h-4 w-4 text-green-600' />
-                    : <Copy className='h-4 w-4 text-muted-foreground' />}
+                    : <Copy className='h-4 w-4 text-muted-foreground' />
+                  }
                 </button>
                 <div className='flex flex-col items-center'>
                   <span className='text-muted-foreground'>Username</span>
@@ -278,7 +279,7 @@ export function UsersActionDialog({
                             // readOnly={isEdit}
                             {...field}
                             onChange={(e) => {
-                              if (isEdit) return
+                              // if (isEdit) return
                               field.onChange(e.target.value.replace(/\s/g, '').toLowerCase())
                             }}
                           />
@@ -321,13 +322,13 @@ export function UsersActionDialog({
               </form>
             </Form>
           )}
-          {error && (
+          {/* {error && (
             <div className='w-full flex justify-center'>
               <Alert variant='destructive' className='w-[80%] text-center mt-2'>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             </div>
-          )}
+          )} */}
         </div>
         <DialogFooter>
 
