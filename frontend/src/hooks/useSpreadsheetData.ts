@@ -14,7 +14,7 @@ import type {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-export const PAGE_SIZE = 50;
+export const PAGE_SIZE = 12;
 export const ZIP_THRESHOLD = 5;
 
 // ── Query state shape sent to worker ─────────────────────────────────────────
@@ -25,6 +25,7 @@ interface QueryMsg {
   dateFilters: Record<string, { from: string; to: string }>;
   sort: SortState;
   page: number;
+  pageSize?: number;
 }
 
 export function useSpreadsheetData() {
@@ -58,6 +59,7 @@ export function useSpreadsheetData() {
   const [searchCommitted, setSearchCommitted] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isFiltering, setIsFiltering] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Query results — only the current page
   const [pagedRows, setPagedRows] = useState<Row[]>([]);
@@ -143,37 +145,8 @@ export function useSpreadsheetData() {
         setSelectedCount(msg.selectedCount);
         // Re-run last query to get updated allFilteredSelected and page checkbox states
         if (lastQueryRef.current) worker.postMessage(lastQueryRef.current);
-      } else if (msg.type === "EXPORT_FOLDER_FILES") {
-        // Worker built all file bytes; we write them via File System Access API
-        const files = msg.files as { fileName: string; bytes: ArrayBuffer }[];
-        (async () => {
-          try {
-            const dirHandle = await (
-              window as unknown as {
-                showDirectoryPicker: (o?: {
-                  mode?: string;
-                }) => Promise<FileSystemDirectoryHandle>;
-              }
-            ).showDirectoryPicker({ mode: "readwrite" });
-
-            for (const { fileName, bytes } of files) {
-              const fh = await dirHandle.getFileHandle(fileName, {
-                create: true,
-              });
-              const writable = await fh.createWritable();
-              await writable.write(bytes);
-              await writable.close();
-            }
-            toast.success("Export complete", { description: msg.description });
-          } catch (err: unknown) {
-            if (err instanceof Error && err.name !== "AbortError") {
-              toast.error("Folder export failed", {
-                description: (err as Error).message,
-              });
-            }
-          }
-        })();
       } else if (msg.type === "EXPORT_DONE") {
+        setIsExporting(false);
         if (msg.kind === "file" || msg.kind === "zip") {
           const a = document.createElement("a");
           a.href = msg.url;
@@ -195,6 +168,7 @@ export function useSpreadsheetData() {
         }
         toast.success("Export complete", { description: msg.description });
       } else if (msg.type === "EXPORT_ERROR") {
+        setIsExporting(false);
         toast.error("Export failed", { description: msg.message });
       } else if (msg.type === "ERROR") {
         setIsLoading(false);
@@ -317,6 +291,7 @@ export function useSpreadsheetData() {
       dateFilters: dateRangeFilters,
       sort,
       page,
+      pageSize: PAGE_SIZE,
       ...overrides,
     }),
     [searchCommitted, activeFilters, dateRangeFilters, sort, page]
@@ -422,6 +397,7 @@ export function useSpreadsheetData() {
   const handleExport = useCallback(
     (config: ExportConfig) => {
       const visibleCols = columns.filter((c) => colVisibility[c] !== false);
+      setIsExporting(true);
       workerRef.current?.postMessage({
         type: "EXPORT",
         config,
@@ -436,6 +412,7 @@ export function useSpreadsheetData() {
     workerRef.current?.postMessage({ type: "RESET" });
     workerRef.current?.terminate();
     workerRef.current = null;
+    setIsExporting(false);
     setColumns([]);
     setColVisibility({});
     setFileName(null);
@@ -515,6 +492,7 @@ export function useSpreadsheetData() {
     rowsReady,
     setRowsReady,
     parseFile,
+    isExporting,
     handleExport,
     resetData,
   };

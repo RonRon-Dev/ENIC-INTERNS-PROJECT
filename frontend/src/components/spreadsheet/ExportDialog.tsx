@@ -16,7 +16,7 @@ import {
   Download,
   FileDown,
   FileText,
-  FolderOpen,
+  Loader2,
   SplitSquareHorizontal,
   Table2,
 } from "lucide-react";
@@ -30,6 +30,7 @@ interface ExportDialogProps {
   onExport: (config: ExportConfig) => void;
   columns: string[];
   selectedCount: number;
+  isExporting?: boolean;
 }
 
 export function ExportDialog({
@@ -38,10 +39,8 @@ export function ExportDialog({
   onExport,
   columns,
   selectedCount,
+  isExporting = false,
 }: ExportDialogProps) {
-  const canUseFolder =
-    typeof window !== "undefined" && "showDirectoryPicker" in window;
-
   const [config, setConfig] = useState<ExportConfig>({
     format: "xlsx",
     mode: "single",
@@ -50,6 +49,15 @@ export function ExportDialog({
     zipFileName: `export_${new Date().toISOString().slice(0, 10)}`,
     skipNullNames: false,
   });
+
+  // After the destructure and set helper:
+  const prevExportingRef = React.useRef(false);
+  React.useEffect(() => {
+    if (prevExportingRef.current && !isExporting) {
+      onClose();
+    }
+    prevExportingRef.current = isExporting;
+  }, [isExporting, onClose]);
 
   const set = <K extends keyof ExportConfig>(key: K, val: ExportConfig[K]) =>
     setConfig((prev) => ({ ...prev, [key]: val }));
@@ -86,7 +94,7 @@ export function ExportDialog({
     },
   ];
 
-  const isPerRow = config.mode === "per-row" || config.mode === "folder";
+  const isPerRow = config.mode === "per-row";
 
   return (
     <Dialog open={open} onOpenChange={(v: boolean) => !v && onClose()}>
@@ -196,53 +204,6 @@ export function ExportDialog({
                   </button>
                 );
               })}
-
-              {/* Save to Folder — Chromium only */}
-              {canUseFolder && (
-                <button
-                  onClick={() => set("mode", "folder")}
-                  className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${
-                    config.mode === "folder"
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-border/80 hover:bg-muted/30"
-                  }`}
-                >
-                  <div
-                    className={
-                      config.mode === "folder"
-                        ? "text-primary"
-                        : "text-muted-foreground"
-                    }
-                  >
-                    <FolderOpen className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p
-                      className={`text-xs font-medium ${
-                        config.mode === "folder"
-                          ? "text-primary"
-                          : "text-foreground"
-                      }`}
-                    >
-                      Save to Folder
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Write files directly — no zip needed
-                    </p>
-                  </div>
-                  <div
-                    className={`ml-auto h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      config.mode === "folder"
-                        ? "border-primary"
-                        : "border-border"
-                    }`}
-                  >
-                    {config.mode === "folder" && (
-                      <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-                    )}
-                  </div>
-                </button>
-              )}
             </div>
           </div>
 
@@ -266,7 +227,7 @@ export function ExportDialog({
             </div>
           )}
 
-          {/* Per-row / folder config */}
+          {/* Per-row config */}
           {isPerRow && (
             <div className="flex flex-col gap-2">
               <label className="text-xs font-medium text-foreground">
@@ -323,7 +284,7 @@ export function ExportDialog({
                 </div>
               </div>
 
-              {/* Zip file name — only for per-row when count exceeds threshold (not folder mode) */}
+              {/* Zip file name — only when count exceeds threshold */}
               {config.mode === "per-row" && selectedCount > ZIP_THRESHOLD && (
                 <div className="flex flex-col gap-2 pt-2 mt-1 border-t border-border">
                   <div className="flex items-center gap-1.5">
@@ -355,19 +316,28 @@ export function ExportDialog({
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={isExporting}
+          >
             Cancel
           </Button>
           <Button
             size="sm"
             className="gap-1.5"
-            onClick={() => {
-              onExport(config);
-              onClose();
-            }}
+            disabled={isExporting}
+            onClick={() => onExport(config)}
           >
-            <Download className="h-3.5 w-3.5" />
-            Export {selectedCount} row{selectedCount !== 1 ? "s" : ""}
+            {isExporting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            {isExporting
+              ? "Exporting…"
+              : `Export ${selectedCount} row${selectedCount !== 1 ? "s" : ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>
