@@ -61,7 +61,7 @@ export function HeaderPickerDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="overflow-auto max-h-[420px] p-4">
+        <div className="overflow-auto max-h-[420px] px-4 pb-4">
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr>
