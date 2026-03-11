@@ -8,10 +8,12 @@ import { useAuth } from "@/auth-context";
 import type { UserRole } from "@/data/schema";
 import type { SubTool, Tool } from "@/data/tools";
 import { toolsData } from "@/data/tools";
+import DevPage from "@/pages/DevPage";
+import EurolinkPage from "@/pages/EuroLandingPage";
 import AboutDevPage from "@/pages/general/AboutDevPage";
 import SettingsPage from "@/pages/general/SettingsPage";
 import GeneralHomePage from "@/pages/GeneralHomePage";
-import EurolinkPage from "@/pages/LandingPage";
+import MISLandingPage from "@/pages/LandingPage";
 import AccountPage from "@/pages/settings/AccountPage";
 import PreferencesPage from "@/pages/settings/PreferencesPage";
 import DevelopmentToolPage from "@/pages/tools/DevelopmentToolPage";
@@ -122,7 +124,11 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/home" replace />} />
-      <Route path="/landing" element={<EurolinkPage />} />
+      <Route path="/profile" element={<EurolinkPage />} />
+      <Route path="/landing">
+        <Route index element={<MISLandingPage />} />
+        <Route path="developers" element={<DevPage />} />
+      </Route>
 
       <Route
         path="/login"

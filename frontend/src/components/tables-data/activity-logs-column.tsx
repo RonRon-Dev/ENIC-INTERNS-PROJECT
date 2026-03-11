@@ -1,19 +1,7 @@
 "use client";
 
-import type {
-  ColumnDef,
-  ColumnFiltersState,
-  SortingState,
-} from "@tanstack/react-table";
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-  getFilteredRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  getFacetedUniqueValues,
-} from "@tanstack/react-table";
+import { useLogs } from "@/components/act-logs/logs-provider";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -22,17 +10,28 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { type ActivityLog, type Roles } from "@/data/schema";
+import type {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+} from "@tanstack/react-table";
+import {
+  flexRender,
+  getCoreRowModel,
+  getFacetedUniqueValues,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import * as LucideIcons from "lucide-react";
+import { CircleCheck, CircleX, Info, type LucideIcon } from "lucide-react";
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { DataTableColumnHeader } from "../data-table-components/data-table-header";
 import { DataTablePagination } from "../data-table-components/data-table-pagination";
 import { DataTableToolbar } from "../data-table-components/data-table-toolbar";
-import { DataTableColumnHeader } from "../data-table-components/data-table-header";
-import { type ActivityLog, type Roles } from "@/data/schema";
 export type { ActivityLog };
-import { useLogs } from "@/components/act-logs/logs-provider";
-import { CircleCheck, CircleX, Info } from "lucide-react";
-import { type LucideIcon } from "lucide-react";
-import * as LucideIcons from "lucide-react";
 
 function resolveIcon(iconName?: string): LucideIcon | null {
   if (!iconName) return null;
@@ -152,8 +151,10 @@ export function useColumns({ roles }: { roles: Roles[] }) {
       cell: ({ row }) => (
         <Badge
           variant="outline"
-          className={`gap-x-1 py-1 ${row.original.success ? "text-green-600 border-green-600 bg-green-50" : "text-red-500 border-red-500 bg-red-50"}`}
-        >
+          className={`gap-x-1 py-1 ${row.original.success
+            ? "text-success border-success bg-success/10"
+            : "text-destructive border-destructive bg-destructive/10"
+            }`}        >
           {row.original.success ? (
             <CircleCheck className="w-4 h-4" />
           ) : (

@@ -41,6 +41,11 @@
     --sidebar-ring: 217.2 91.2% 59.8%;
     --sidebar-active-accent: 240 3.7% 15.9%;
     --sidebar-active-accent-foreground: 240 4.8% 95.9%;
+    --brand: 213 80% 29%;
+    /* #0e4888 */
+    --brand-light: 213 80% 40%;
+    /* lighter variant */
+
   }
 
   .dark {
@@ -145,5 +150,19 @@
   .dark .sidebar-user-trigger:hover,
   .dark .sidebar-user-trigger[data-state="open"] {
     background-color: rgb(255 255 255 / 0.05);
+  }
+}
+
+.section-highlight {
+  animation: sectionFlash 1.5s ease;
+}
+
+@keyframes sectionFlash {
+  0% {
+    background-color: hsl(var(--primary) / 0.25);
+  }
+
+  100% {
+    background-color: transparent;
   }
 }
