@@ -53,11 +53,12 @@ export default function DataCleaningPage() {
     handleSort,
     search,
     updateSearch,
-    processedRows,
+    processedCount,
     totalPages,
     clampedPage,
     pagedRows,
     setPage,
+    page,
     selectedIds,
     selectedCount,
     toggleRow,
@@ -241,8 +242,8 @@ export default function DataCleaningPage() {
                 )}
               </div>
               <span className="text-xs text-muted-foreground ml-auto">
-                {processedRows.length.toLocaleString()} row
-                {processedRows.length !== 1 ? "s" : ""}
+                {processedCount.toLocaleString()} row
+                {processedCount !== 1 ? "s" : ""}
                 {(search || activeFilterCount > 0) && " (filtered)"}
               </span>
             </div>
@@ -319,6 +320,8 @@ export default function DataCleaningPage() {
                 sort={sort}
                 onSort={handleSort}
                 allFilteredSelected={allFilteredSelected}
+                page={page}
+                pageSize={PAGE_SIZE}
               />
             </div>
 
@@ -327,8 +330,8 @@ export default function DataCleaningPage() {
               <span>
                 Page {clampedPage} of {totalPages} ·{" "}
                 {(clampedPage - 1) * PAGE_SIZE + 1}–
-                {Math.min(clampedPage * PAGE_SIZE, processedRows.length)} of{" "}
-                {processedRows.length.toLocaleString()}
+                {Math.min(clampedPage * PAGE_SIZE, processedCount)} of{" "}
+                {processedCount.toLocaleString()}
               </span>
               <div className="flex items-center gap-1">
                 <Button
