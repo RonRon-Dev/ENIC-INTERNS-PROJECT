@@ -68,7 +68,7 @@ export function UsersActionDialog({
   const { apiRoles, refresh } = useUsers()
   const [tempPassword, setTempPassword] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [resetKey, setResetKey] = useState(0)
 
@@ -78,7 +78,7 @@ export function UsersActionDialog({
       : { name: '', username: '', role: '', isEdit, isResetPassword: false }
     )
     setTempPassword(null)
-    setError(null)
+    // setError(null)
     setCopied(false)
     setCopiedCredentials(false)
     setIsSubmitting(false)
@@ -92,7 +92,7 @@ export function UsersActionDialog({
       ? { ...currentRow, isEdit, isResetPassword: false }
       : { name: '', username: '', role: '', isEdit, isResetPassword: false }
     )
-    setError(null)
+    // setError(null)
     setTempPassword(null)
     setCopied(false)
     setCopiedCredentials(false)
@@ -118,17 +118,20 @@ export function UsersActionDialog({
   const onSubmit = async (values: UserForm) => {
     if (isEdit) {
       setIsSubmitting(true)
-      setError(null)
+      // setError(null)
       try {
         const apiRole = apiRoles.find(r => r.name.toLowerCase() === values.role.toLowerCase())
-        if (!apiRole) { setError('Role not found.'); return }
+        if (!apiRole) {
+          // setError('Role not found.'); 
+          return
+        }
         await usersApi.assignRole(parseInt(currentRow!.id), apiRole.id)
         refresh()
         form.reset()
         onOpenChange(false)
         notifToast({ name: values.name, role: values.role }, 'edit')
       } catch (err: any) {
-        setError(err?.response?.data?.message ?? 'Failed to update user.')
+        // setError(err?.response?.data?.message ?? 'Failed to update user.')
         notifToast({ reason: err?.response?.data?.message ?? 'Failed to update user.' }, 'error')
       } finally {
         setIsSubmitting(false)
@@ -136,11 +139,14 @@ export function UsersActionDialog({
       return
     }
     setIsSubmitting(true)
-    setError(null)
+    // setError(null)
     try {
       NProgress.start();
       const apiRole = apiRoles.find(r => r.name.toLowerCase() === values.role.toLowerCase())
-      if (!apiRole) { setError('Role not found. Please try again.'); return }
+      if (!apiRole) {
+        // setError('Role not found. Please try again.');
+        return
+      }
       const res = await usersApi.createUser({
         name: values.name,
         userName: values.username,
@@ -150,7 +156,7 @@ export function UsersActionDialog({
       notifToast({ name: values.name, role: values.role }, 'create')
       refresh()
     } catch (err: any) {
-      setError(err?.response?.data?.errors?.UserName?.[0] ?? 'Failed to create user.')
+      // setError(err?.response?.data?.errors?.UserName?.[0] ?? 'Failed to create user.')
       notifToast({ reason: err?.response?.data?.errors?.UserName?.[0] ?? 'Failed to create user.' }, 'error')
     } finally {
       NProgress.done();
