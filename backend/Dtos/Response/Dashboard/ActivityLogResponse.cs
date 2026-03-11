@@ -21,5 +21,5 @@ public class ActivityLogResponse
     public string Time { get; set; } = ""; // HH:mm
     public string Type { get; set; } = "authentication"; // authentication | privilege | account management
     public object? Payload { get; set; } = "";
-    public string Success { get; set; } = "success"; // success | failure
+    public bool Success { get; set; }
 }

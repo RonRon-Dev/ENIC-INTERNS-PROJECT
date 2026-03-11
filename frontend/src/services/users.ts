@@ -27,6 +27,8 @@ export const usersApi = {
     api.patch('/users/approve-reset-password', { userName }),
   adminResetPassword: (userId: number) =>
     api.patch('/users/admin-reset-password', { userId }),
+  unlockUser: (id: number) =>
+    api.put(`/users/unlock-user/${id}`),
   createRole: (name: string) =>
     api.post('/users/roles', { name }),
 }

@@ -3,7 +3,7 @@ import {
   getColumns,
 } from "@/components/tables-data/requests-column";
 import type { User } from "@/components/tables-data/users-column";
-import { DataTable, columns } from "@/components/tables-data/users-column";
+import { DataTable, useColumns } from "@/components/tables-data/users-column";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import {
@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { UsersDialogs } from "@/components/users/users-dialogs";
 import { UsersPrimaryButtons } from "@/components/users/users-primary-buttons";
 import { UsersProvider, useUsers } from "@/components/users/users-provider";
+import { type Roles } from "@/data/schema";
 import { usersApi } from "@/services/users";
 import { ShieldCheck, UserCheck, UserCog, Users2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -43,18 +44,9 @@ type UserRequest = {
   currentRole: { id: number; name: string } | null;
 };
 
-type UserApiResponse = {
-  id: number
-  name: string
-  userName: string
-  isVerified: boolean
-  isActive: boolean
-  role?: { name: string }
-}
-
 function StatCardSkeleton() {
   return (
-    <Card className="flex p-5 rounded-xl flex-col gap-2 border-border">
+    <Card className="flex p-5 rounded-xl flex-col gap-2">
       <div className="flex items-center gap-2 mb-1">
         <Skeleton className="h-4 w-4 rounded" />
         <Skeleton className="h-4 w-24" />
@@ -72,9 +64,8 @@ export function SkeletonTable() {
         <Skeleton className="h-6 w-32" />
         <Skeleton className="h-6 w-32" />
       </div>
-
-      <div className="border border-border rounded-md w-full flex flex-col gap-2 py-4">
-        <div className="border-b border-border flex gap-4 p-4 pt-0">
+      <div className="border rounded-md w-full flex flex-col gap-2 py-4">
+        <div className="border-b flex gap-4 p-4 pt-0">
           <Skeleton className="h-8 flex-1" />
           <Skeleton className="h-8 flex-1" />
           <Skeleton className="h-8 flex-1" />
@@ -89,12 +80,9 @@ export function SkeletonTable() {
             <Skeleton className="h-8 flex-1" />
             <Skeleton className="h-8 flex-1" />
             <Skeleton className="h-8 flex-1" />
-            {/* <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-4 w-20" /> */}
           </div>
         ))}
       </div>
-
       <div className="flex w-full gap-2">
         <Skeleton className="h-6 w-32" />
         <Skeleton className="ml-auto h-6 w-32" />
@@ -113,28 +101,34 @@ function UserManagementContent() {
     deactivatedUsers: 0,
     assignedUsers: 0,
   });
-
   const [requests, setRequests] = useState<UserRequest[]>([]);
+  const [roles, setRoles] = useState<Roles[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const { columns, roleOptions } = useColumns({ roles });
 
   const { setCurrentRow, setOpen, setRefresh } = useUsers();
 
   const loadData = useCallback(async () => {
     try {
-      const [usersRes, statsRes, requestsRes] = await Promise.all([
+      const [rolesRes, usersRes, statsRes, requestsRes] = await Promise.all([
+        usersApi.getRoles(),
         usersApi.getAll(),
         usersApi.getStats(),
         usersApi.getUserRequests("Pending"),
       ]);
-      const mappedUsers: User[] = (usersRes.data as UserApiResponse[]).map((u) => ({
+
+      const mappedUsers: User[] = (usersRes.data as any[]).map((u: any) => ({
         id: String(u.id),
         name: u.name,
         username: u.userName,
-        status: (!u.isVerified ? 'pending' : !u.isActive ? 'deactivated' : 'active') as User['status'],
-        role: ((u.role?.name ?? 'guest').toLowerCase() === 'developer'
-          ? 'dev'
-          : (u.role?.name ?? 'guest').toLowerCase()) as User['role'],
-      }))
+        status: (u.status?.toLowerCase() ?? "active") as User["status"],
+        role: ((u.role?.name ?? "guest").toLowerCase() === "developer"
+          ? "dev"
+          : (u.role?.name ?? "guest").toLowerCase()) as User["role"],
+      }));
+
+      setRoles(rolesRes.data); // ✅ roles from API, icons already stored as strings
       setData(mappedUsers);
       setStats(statsRes.data);
       setRequests(requestsRes.data);
@@ -173,32 +167,25 @@ function UserManagementContent() {
     );
   };
 
-
   return (
     <>
       {/* Stat Cards */}
       <div className="grid auto-rows-min gap-4 md:grid-cols-4">
         {loading
-          ? Array.from({ length: 4 }).map((_, i) => (
-            <StatCardSkeleton key={i} />
-          ))
+          ? Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
           : statConfig.map(({ label, icon: Icon, value }) => (
             <Card
               key={label}
-              className="flex p-5 transition-all duration-200 rounded-xl flex-col border-border"
+              className="flex p-5 transition-all duration-200 rounded-xl flex-col"
             >
               <div className="flex items-center gap-2 mb-2">
                 <Icon className="size-4" />
                 <p className="text-sm font-medium">{label}</p>
               </div>
-              <CardTitle className="text-2xl tracking-wide">
-                {value}
-              </CardTitle>
+              <CardTitle className="text-2xl tracking-wide">{value}</CardTitle>
             </Card>
           ))}
       </div>
-
-      {/* <div className="grid grid-cols-2 gap-6"> */}
 
       <div>
         {/* Header */}
@@ -211,13 +198,8 @@ function UserManagementContent() {
           </div>
           <Drawer direction="right">
             <DrawerTrigger asChild>
-              <Button variant="outline" className="relative">
+              <Button variant="outline">
                 Requests <UserCog className="size-4" />
-                {requests.length > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground text-xs rounded-full min-w-[1.1rem] h-[1.1rem] flex items-center justify-center px-1 leading-none">
-                    {requests.length}
-                  </span>
-                )}
               </Button>
             </DrawerTrigger>
             <DrawerContent direction="right">
@@ -234,19 +216,12 @@ function UserManagementContent() {
                   <RequestDataTable
                     columns={getColumns(handleOpenRequest)}
                     data={requests}
+                    // onApprove={handleOpenRequest}
                   />
                 )}
               </div>
             </DrawerContent>
           </Drawer>
-          <Button
-            type='button'
-            variant='outline'
-            onClick={() => setOpen('privileges')}
-          >
-            Privileges
-            <ShieldCheck className='size-4' />
-          </Button>
           <UsersPrimaryButtons />
         </div>
 
@@ -258,6 +233,7 @@ function UserManagementContent() {
             <DataTable
               columns={columns}
               data={data.filter((u) => u.status !== "pending")}
+              roleOptions={roleOptions} // ✅ dynamic role options
             />
           )}
         </div>
