@@ -216,7 +216,7 @@ function UserManagementContent() {
                   <RequestDataTable
                     columns={getColumns(handleOpenRequest)}
                     data={requests}
-                    onApprove={handleOpenRequest}
+                    // onApprove={handleOpenRequest}
                   />
                 )}
               </div>

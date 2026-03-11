@@ -39,6 +39,7 @@ export type UserRequest = {
 interface DataTableProps {
   columns: ColumnDef<UserRequest>[]
   data: UserRequest[]
+  // onApprove: (req: UserRequest) => void
 }
 
 export function getColumns(onApprove: (req: UserRequest) => void): ColumnDef<UserRequest>[] {

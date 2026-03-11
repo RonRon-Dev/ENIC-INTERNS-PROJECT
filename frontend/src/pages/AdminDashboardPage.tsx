@@ -2,7 +2,7 @@ import {
   DataTable,
   useColumns,
 } from "@/components/tables-data/activity-logs-column";
-import { roles as roleIcons } from "@/data/const";
+// import { roles as roleIcons } from "@/data/const";
 import { dashboardApi } from "@/services/dashboard";
 import { usersApi } from "@/services/users";
 import { type Roles, type ActivityLog } from "@/data/schema";

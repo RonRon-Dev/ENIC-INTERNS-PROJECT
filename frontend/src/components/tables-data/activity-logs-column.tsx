@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTablePagination } from "../data-table-components/data-table-pagination";
 import { DataTableToolbar } from "../data-table-components/data-table-toolbar";
 import { DataTableColumnHeader } from "../data-table-components/data-table-header";
-import { type ActivityLog, type ActivityType, type Roles } from "@/data/schema";
+import { type ActivityLog, type Roles } from "@/data/schema";
 export type { ActivityLog };
 import { useLogs } from "@/components/act-logs/logs-provider";
 import { CircleCheck, CircleX, Info } from "lucide-react";
@@ -204,7 +204,7 @@ export function DataTable<TData, TValue>({
     return {
       label: role.name.charAt(0).toUpperCase() + role.name.slice(1),
       value: role.name.toLowerCase(),
-      icon: resolveIcon(role.icon),
+      icon: resolveIcon(role.icon) ?? undefined, // null → undefined
     };
   });
 

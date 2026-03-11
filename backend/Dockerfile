@@ -6,7 +6,7 @@ RUN dotnet tool install --global dotnet-ef
 
 ENV PATH="${PATH}:/root/.dotnet/tools"
 
-EXPOSE 80
+EXPOSE 8080
 
 # Start ASP.NET with hot reload, HTTP only
-CMD ["dotnet", "watch", "run", "--urls", "http://+:80"]
+CMD ["dotnet", "watch", "run", "--urls", "http://+:8080"]

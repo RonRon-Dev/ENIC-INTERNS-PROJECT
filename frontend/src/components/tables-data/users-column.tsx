@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
 import type {
   ColumnDef,
   ColumnFiltersState,
   SortingState,
-} from "@tanstack/react-table"
+} from "@tanstack/react-table";
 import {
   flexRender,
   getCoreRowModel,
@@ -14,7 +14,7 @@ import {
   getPaginationRowModel,
   getFacetedUniqueValues,
   getFacetedRowModel,
-} from "@tanstack/react-table"
+} from "@tanstack/react-table";
 import {
   Table,
   TableBody,
@@ -22,26 +22,29 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { useState } from "react"
-import { Badge } from "@/components/ui/badge"
-import { DataTablePagination } from "../data-table-components/data-table-pagination"
-import { DataTableToolbar } from "../data-table-components/data-table-toolbar"
-import { DataTableColumnHeader } from "../data-table-components/data-table-header"
-import { DataTableRowActions } from "../users/users-data-table-row-actions"
-import { type User } from '@/data/schema'
-export type { User }
-import { userTypes } from '@/data/const'
-import { type Roles } from '@/data/schema'
-import { type LucideIcon } from "lucide-react"
-import * as LucideIcons from "lucide-react"
+} from "@/components/ui/table";
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { DataTablePagination } from "../data-table-components/data-table-pagination";
+import { DataTableToolbar } from "../data-table-components/data-table-toolbar";
+import { DataTableColumnHeader } from "../data-table-components/data-table-header";
+import { DataTableRowActions } from "../users/users-data-table-row-actions";
+import { type User } from "@/data/schema";
+export type { User };
+import { userTypes } from "@/data/const";
+import { type Roles } from "@/data/schema";
+import { type LucideIcon } from "lucide-react";
+import * as LucideIcons from "lucide-react";
 
 function resolveIcon(iconName?: string): LucideIcon | null {
   if (!iconName) return null;
   const icon =
     LucideIcons[iconName as keyof typeof LucideIcons] ??
     LucideIcons[`${iconName}Icon` as keyof typeof LucideIcons];
-  if (typeof icon === "function" || (typeof icon === "object" && icon !== null)) {
+  if (
+    typeof icon === "function" ||
+    (typeof icon === "object" && icon !== null)
+  ) {
     return icon as LucideIcon;
   }
   return null;
@@ -51,88 +54,84 @@ const statusOptions = Array.from(userTypes, ([value, badge]) => ({
   value,
   label: value.charAt(0).toUpperCase() + value.slice(1),
   badge,
-})).filter(({ value }) => value !== 'pending')
+})).filter(({ value }) => value !== "pending");
 
 const includesArrayFilter = (row: any, id: string, value: string[]) => {
-  if (!value?.length) return true
-  return value.includes(row.getValue(id))
-}
+  if (!value?.length) return true;
+  return value.includes(row.getValue(id));
+};
 
 export function useColumns({ roles }: { roles: Roles[] }) {
   const roleOptions = roles.map((role) => ({
     label: role.name.charAt(0).toUpperCase() + role.name.slice(1),
     value: role.name.toLowerCase(),
-    icon: resolveIcon(role.icon),
-  }))
+    icon: resolveIcon(role.icon) ?? undefined, // ← add ?? undefined
+  }));
 
   const columns: ColumnDef<User>[] = [
     {
-      accessorKey: 'username',
+      accessorKey: "username",
       header: ({ column }) => (
         <div>
           <DataTableColumnHeader column={column} title="Username" />
         </div>
       ),
-      cell: ({ row }) => (
-        <div className="ml-1">{row.original.username}</div>
-      ),
+      cell: ({ row }) => <div className="ml-1">{row.original.username}</div>,
       enableHiding: false,
     },
     {
-      accessorKey: 'name',
-      header: 'Name',
+      accessorKey: "name",
+      header: "Name",
       enableHiding: false,
-      cell: ({ row }) => (
-        <div className="capitalize">{row.original.name}</div>
-      ),
+      cell: ({ row }) => <div className="capitalize">{row.original.name}</div>,
     },
     {
-      accessorKey: 'status',
-      header: 'Status',
+      accessorKey: "status",
+      header: "Status",
       filterFn: includesArrayFilter,
       cell: ({ row }) => {
-        const status = row.getValue('status') as string
-        const badge = userTypes.get(status as User['status'])
+        const status = row.getValue("status") as string;
+        const badge = userTypes.get(status as User["status"]);
 
         return (
-          <Badge variant="outline" className={badge + ' capitalize'}>
+          <Badge variant="outline" className={badge + " capitalize"}>
             {status}
           </Badge>
-        )
+        );
       },
     },
     {
-      accessorKey: 'role',
-      header: 'Role',
+      accessorKey: "role",
+      header: "Role",
       filterFn: includesArrayFilter,
       cell: ({ row }) => {
-        const roleName = row.getValue('role') as string
+        const roleName = row.getValue("role") as string;
         const option = roles.find(
-          (r) => r.name.toLowerCase() === roleName.toLowerCase()
-        )
-        const Icon = resolveIcon(option?.icon)
+          (r) => r.name.toLowerCase() === roleName.toLowerCase(),
+        );
+        const Icon = resolveIcon(option?.icon);
 
         return (
           <div className="flex items-center gap-1.5 border rounded-md px-2 py-1 w-max bg-muted">
             {Icon && <Icon className="size-3.5 text-muted-foreground" />}
             <span className="capitalize">{option?.name ?? roleName}</span>
           </div>
-        )
+        );
       },
     },
     {
-      id: 'actions',
+      id: "actions",
       cell: DataTableRowActions,
     },
-  ]
+  ];
 
-  return { columns, roleOptions }
+  return { columns, roleOptions };
 }
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  roleOptions: { label: string; value: string; icon: LucideIcon | null }[]
+  roleOptions: { label: string; value: string; icon?: LucideIcon }[] 
 }
 
 export function DataTable<TData, TValue>({
@@ -140,8 +139,8 @@ export function DataTable<TData, TValue>({
   data,
   roleOptions,
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   const table = useReactTable({
     data,
@@ -158,22 +157,22 @@ export function DataTable<TData, TValue>({
       sorting,
       columnFilters,
     },
-  })
+  });
 
   return (
     <div>
       <DataTableToolbar
         table={table}
-        searchPlaceholder='Search user table...'
+        searchPlaceholder="Search user table..."
         filters={[
           {
-            columnId: 'status',
-            title: 'Status',
+            columnId: "status",
+            title: "Status",
             options: statusOptions,
           },
           {
-            columnId: 'role',
-            title: 'Role',
+            columnId: "role",
+            title: "Role",
             options: roleOptions,
           },
         ]}
@@ -190,7 +189,7 @@ export function DataTable<TData, TValue>({
                       ? null
                       : flexRender(
                         header.column.columnDef.header,
-                        header.getContext()
+                        header.getContext(),
                       )}
                   </TableHead>
                 ))}
@@ -207,14 +206,20 @@ export function DataTable<TData, TValue>({
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
                   No results.
                 </TableCell>
               </TableRow>
@@ -224,5 +229,5 @@ export function DataTable<TData, TValue>({
       </div>
       <DataTablePagination table={table} />
     </div>
-  )
+  );
 }
