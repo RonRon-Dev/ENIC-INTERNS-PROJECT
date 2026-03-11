@@ -69,11 +69,11 @@ function flattenPages(): PageEntry[] {
   }
   return pages
 }
-
+const visibleRoles = roles.filter((r) => r.value !== "superadmin")
 const categories = buildCategories()
 const allPages = flattenPages()
 const initialPageRoles = Object.fromEntries(
-  allPages.map((p) => [p.url, p.allowedRoles.length === 0 ? roles.map((r) => r.value) : p.allowedRoles])
+  allPages.map((p) => [p.url, p.allowedRoles.length === 0 ? visibleRoles.map((r) => r.value) : p.allowedRoles])
 )
 
 const formSchema = z.object({
@@ -97,7 +97,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
   useEffect(() => {
     if (selected) {
       const resolved = selected.allowedRoles.length === 0
-        ? roles.map((r) => r.value)
+        ? visibleRoles.map((r) => r.value)
         : selected.allowedRoles
       form.reset({ allowedRoles: resolved })
     }
@@ -116,7 +116,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
   const isHomeUrl = (url: string) => url === '/home'
 
   const onSubmit = (data: PrivilegeForm) => {
-    const toSave = data.allowedRoles.length === roles.length ? [] : data.allowedRoles
+    const toSave = data.allowedRoles.length === visibleRoles.length ? [] : data.allowedRoles
     console.log('Save', selected?.url, toSave)
     form.reset({ allowedRoles: data.allowedRoles })
     notifToast({ name: selected?.title }, 'updateprivileges')
@@ -252,7 +252,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                             </FormLabel>
                             <FormControl>
                               <div className='space-y-2'>
-                                {roles.map(({ value, label, icon: Icon }) => {
+                                {visibleRoles.map(({ value, label, icon: Icon }) => {
                                   const checked = field.value.includes(value)
                                   return (
                                     <div
@@ -333,7 +333,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                         <TableHead className='sticky top-0 bg-background z-10 text-xs font-medium uppercase tracking-wide min-w-[160px]'>
                           Page
                         </TableHead>
-                        {roles.map(({ value, label, icon: Icon }) => (
+                        {visibleRoles.map(({ value, label, icon: Icon }) => (
                           <TableHead key={value} className='sticky top-0 bg-background z-10 text-center p-2'>
                             <div className='flex flex-col items-center gap-1'>
                               <Icon className='size-3.5 text-muted-foreground' />
@@ -361,7 +361,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                                   </span>
                                 </div>
                               </TableCell>
-                              {roles.map(({ value }) => {
+                              {visibleRoles.map(({ value }) => {
                                 const checked = (field.value ?? []).includes(value)
                                 const locked = isHomeUrl(page.url)
                                 return (
