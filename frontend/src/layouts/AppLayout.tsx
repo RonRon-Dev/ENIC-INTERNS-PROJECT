@@ -144,7 +144,7 @@ export default function AppLayout() {
             </header>
 
             {/* Page Content */}
-            <div className="flex flex-1 flex-col gap-4 px-40 py-10">
+            <div className="flex flex-1 flex-col gap-4 px-32 py-10">
               <Outlet />
             </div>
           </SidebarInset>
