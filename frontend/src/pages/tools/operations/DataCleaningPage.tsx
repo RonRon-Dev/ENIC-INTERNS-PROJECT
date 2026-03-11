@@ -22,6 +22,7 @@ import { ExportDialog } from "@/components/spreadsheet/ExportDialog";
 import { FilterDrawer } from "@/components/spreadsheet/FilterDrawer";
 import { HeaderPickerDialog } from "@/components/spreadsheet/HeaderPickerDialog";
 import { UploadZone } from "@/components/spreadsheet/UploadZone";
+import { useSidebar } from "@/components/ui/sidebar";
 
 const PAGE_SIZE = 50;
 
@@ -83,6 +84,7 @@ export default function DataCleaningPage() {
 
   const activeFilterCount =
     Object.keys(activeFilters).length + Object.keys(dateRangeFilters).length;
+  const { setOpen: setSidebarOpen } = useSidebar();
 
   return (
     <div className="flex flex-col flex-1 min-w-0 gap-4 rounded-xl border border-border bg-card p-6 h-full">
@@ -370,7 +372,7 @@ export default function DataCleaningPage() {
           commitWithHeaderRow(rowIndex, () => {
             setShowColDialog(true);
             setShowFilterPanel(false);
-            // setSidebarOpen(false);
+            setSidebarOpen(false);
           })
         }
         onClose={dismissHeaderPicker}
