@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ColumnDialog } from "@/components/spreadsheet/ColumnDialog";
-import { ConfirmDialog } from "@/components/spreadsheet/ConfirmDialog";
 import { DataTable } from "@/components/spreadsheet/DataTable";
 import { ExportDialog } from "@/components/spreadsheet/ExportDialog";
 import { FilterDrawer } from "@/components/spreadsheet/FilterDrawer";
@@ -411,28 +411,37 @@ export default function DataCleaningPage() {
 
       <ConfirmDialog
         open={showClearConfirm}
+        onOpenChange={(v) => !v && setShowClearConfirm(false)}
         title="Clear selection?"
-        description={`This will deselect all ${selectedCount} selected rows.`}
-        onConfirm={clearSelection}
-        onClose={() => setShowClearConfirm(false)}
+        desc={`This will deselect all ${selectedCount} selected rows.`}
+        handleConfirm={() => {
+          clearSelection();
+          setShowClearConfirm(false);
+        }}
+        destructive
       />
 
       <ConfirmDialog
         open={showReplaceConfirm}
+        onOpenChange={(v) => !v && setShowReplaceConfirm(false)}
         title="Replace file?"
-        description="This will clear all current data and selection. You'll be prompted to upload a new file."
-        onConfirm={resetData}
-        onClose={() => setShowReplaceConfirm(false)}
+        desc="This will clear all current data and selection. You'll be prompted to upload a new file."
+        handleConfirm={() => {
+          resetData();
+          setShowReplaceConfirm(false);
+        }}
+        destructive
       />
 
       {/* ── Navigation guard ── */}
       <ConfirmDialog
         open={showBlocker}
+        onOpenChange={(v) => !v && cancelLeave()}
         title="Leave page?"
-        description="You have unsaved data. Leaving will clear all imported rows and selections."
-        confirmLabel="Leave"
-        onConfirm={confirmLeave}
-        onClose={cancelLeave}
+        desc="You have unsaved data. Leaving will clear all imported rows and selections."
+        confirmText="Leave"
+        handleConfirm={confirmLeave}
+        destructive
       />
     </div>
   );
