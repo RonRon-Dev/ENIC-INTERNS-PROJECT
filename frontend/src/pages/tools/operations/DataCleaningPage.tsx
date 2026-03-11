@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useSpreadsheetData } from "@/hooks/useSpreadsheetData";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import {
   ChevronLeft,
   ChevronRight,
@@ -55,7 +56,6 @@ export default function DataCleaningPage() {
     totalPages,
     clampedPage,
     pagedRows,
-    // page,
     setPage,
     selectedIds,
     selectedCount,
@@ -69,6 +69,12 @@ export default function DataCleaningPage() {
     rowsReady,
     setRowsReady,
   } = useSpreadsheetData();
+
+  // ── Unsaved changes guard ──
+  const { showBlocker, confirmLeave, cancelLeave } = useUnsavedChanges(
+    hasData,
+    "You have unsaved data. Leaving will clear all imported rows and selections."
+  );
 
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [showColDialog, setShowColDialog] = useState(false);
@@ -267,8 +273,8 @@ export default function DataCleaningPage() {
                       {range.from && range.to
                         ? `${range.from} → ${range.to}`
                         : range.from
-                          ? `from ${range.from}`
-                          : `until ${range.to}`}
+                        ? `from ${range.from}`
+                        : `until ${range.to}`}
                     </span>
                     <button
                       className="ml-0.5 hover:text-primary/50"
@@ -420,6 +426,16 @@ export default function DataCleaningPage() {
         description="This will clear all current data and selection. You'll be prompted to upload a new file."
         onConfirm={resetData}
         onClose={() => setShowReplaceConfirm(false)}
+      />
+
+      {/* ── Navigation guard ── */}
+      <ConfirmDialog
+        open={showBlocker}
+        title="Leave page?"
+        description="You have unsaved data. Leaving will clear all imported rows and selections."
+        confirmLabel="Leave"
+        onConfirm={confirmLeave}
+        onClose={cancelLeave}
       />
     </div>
   );
