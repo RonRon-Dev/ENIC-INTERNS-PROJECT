@@ -1,12 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
-import { useSpreadsheetData } from "@/hooks/useSpreadsheetData";
+import { PAGE_SIZE, useSpreadsheetData } from "@/hooks/useSpreadsheetData";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import {
   ChevronLeft,
   ChevronRight,
   Columns3,
   Download,
   FileSpreadsheet,
+  Loader2,
   RefreshCw,
   Search,
   SlidersHorizontal,
@@ -15,15 +17,15 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ColumnDialog } from "@/components/spreadsheet/ColumnDialog";
-import { ConfirmDialog } from "@/components/spreadsheet/ConfirmDialog";
 import { DataTable } from "@/components/spreadsheet/DataTable";
 import { ExportDialog } from "@/components/spreadsheet/ExportDialog";
 import { FilterDrawer } from "@/components/spreadsheet/FilterDrawer";
 import { HeaderPickerDialog } from "@/components/spreadsheet/HeaderPickerDialog";
 import { UploadZone } from "@/components/spreadsheet/UploadZone";
 
-const PAGE_SIZE = 50;
+// const PAGE_SIZE = 15;
 
 export default function DataCleaningPage() {
   const { setOpen: setSidebarOpen } = useSidebar();
@@ -55,7 +57,6 @@ export default function DataCleaningPage() {
     totalPages,
     clampedPage,
     pagedRows,
-    page,
     setPage,
     selectedIds,
     selectedCount,
@@ -64,11 +65,18 @@ export default function DataCleaningPage() {
     clearSelection,
     allFilteredSelected,
     parseFile,
+    isExporting,
     handleExport,
     resetData,
     rowsReady,
     setRowsReady,
   } = useSpreadsheetData();
+
+  // ── Unsaved changes guard ──
+  const { showBlocker, confirmLeave, cancelLeave } = useUnsavedChanges(
+    hasData,
+    "You have unsaved data. Leaving will clear all imported rows and selections."
+  );
 
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [showColDialog, setShowColDialog] = useState(false);
@@ -88,7 +96,7 @@ export default function DataCleaningPage() {
             <h1 className="text-base font-semibold text-foreground">
               Spreadsheet Import Tool
             </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5 max-w-[350px] truncate">
               Import hospital data files, configure columns, and export selected
               rows
             </p>
@@ -98,11 +106,13 @@ export default function DataCleaningPage() {
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground">
                 <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" />
-                <span className="font-mono max-w-[140px] truncate">
+                <span className="font-mono max-w-[100px] truncate">
                   {fileName}
                 </span>
-                <span className="text-muted-foreground/40">·</span>
-                <span>{rows.length.toLocaleString()} rows</span>
+                <span className="text-muted-foreground/40 ">·</span>
+                <span className="max-w-[140px] truncate">
+                  {rows.length.toLocaleString()} rows
+                </span>
               </div>
 
               <div className="h-5 w-px bg-border" />
@@ -160,10 +170,16 @@ export default function DataCleaningPage() {
                 size="sm"
                 className="gap-1.5 text-xs h-8"
                 onClick={() => setShowExportDialog(true)}
-                disabled={selectedCount === 0}
+                disabled={selectedCount === 0 || isExporting}
               >
-                <Download className="h-3.5 w-3.5" />
-                Export{selectedCount > 0 ? ` ${selectedCount}` : ""}
+                {isExporting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                {isExporting
+                  ? "Exporting…"
+                  : `Export${selectedCount > 0 ? ` ${selectedCount}` : ""}`}
               </Button>
             </div>
           )}
@@ -404,22 +420,42 @@ export default function DataCleaningPage() {
         onExport={handleExport}
         columns={columns}
         selectedCount={selectedCount}
+        isExporting={isExporting}
       />
 
       <ConfirmDialog
         open={showClearConfirm}
+        onOpenChange={(v) => !v && setShowClearConfirm(false)}
         title="Clear selection?"
-        description={`This will deselect all ${selectedCount} selected rows.`}
-        onConfirm={clearSelection}
-        onClose={() => setShowClearConfirm(false)}
+        desc={`This will deselect all ${selectedCount} selected rows.`}
+        handleConfirm={() => {
+          clearSelection();
+          setShowClearConfirm(false);
+        }}
+        destructive
       />
 
       <ConfirmDialog
         open={showReplaceConfirm}
+        onOpenChange={(v) => !v && setShowReplaceConfirm(false)}
         title="Replace file?"
-        description="This will clear all current data and selection. You'll be prompted to upload a new file."
-        onConfirm={resetData}
-        onClose={() => setShowReplaceConfirm(false)}
+        desc="This will clear all current data and selection. You'll be prompted to upload a new file."
+        handleConfirm={() => {
+          resetData();
+          setShowReplaceConfirm(false);
+        }}
+        destructive
+      />
+
+      {/* ── Navigation guard ── */}
+      <ConfirmDialog
+        open={showBlocker}
+        onOpenChange={(v) => !v && cancelLeave()}
+        title="Leave page?"
+        desc="You have unsaved data. Leaving will clear all imported rows and selections."
+        confirmText="Leave"
+        handleConfirm={confirmLeave}
+        destructive
       />
     </div>
   );

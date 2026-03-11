@@ -68,7 +68,7 @@ export function UsersActionDialog({
   const { apiRoles, refresh } = useUsers()
   const [tempPassword, setTempPassword] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [resetKey, setResetKey] = useState(0)
 
@@ -78,7 +78,7 @@ export function UsersActionDialog({
       : { name: '', username: '', role: '', isEdit, isResetPassword: false }
     )
     setTempPassword(null)
-    setError(null)
+    // setError(null)
     setCopied(false)
     setCopiedCredentials(false)
     setIsSubmitting(false)
@@ -92,7 +92,7 @@ export function UsersActionDialog({
       ? { ...currentRow, isEdit, isResetPassword: false }
       : { name: '', username: '', role: '', isEdit, isResetPassword: false }
     )
-    setError(null)
+    // setError(null)
     setTempPassword(null)
     setCopied(false)
     setCopiedCredentials(false)
@@ -118,29 +118,35 @@ export function UsersActionDialog({
   const onSubmit = async (values: UserForm) => {
     if (isEdit) {
       setIsSubmitting(true)
-      setError(null)
+      // setError(null)
       try {
         const apiRole = apiRoles.find(r => r.name.toLowerCase() === values.role.toLowerCase())
-        if (!apiRole) { setError('Role not found.'); return }
+        if (!apiRole) {
+          // setError('Role not found.'); 
+          return
+        }
         await usersApi.assignRole(parseInt(currentRow!.id), apiRole.id)
         refresh()
         form.reset()
         onOpenChange(false)
         notifToast({ name: values.name, role: values.role }, 'edit')
       } catch (err: any) {
-        setError(err?.response?.data?.message ?? 'Failed to update user.')
-        toast.error('Failed to update user.')
+        // setError(err?.response?.data?.message ?? 'Failed to update user.')
+        notifToast({ reason: err?.response?.data?.message ?? 'Failed to update user.' }, 'error')
       } finally {
         setIsSubmitting(false)
       }
       return
     }
     setIsSubmitting(true)
-    setError(null)
+    // setError(null)
     try {
       NProgress.start();
       const apiRole = apiRoles.find(r => r.name.toLowerCase() === values.role.toLowerCase())
-      if (!apiRole) { setError('Role not found. Please try again.'); return }
+      if (!apiRole) {
+        // setError('Role not found. Please try again.');
+        return
+      }
       const res = await usersApi.createUser({
         name: values.name,
         userName: values.username,
@@ -150,8 +156,8 @@ export function UsersActionDialog({
       notifToast({ name: values.name, role: values.role }, 'create')
       refresh()
     } catch (err: any) {
-      setError(err?.response?.data?.errors?.UserName?.[0] ?? 'Failed to create user.')
-      toast.error('Failed to create user.')
+      // setError(err?.response?.data?.errors?.UserName?.[0] ?? 'Failed to create user.')
+      notifToast({ reason: err?.response?.data?.errors?.UserName?.[0] ?? 'Failed to create user.' }, 'error')
     } finally {
       NProgress.done();
       setIsSubmitting(false)
@@ -221,7 +227,8 @@ export function UsersActionDialog({
                 >
                   {copiedCredentials
                     ? <Check className='h-4 w-4 text-green-600' />
-                    : <Copy className='h-4 w-4 text-muted-foreground' />}
+                    : <Copy className='h-4 w-4 text-muted-foreground' />
+                  }
                 </button>
                 <div className='flex flex-col items-center'>
                   <span className='text-muted-foreground'>Username</span>
@@ -278,7 +285,7 @@ export function UsersActionDialog({
                             // readOnly={isEdit}
                             {...field}
                             onChange={(e) => {
-                              if (isEdit) return
+                              // if (isEdit) return
                               field.onChange(e.target.value.replace(/\s/g, '').toLowerCase())
                             }}
                           />
@@ -321,13 +328,13 @@ export function UsersActionDialog({
               </form>
             </Form>
           )}
-          {error && (
+          {/* {error && (
             <div className='w-full flex justify-center'>
               <Alert variant='destructive' className='w-[80%] text-center mt-2'>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             </div>
-          )}
+          )} */}
         </div>
         <DialogFooter>
 
@@ -722,7 +729,7 @@ export function UsersApproveResetDialog({
       const res = await usersApi.approveResetPassword(currentRow.username)
       setTempPassword(res.data.temporaryPassword)
       refresh()
-      notifToast({ username: currentRow.username, tempPassword: res.data.temporaryPassword }, 'approve')
+      notifToast({ name: currentRow.username }, 'approveReset')
     } catch (err: any) {
       toast.error('Failed to approve password reset.')
       setErrorMsg(err?.response?.data?.message ?? 'Failed to approve reset.')

@@ -17,13 +17,13 @@
 //   EXPORT_ERROR { message: string }
 //   ERROR    { message: string }
 
-import * as XLSX from "xlsx";
 import JSZip from "jszip";
+import * as XLSX from "xlsx";
 
 declare const self: Worker;
 
 // ── Internal state ────────────────────────────────────────────────────────────
-let allRows: Record<string, unknown>[] = [];   // full dataset, never leaves worker
+let allRows: Record<string, unknown>[] = []; // full dataset, never leaves worker
 let columns: string[] = [];
 let selectedIds = new Set<number>();
 let storedWorksheet: XLSX.WorkSheet | null = null;
@@ -36,7 +36,8 @@ const DATE_RE = /^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
 function parseDate(val: string): Date | null {
   if (!DATE_RE.test(val.trim())) return null;
   const parts = val.trim().split("/");
-  const m = parseInt(parts[0]), d = parseInt(parts[1]);
+  const m = parseInt(parts[0]),
+    d = parseInt(parts[1]);
   let y = parseInt(parts[2]);
   if (y < 100) y += y < 50 ? 2000 : 1900;
   const dt = new Date(y, m - 1, d);
@@ -61,14 +62,22 @@ function runQuery(msg: {
   let result = allRows;
 
   // Value filters
-  const filterEntries = Object.entries(msg.filters).filter(([, vals]) => vals.length > 0);
+  const filterEntries = Object.entries(msg.filters).filter(
+    ([, vals]) => vals.length > 0
+  );
   if (filterEntries.length > 0) {
-    const sets = filterEntries.map(([col, vals]) => [col, new Set(vals)] as const);
-    result = result.filter((row) => sets.every(([col, s]) => s.has(String(row[col] ?? ""))));
+    const sets = filterEntries.map(
+      ([col, vals]) => [col, new Set(vals)] as const
+    );
+    result = result.filter((row) =>
+      sets.every(([col, s]) => s.has(String(row[col] ?? "")))
+    );
   }
 
   // Date range filters
-  const dateEntries = Object.entries(msg.dateFilters).filter(([, r]) => r.from || r.to);
+  const dateEntries = Object.entries(msg.dateFilters).filter(
+    ([, r]) => r.from || r.to
+  );
   if (dateEntries.length > 0) {
     result = result.filter((row) =>
       dateEntries.every(([col, range]) => {
@@ -87,7 +96,11 @@ function runQuery(msg: {
   if (msg.search.trim()) {
     const q = msg.search.toLowerCase();
     result = result.filter((row) =>
-      columns.some((col) => String(row[col] ?? "").toLowerCase().includes(q))
+      columns.some((col) =>
+        String(row[col] ?? "")
+          .toLowerCase()
+          .includes(q)
+      )
     );
   }
 
@@ -96,8 +109,10 @@ function runQuery(msg: {
     const col = msg.sort.col;
     const dir = msg.sort.dir === "asc" ? 1 : -1;
     result = [...result].sort((a, b) => {
-      const av = String(a[col] ?? ""), bv = String(b[col] ?? "");
-      const an = parseFloat(av), bn = parseFloat(bv);
+      const av = String(a[col] ?? ""),
+        bv = String(b[col] ?? "");
+      const an = parseFloat(av),
+        bn = parseFloat(bv);
       if (!isNaN(an) && !isNaN(bn)) return (an - bn) * dir;
       return av.localeCompare(bv) * dir;
     });
@@ -111,9 +126,11 @@ function runQuery(msg: {
   // Selection stats against filtered set
   const allFilteredIds = result.map((r) => (r as { __id: number }).__id);
   const selectedFilteredCount = allFilteredIds.reduce(
-    (acc, id) => acc + (selectedIds.has(id) ? 1 : 0), 0
+    (acc, id) => acc + (selectedIds.has(id) ? 1 : 0),
+    0
   );
-  const allFilteredSelected = allFilteredIds.length > 0 &&
+  const allFilteredSelected =
+    allFilteredIds.length > 0 &&
     selectedFilteredCount === allFilteredIds.length;
 
   return {
@@ -130,19 +147,32 @@ function runQuery(msg: {
 
 // ── Export helpers ────────────────────────────────────────────────────────────
 function getRawXml(row: Record<string, unknown>): string {
-  return Object.values(row).map((v) => String(v ?? "").trim()).filter(Boolean).join("\n");
+  return Object.values(row)
+    .map((v) => String(v ?? "").trim())
+    .filter(Boolean)
+    .join("\n");
 }
 
 function buildFileBytes(
   data: Record<string, unknown>[],
   format: string
-): Uint8Array | string {
+): Uint8Array<ArrayBuffer> | string {
   if (format === "xml") return data.map(getRawXml).join("\n");
   const ws = XLSX.utils.json_to_sheet(data);
   if (format === "xlsx") {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Export");
-    return XLSX.write(wb, { bookType: "xlsx", type: "array" }) as Uint8Array;
+    const raw = XLSX.write(wb, {
+      bookType: "xlsx",
+      type: "array",
+    }) as Uint8Array;
+    // Copy to guarantee a plain ArrayBuffer (not SharedArrayBuffer)
+    return new Uint8Array(
+      raw.buffer.slice(
+        raw.byteOffset,
+        raw.byteOffset + raw.byteLength
+      ) as ArrayBuffer
+    );
   }
   const delim = format === "tsv" ? "\t" : ",";
   return XLSX.utils.sheet_to_csv(ws, { FS: delim });
@@ -171,7 +201,9 @@ self.onmessage = async (e: MessageEvent) => {
       storedWorksheet = workbook.Sheets[workbook.SheetNames[0]];
 
       const preview = XLSX.utils.sheet_to_json<string[]>(storedWorksheet, {
-        header: 1, defval: "", raw: false,
+        header: 1,
+        defval: "",
+        raw: false,
         range: { s: { r: 0, c: 0 }, e: { r: 19, c: 999 } },
       }) as string[][];
 
@@ -180,16 +212,24 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({ type: "ERROR", message: String(err) });
     }
 
-  // ── COMMIT ──
+    // ── COMMIT ──
   } else if (msg.type === "COMMIT") {
     if (!storedWorksheet) {
-      self.postMessage({ type: "ERROR", message: "No worksheet — please re-upload." });
+      self.postMessage({
+        type: "ERROR",
+        message: "No worksheet — please re-upload.",
+      });
       return;
     }
     try {
-      const rawRows = XLSX.utils.sheet_to_json<(string | number | boolean | null)[]>(
-        storedWorksheet, { header: 1, defval: "", raw: true }
-      ) as (string | number | boolean | null)[][];
+      const rawRows = XLSX.utils.sheet_to_json<
+        (string | number | boolean | null)[]
+      >(storedWorksheet, { header: 1, defval: "", raw: true }) as (
+        | string
+        | number
+        | boolean
+        | null
+      )[][];
 
       storedWorksheet = null;
 
@@ -211,7 +251,8 @@ self.onmessage = async (e: MessageEvent) => {
         const r = dataRows[i];
         if (!r.some((c) => c !== null && c !== "")) continue;
         const obj: Record<string, unknown> = { __id: count };
-        for (let ci = 0; ci < columns.length; ci++) obj[columns[ci]] = r[ci] ?? "";
+        for (let ci = 0; ci < columns.length; ci++)
+          obj[columns[ci]] = r[ci] ?? "";
         allRows[count++] = obj;
       }
       allRows.length = count;
@@ -222,12 +263,12 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({ type: "ERROR", message: String(err) });
     }
 
-  // ── QUERY ──
+    // ── QUERY ──
   } else if (msg.type === "QUERY") {
     const result = runQuery(msg);
     self.postMessage({ type: "RESULT", ...result });
 
-  // ── SELECT ──
+    // ── SELECT ──
   } else if (msg.type === "SELECT") {
     if (msg.mode === "toggle" && msg.id !== undefined) {
       if (selectedIds.has(msg.id)) selectedIds.delete(msg.id);
@@ -249,14 +290,16 @@ self.onmessage = async (e: MessageEvent) => {
     }
     self.postMessage({ type: "SELECTION", selectedCount: selectedIds.size });
 
-  // ── EXPORT ──
+    // ── EXPORT ──
   } else if (msg.type === "EXPORT") {
     try {
       const config = msg.config;
-      const selectedIdSet = selectedIds;   // use worker's own set — never sent from main thread
+      const selectedIdSet = selectedIds; // use worker's own set — never sent from main thread
       const visibleCols: string[] = msg.visibleCols;
 
-      let exportRows = allRows.filter((r) => selectedIdSet.has((r as { __id: number }).__id));
+      let exportRows = allRows.filter((r) =>
+        selectedIdSet.has((r as { __id: number }).__id)
+      );
 
       // Project to visible columns only
       const project = (r: Record<string, unknown>) =>
@@ -268,7 +311,10 @@ self.onmessage = async (e: MessageEvent) => {
         return !val || /^(null|undefined|n\/a|-)$/i.test(val);
       };
 
-      if ((config.mode === "per-row" || config.mode === "folder") && config.skipNullNames) {
+      if (
+        (config.mode === "per-row" || config.mode === "folder") &&
+        config.skipNullNames
+      ) {
         exportRows = exportRows.filter((r) => !isNullName(r));
       }
 
@@ -277,9 +323,14 @@ self.onmessage = async (e: MessageEvent) => {
       if (config.mode === "single") {
         const projected = exportRows.map(project);
         const bytes = buildFileBytes(projected, config.format);
-        const blob = config.format === "xlsx"
-          ? new Blob([bytes as Uint8Array], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
-          : new Blob([bytes as string], { type: "text/plain" });
+        const blobData =
+          typeof bytes === "string" ? bytes : (bytes.buffer as ArrayBuffer);
+        const blob =
+          config.format === "xlsx"
+            ? new Blob([blobData], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              })
+            : new Blob([blobData], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
         self.postMessage({
           type: "EXPORT_DONE",
@@ -288,19 +339,28 @@ self.onmessage = async (e: MessageEvent) => {
           fileName: `${config.fileName || "export"}.${config.format}`,
           description: `${exportRows.length} rows saved`,
         });
-
-      } else if (config.mode === "per-row" && exportRows.length > ZIP_THRESHOLD) {
+      } else if (
+        config.mode === "per-row" &&
+        exportRows.length > ZIP_THRESHOLD
+      ) {
         const zip = new JSZip();
         const usedNames = new Map<string, number>();
 
         for (let i = 0; i < exportRows.length; i++) {
           const row = exportRows[i];
-          const safeName = resolveName(row, config.fileNameCol, `row_${i + 1}`)
-            .replace(/[/:*?"<>|]/g, "_");
+          const safeName = resolveName(
+            row,
+            config.fileNameCol,
+            `row_${i + 1}`
+          ).replace(/[/:*?"<>|]/g, "_");
           const count = usedNames.get(safeName) ?? 0;
           usedNames.set(safeName, count + 1);
-          const uniqueName = count === 0 ? safeName : `${safeName}_${count + 1}`;
-          zip.file(`${uniqueName}.${config.format}`, buildFileBytes([project(row)], config.format));
+          const uniqueName =
+            count === 0 ? safeName : `${safeName}_${count + 1}`;
+          zip.file(
+            `${uniqueName}.${config.format}`,
+            buildFileBytes([project(row)], config.format)
+          );
         }
 
         const zipBlob = await zip.generateAsync({ type: "blob" });
@@ -313,7 +373,6 @@ self.onmessage = async (e: MessageEvent) => {
           fileName: `${config.zipFileName || "export"}.zip`,
           description: `${exportRows.length} files zipped${skipMsg}`,
         });
-
       } else if (config.mode === "folder") {
         // Worker builds all file bytes; main thread writes them via File System Access API.
         const usedNames = new Map<string, number>();
@@ -321,39 +380,59 @@ self.onmessage = async (e: MessageEvent) => {
 
         for (let i = 0; i < exportRows.length; i++) {
           const row = exportRows[i];
-          const safeName = resolveName(row, config.fileNameCol, `row_${i + 1}`)
-            .replace(/[/:*?"<>|]/g, "_");
+          const safeName = resolveName(
+            row,
+            config.fileNameCol,
+            `row_${i + 1}`
+          ).replace(/[/:*?"<>|]/g, "_");
           const cnt = usedNames.get(safeName) ?? 0;
           usedNames.set(safeName, cnt + 1);
           const uniqueName = cnt === 0 ? safeName : `${safeName}_${cnt + 1}`;
           const raw = buildFileBytes([project(row)], config.format);
-          const ab = typeof raw === "string"
-            ? new TextEncoder().encode(raw).buffer
-            : (raw as Uint8Array).buffer.slice(0); // copy to own buffer
-          fileList.push({ fileName: `${uniqueName}.${config.format}`, bytes: ab });
+          const ab =
+            typeof raw === "string"
+              ? (new TextEncoder().encode(raw).buffer as ArrayBuffer)
+              : (raw.buffer.slice(
+                  raw.byteOffset,
+                  raw.byteOffset + raw.byteLength
+                ) as ArrayBuffer);
+          fileList.push({
+            fileName: `${uniqueName}.${config.format}`,
+            bytes: ab,
+          });
         }
 
         const transferables = fileList.map((f) => f.bytes);
         const skipMsg = skippedCount > 0 ? ` · ${skippedCount} skipped` : "";
         self.postMessage(
-          { type: "EXPORT_FOLDER_FILES", files: fileList, description: `${fileList.length} files ready${skipMsg}` },
+          {
+            type: "EXPORT_FOLDER_FILES",
+            files: fileList,
+            description: `${fileList.length} files ready${skipMsg}`,
+          },
           transferables
         );
-
       } else {
         const files: { url: string; fileName: string }[] = [];
         const usedNames = new Map<string, number>();
 
         for (let i = 0; i < exportRows.length; i++) {
           const row = exportRows[i];
-          const safeName = resolveName(row, config.fileNameCol, `row_${i + 1}`)
-            .replace(/[/:*?"<>|]/g, "_");
+          const safeName = resolveName(
+            row,
+            config.fileNameCol,
+            `row_${i + 1}`
+          ).replace(/[/:*?"<>|]/g, "_");
           const count = usedNames.get(safeName) ?? 0;
           usedNames.set(safeName, count + 1);
-          const uniqueName = count === 0 ? safeName : `${safeName}_${count + 1}`;
+          const uniqueName =
+            count === 0 ? safeName : `${safeName}_${count + 1}`;
           const bytes = buildFileBytes([project(row)], config.format);
           const blob = new Blob([bytes], { type: "text/plain" });
-          files.push({ url: URL.createObjectURL(blob), fileName: `${uniqueName}.${config.format}` });
+          files.push({
+            url: URL.createObjectURL(blob),
+            fileName: `${uniqueName}.${config.format}`,
+          });
         }
 
         const skipMsg = skippedCount > 0 ? ` · ${skippedCount} skipped` : "";
@@ -368,7 +447,7 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({ type: "EXPORT_ERROR", message: String(err) });
     }
 
-  // ── RESET ──
+    // ── RESET ──
   } else if (msg.type === "RESET") {
     allRows = [];
     columns = [];
