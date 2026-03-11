@@ -57,7 +57,7 @@ const modeConfig: Record<
     description: ({ name, role }) =>
       `${name}'s request has been granted ${role}.`,
     icon: UserCheck,
-    iconClass: "text-green-600 bg-green-300",
+    iconClass: "text-success bg-success/10",
   },
   reject: {
     title: "User Rejected",
@@ -69,7 +69,7 @@ const modeConfig: Record<
     title: "User Activated",
     description: ({ name, role }) => `${role} ${name} has been reactivated.`,
     icon: ShieldCheck,
-    iconClass: "text-green-600 bg-green-300",
+    iconClass: "text-success bg-success/10",
   },
   deactivate: {
     title: "User Deactivated",
@@ -82,7 +82,7 @@ const modeConfig: Record<
     description: ({ name }) =>
       `${name} has been added as a role to the system.`,
     icon: ShieldCheck,
-    iconClass: "text-green-600 bg-green-300",
+    iconClass: "text-success bg-success/10",
   },
   appsettings: {
     title: "Settings Updated",
@@ -113,7 +113,7 @@ const modeConfig: Record<
     description: ({ name, tempPassword }) =>
       `${name}'s password reset request has been approved. Temporary password: ${tempPassword}`,
     icon: UserCheck,
-    iconClass: "text-green-600 bg-green-300",
+    iconClass: "text-success bg-success/10",
   },
 };
 

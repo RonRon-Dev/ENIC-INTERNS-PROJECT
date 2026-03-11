@@ -239,7 +239,7 @@ export function UsersActionDialog({
                   <span className='font-mono font-bold tracking-widest'>{tempPassword}</span>
                 </div>
               </div>
-              <Alert className='border-green-600 text-green-600 bg-green-500/10'>
+              <Alert className='text-success border-success bg-success/10'>
                 <UserCheck className='h-5 w-5 stroke-green-600 flex items-center' />
                 <AlertTitle className='font-bold'>User Created Successfully</AlertTitle>
                 <AlertDescription className='text-green-600' >
