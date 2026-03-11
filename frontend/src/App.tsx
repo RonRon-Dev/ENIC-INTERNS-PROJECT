@@ -5,6 +5,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { DialogProvider } from "@/components/dialogs/dialog-provider";
 import { Dialogs } from "@/components/dialogs/dialogs";
 import { SessionExpiredDialog } from "./components/dialogs/session-expired-dialog";
+import { PagePrivilegesProvider } from "@/hooks/use-page-privileges";
 
 export default function App() {
   const isMobile = useIsMobile();
@@ -25,11 +26,13 @@ export default function App() {
 
   return (
     <AuthProvider>
-       <SessionExpiredDialog/>
-      <DialogProvider>
-        <AppRoutes />
-        <Dialogs />
-      </DialogProvider>
+      <PagePrivilegesProvider>
+        <SessionExpiredDialog/>
+        <DialogProvider>
+          <AppRoutes />
+          <Dialogs />
+        </DialogProvider>
+      </PagePrivilegesProvider>
     </AuthProvider>
   );
 }

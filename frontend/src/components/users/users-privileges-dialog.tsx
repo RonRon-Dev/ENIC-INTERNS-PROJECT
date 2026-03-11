@@ -10,15 +10,17 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { roles } from '@/data/const'
 import { toolsData } from '@/data/tools'
+import { usePagePrivileges } from '@/hooks/use-page-privileges'
 import { notifToast } from '@/lib/notifToast'
 import { cn } from '@/lib/utils'
+import { pagePrivilegesApi } from '@/services/pagePrivileges'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Check, ChevronDown, ChevronRight, Minus, ShieldCheck } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Check, ChevronDown, ChevronRight, Code, Cpu, FileText, Megaphone, Minus, Settings, Shield, ShieldCheck, User, UserCheck, Users } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
+import { useUsers } from './users-provider'
 
 type Props = {
   open: boolean
@@ -72,9 +74,16 @@ function flattenPages(): PageEntry[] {
 
 const categories = buildCategories()
 const allPages = flattenPages()
-const initialPageRoles = Object.fromEntries(
-  allPages.map((p) => [p.url, p.allowedRoles.length === 0 ? roles.map((r) => r.value) : p.allowedRoles])
-)
+
+const iconComponents = {
+  user: User, shield: Shield, shieldcheck: ShieldCheck, usercheck: UserCheck,
+  code: Code, settings: Settings, megaphone: Megaphone, users: Users,
+  filetext: FileText, cpu: Cpu,
+}
+function getRoleIcon(iconName?: string) {
+  if (!iconName) return User
+  return iconComponents[iconName.toLowerCase() as keyof typeof iconComponents] ?? User
+}
 
 const formSchema = z.object({
   allowedRoles: z.array(z.string()),
@@ -83,26 +92,62 @@ const formSchema = z.object({
 type PrivilegeForm = z.infer<typeof formSchema>
 
 export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
+  const { privileges, refresh } = usePagePrivileges()
+  const { apiRoles } = useUsers()
+
   const [selected, setSelected] = useState<PageEntry | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [saving, setSaving] = useState(false)
+  const [savingMatrix, setSavingMatrix] = useState(false)
 
   const isHome = selected?.url === '/home'
   const homeEntry = categories.find((c) => c.url === '/home')
+
+  // Returns lowercase role values for a URL — DB wins, falls back to toolsData
+  const getPrivilegesForUrl = useCallback((url: string): string[] => {
+    // Home is always open to all roles — never restrict it regardless of DB state
+    if (isHomeUrl(url)) return apiRoles.map((r) => r.name.toLowerCase())
+    const dbEntry = privileges[url]
+    if (dbEntry !== undefined) {
+      return dbEntry.length === 0 ? apiRoles.map((r) => r.name.toLowerCase()) : dbEntry
+    }
+    const page = allPages.find((p) => p.url === url)
+    const fallback = page?.allowedRoles ?? []
+    return fallback.length === 0 ? apiRoles.map((r) => r.name.toLowerCase()) : fallback
+  }, [privileges, apiRoles])
+
+  // Maps role display values (lowercase) to API role IDs
+  const toRoleIds = useCallback((values: string[]): number[] => {
+    return values
+      .map((v) => apiRoles.find((r) => r.name.toLowerCase() === v.toLowerCase())?.id)
+      .filter((id): id is number => id !== undefined)
+  }, [apiRoles])
 
   const form = useForm<PrivilegeForm>({
     resolver: zodResolver(formSchema),
     defaultValues: { allowedRoles: [] },
   })
 
+  const matrixForm = useForm<{ pageRoles: Record<string, string[]> }>({
+    defaultValues: { pageRoles: {} },
+  })
+
+  const isMatrixDirty = matrixForm.formState.isDirty
+
+  // Sync matrix form whenever DB privileges change
+  useEffect(() => {
+    const map = Object.fromEntries(allPages.map((p) => [p.url, getPrivilegesForUrl(p.url)]))
+    matrixForm.reset({ pageRoles: map })
+  }, [privileges, getPrivilegesForUrl])
+
+  // Sync By-Page form when selected page changes
   useEffect(() => {
     if (selected) {
-      const resolved = selected.allowedRoles.length === 0
-        ? roles.map((r) => r.value)
-        : selected.allowedRoles
-      form.reset({ allowedRoles: resolved })
+      form.reset({ allowedRoles: getPrivilegesForUrl(selected.url) })
     }
-  }, [selected])
+  }, [selected, getPrivilegesForUrl])
 
+  // Select home on dialog open
   useEffect(() => {
     if (open && homeEntry) {
       setSelected({ title: homeEntry.title, url: homeEntry.url!, allowedRoles: homeEntry.allowedRoles })
@@ -115,24 +160,40 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
 
   const isHomeUrl = (url: string) => url === '/home'
 
-  const onSubmit = (data: PrivilegeForm) => {
-    const toSave = data.allowedRoles.length === roles.length ? [] : data.allowedRoles
-    console.log('Save', selected?.url, toSave)
-    form.reset({ allowedRoles: data.allowedRoles })
-    notifToast({ name: selected?.title }, 'updateprivileges')
+  const onSubmit = async (data: PrivilegeForm) => {
+    if (!selected) return
+    const toSave = apiRoles.length > 0 && data.allowedRoles.length === apiRoles.length ? [] : data.allowedRoles
+    const roleIds = toRoleIds(toSave)
+    try {
+      setSaving(true)
+      await pagePrivilegesApi.update(selected.url, roleIds)
+      form.reset({ allowedRoles: data.allowedRoles })
+      await refresh()
+      notifToast({ name: selected.title }, 'updateprivileges')
+    } catch {
+      notifToast({ reason: 'Failed to update privileges. Please try again.' }, 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
-
-  const matrixForm = useForm<{ pageRoles: Record<string, string[]> }>({
-    defaultValues: { pageRoles: { ...initialPageRoles } },
-  })
-
-  const isMatrixDirty = matrixForm.formState.isDirty
-
-  const onMatrixSubmit = (data: { pageRoles: Record<string, string[]> }) => {
-    console.log('Save matrix', data.pageRoles)
-    matrixForm.reset(data) // resets dirty state with new values as baseline
-    notifToast({ name: 'Page Matrix' }, 'updateprivileges')
+  const onMatrixSubmit = async (data: { pageRoles: Record<string, string[]> }) => {
+    try {
+      setSavingMatrix(true)
+      await Promise.all(
+        Object.entries(data.pageRoles).map(([url, vals]) => {
+          const toSave = apiRoles.length > 0 && vals.length === apiRoles.length ? [] : vals
+          return pagePrivilegesApi.update(url, toRoleIds(toSave))
+        })
+      )
+      matrixForm.reset(data)
+      await refresh()
+      notifToast({ name: 'Page Matrix' }, 'updateprivileges')
+    } catch {
+      notifToast({ reason: 'Failed to update privileges. Please try again.' }, 'error')
+    } finally {
+      setSavingMatrix(false)
+    }
   }
 
   return (
@@ -144,7 +205,8 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
           setSelected(null)
           setExpanded({})
           form.reset()
-          matrixForm.reset({ pageRoles: { ...initialPageRoles } })
+          const map = Object.fromEntries(allPages.map((p) => [p.url, getPrivilegesForUrl(p.url)]))
+          matrixForm.reset({ pageRoles: map })
         }
       }}
     >
@@ -253,7 +315,9 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                             </FormLabel>
                             <FormControl>
                               <div className='space-y-2'>
-                                {roles.map(({ value, label, icon: Icon }) => {
+                                {apiRoles.map((role) => {
+                                  const value = role.name.toLowerCase()
+                                  const Icon = getRoleIcon(role.icon)
                                   const checked = field.value.includes(value)
                                   return (
                                     <div
@@ -281,7 +345,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                                       </div>
                                       <Icon className={cn('size-3.5', checked && !isHome ? 'text-foreground' : 'text-muted-foreground/40')} />
                                       <span className={cn('capitalize', checked && !isHome ? 'text-foreground' : 'text-muted-foreground/40')}>
-                                        {label}
+                                        {role.name}
                                       </span>
                                     </div>
                                   )
@@ -300,12 +364,12 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                           size='sm'
                           variant='outline'
                           className='flex-1'
-                          onClick={() => form.reset({ allowedRoles: selected.allowedRoles })}
+                          onClick={() => form.reset({ allowedRoles: getPrivilegesForUrl(selected!.url) })}
                         >
                           Reset
                         </Button>
-                        <Button type='submit' size='sm' className='flex-1'>
-                          Save
+                        <Button type='submit' size='sm' className='flex-1' disabled={saving}>
+                          {saving ? 'Saving…' : 'Save'}
                         </Button>
                       </div>
                     )}
@@ -334,14 +398,17 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                         <TableHead className='sticky top-0 bg-background z-10 text-xs font-medium uppercase tracking-wide min-w-[160px]'>
                           Page
                         </TableHead>
-                        {roles.map(({ value, label, icon: Icon }) => (
-                          <TableHead key={value} className='sticky top-0 bg-background z-10 text-center p-2'>
-                            <div className='flex flex-col items-center gap-1'>
-                              <Icon className='size-3.5 text-muted-foreground' />
-                              <span className='text-xs font-medium text-muted-foreground capitalize whitespace-nowrap'>{label}</span>
-                            </div>
-                          </TableHead>
-                        ))}
+                        {apiRoles.map((role) => {
+                          const Icon = getRoleIcon(role.icon)
+                          return (
+                            <TableHead key={role.name.toLowerCase()} className='sticky top-0 bg-background z-10 text-center p-2'>
+                              <div className='flex flex-col items-center gap-1'>
+                                <Icon className='size-3.5 text-muted-foreground' />
+                                <span className='text-xs font-medium text-muted-foreground capitalize whitespace-nowrap'>{role.name}</span>
+                              </div>
+                            </TableHead>
+                          )
+                        })}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -362,7 +429,8 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                                   </span>
                                 </div>
                               </TableCell>
-                              {roles.map(({ value }) => {
+                              {apiRoles.map((role) => {
+                                const value = role.name.toLowerCase()
                                 const checked = (field.value ?? []).includes(value)
                                 const locked = isHomeUrl(page.url)
                                 return (
@@ -405,12 +473,15 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                       size='sm'
                       variant='outline'
                       className='flex-1'
-                      onClick={() => matrixForm.reset({ pageRoles: { ...initialPageRoles } })}
+                      onClick={() => {
+                        const map = Object.fromEntries(allPages.map((p) => [p.url, getPrivilegesForUrl(p.url)]))
+                        matrixForm.reset({ pageRoles: map })
+                      }}
                     >
                       Reset
                     </Button>
-                    <Button type='submit' form='matrix-form' size='sm' className='flex-1'>
-                      Save
+                    <Button type='submit' form='matrix-form' size='sm' className='flex-1' disabled={savingMatrix}>
+                      {savingMatrix ? 'Saving…' : 'Save'}
                     </Button>
                   </div>
                 )}

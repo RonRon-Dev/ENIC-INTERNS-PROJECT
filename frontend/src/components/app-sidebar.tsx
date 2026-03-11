@@ -13,6 +13,7 @@ import {
 import type { UserRole } from "@/data/schema";
 import { buildNavGroups } from "@/data/sidebar";
 import { users } from "@/data/users";
+import { usePagePrivileges } from "@/hooks/use-page-privileges";
 import { Atom } from "lucide-react";
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -20,6 +21,7 @@ import { useEffect, useMemo, useState } from "react";
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [pendingCount, setPendingCount] = useState(0);
   const { user } = useAuth();
+  const { privileges } = usePagePrivileges();
 
   // Fetch pending user badge count
   useEffect(() => {
@@ -29,10 +31,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     });
   }, []);
 
-  // Build nav groups filtered by the live user role
+  // Build nav groups filtered by the live user role AND DB privileges
   const filteredNavGroups = useMemo(() => {
     const role = user?.roleName?.toLowerCase() as UserRole | undefined;
-    const groups = buildNavGroups(role);
+    const groups = buildNavGroups(role, privileges);
 
     // Inject pending badge on /users item
     return groups.map((group) => ({
@@ -44,7 +46,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         return item;
       }),
     }));
-  }, [user?.roleName, pendingCount]);
+  }, [user?.roleName, pendingCount, privileges]);
 
   return (
     <Sidebar variant="inset" {...props}>
