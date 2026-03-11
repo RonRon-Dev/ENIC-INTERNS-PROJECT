@@ -180,17 +180,113 @@ public class AuthService(
             };
         }
 
+        if (user.RequiresAdminReset)
+        {
+            return new AuthResponse
+            {
+                Success = false,
+                Message = "Too many failed attempts. Contact administrator to reset your account.",
+                AccessToken = null!,
+                RefreshToken = null!,
+                ForcePasswordChange = true
+            };
+        }
+
+        if (user.LockoutEndUtc.HasValue && DateTime.UtcNow < user.LockoutEndUtc.Value)
+        {
+            var remaining = (int)Math.Ceiling((user.LockoutEndUtc.Value - DateTime.UtcNow).TotalMinutes);
+
+            return new AuthResponse
+            {
+                Success = false,
+                Message = $"Account locked. Try again in {remaining} minute(s).",
+                AccessToken = null!,
+                RefreshToken = null!,
+                ForcePasswordChange = false
+            };
+        }
+
+        // Lockout expired: clear lock time but keep attempt count
+        if (user.LockoutEndUtc.HasValue && DateTime.UtcNow >= user.LockoutEndUtc.Value)
+        {
+            user.LockoutEndUtc = null;
+            await context.SaveChangesAsync();
+        }
+
         var isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
 
         if (!isPasswordValid)
         {
-            await logger.LogAuthenticationAsync(
-                  user.Id,
-                  user.UserName,
-                  "User Login Failed",
-                  false,
-                  null
-              );
+            user.FailedLoginAttempts += 1;
+
+            // 5th failed attempt: hard lock (admin reset required)
+            if (user.FailedLoginAttempts >= 5)
+            {
+                user.RequiresAdminReset = true;
+                user.ForcePasswordChange = true;
+
+                context.ActivityLogs.Add(new ActivityLogs
+                {
+                    UserId = user.Id,
+                    UserName = user.UserName,
+                    ActivityType = "authentication",
+                    Description = "Account Hard-Locked (5 failed login attempts) - Requires Admin Reset",
+                    Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
+                    IsSuccess = false,
+                    Timestamp = DateTime.UtcNow,
+                });
+
+                await context.SaveChangesAsync();
+
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "Too many failed attempts. Contact administrator to reset your account.",
+                    AccessToken = null!,
+                    RefreshToken = null!,
+                    ForcePasswordChange = true
+                };
+            }
+
+            // 3rd failed attempt ONLY: lock for 10 minutes
+            if (user.FailedLoginAttempts == 3)
+            {
+                user.LockoutEndUtc = DateTime.UtcNow.AddMinutes(2);
+
+                context.ActivityLogs.Add(new ActivityLogs
+                {
+                    UserId = user.Id,
+                    UserName = user.UserName,
+                    ActivityType = "authentication",
+                    Description = "Account Locked (3 failed login attempts) - 2 minutes",
+                    Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
+                    IsSuccess = false,
+                    Timestamp = DateTime.UtcNow,
+                });
+
+                await context.SaveChangesAsync();
+
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "Too many failed attempts. Account locked for 2 minutes.",
+                    AccessToken = null!,
+                    RefreshToken = null!,
+                    ForcePasswordChange = false
+                };
+            }
+
+            // 1st, 2nd, 4th attempt: invalid credentials
+            context.ActivityLogs.Add(new ActivityLogs
+            {
+                UserId = user.Id,
+                UserName = user.UserName,
+                ActivityType = "authentication",
+                Description = $"User Login Failed (Attempt {user.FailedLoginAttempts})",
+                Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
+                IsSuccess = false,
+                Timestamp = DateTime.UtcNow,
+            });
 
             await context.SaveChangesAsync();
 
@@ -212,6 +308,10 @@ public class AuthService(
               true,
               null
           );
+
+        user.FailedLoginAttempts = 0;
+        user.LockoutEndUtc = null;
+        user.RequiresAdminReset = false;
 
         await context.SaveChangesAsync();
 

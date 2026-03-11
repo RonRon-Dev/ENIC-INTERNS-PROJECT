@@ -1,33 +1,80 @@
+using backend.Data;
+using backend.Dtos.Request.Settings;
+using backend.Dtos.Response.Settings;
 using backend.Services.ActivityLogger;
 using backend.Services.Interface;
-using backend.Data;
-using backend.Dtos.Response.Settings;
-using backend.Dtos.Request.Settings;
-using Microsoft.EntityFrameworkCore;
 using BCrypt.Net;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services.Settings;
 
-public class AccountService(
-    AppDbContext context,
-    ActivityLoggerService logger) : IAccountService
+public class AccountService(AppDbContext context, ActivityLoggerService logger) : IAccountService
 {
+    private void TrackChange<T>(
+        bool changed,
+        string field,
+        T oldValue,
+        T newValue,
+        List<string> updated,
+        Dictionary<string, object> oldVals,
+        Dictionary<string, object> newVals
+    )
+    {
+        if (!changed)
+            return;
+
+        updated.Add(field);
+        oldVals[field] = oldValue!;
+        newVals[field] = newValue!;
+    }
+
     public async Task<AccountResponse> UpdateAccountAsync(int Id, AccountRequest request)
     {
-        var user = await context.Users
-            .FirstOrDefaultAsync(u => u.Id == Id);
+        var user = await context.Users.FirstOrDefaultAsync(u => u.Id == Id);
 
         if (user is null)
             throw new Exception("User not found");
 
-        user.Name = request.Name == user.Name ? user.Name : request.Name;
-        user.UserName = request.UserName == user.UserName ? user.UserName : request.UserName;
+        var updatedFields = new List<string>();
+        var oldValues = new Dictionary<string, object>();
+        var newValues = new Dictionary<string, object>();
 
-        var updatePasswword = !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash) && !string.IsNullOrEmpty(request.Password);
+        var oldUserName = user.UserName;
+        var oldName = user.Name;
 
-        if (updatePasswword)
+        var passwordChanged =
+            !string.IsNullOrEmpty(request.Password)
+            && !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
+
+        var nameChanged =
+            !string.IsNullOrWhiteSpace(request?.Name)
+            && !string.Equals(request.Name, user?.Name, StringComparison.Ordinal);
+
+        var userNameChanged =
+            !string.IsNullOrWhiteSpace(request?.UserName)
+            && !string.Equals(request.UserName, user?.UserName, StringComparison.Ordinal);
+
+        if (nameChanged)
+            user.Name = request?.Name;
+
+        if (userNameChanged)
+            user.UserName = request?.UserName;
+
+        TrackChange(nameChanged, "Name", oldName, user.Name, updatedFields, oldValues, newValues);
+        TrackChange(
+            userNameChanged,
+            "UserName",
+            oldUserName,
+            user.UserName,
+            updatedFields,
+            oldValues,
+            newValues
+        );
+
+        if (passwordChanged)
         {
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            updatedFields.Add("Password");
         }
 
         context.Users.Update(user);
@@ -35,18 +82,15 @@ public class AccountService(
 
         var payload = new
         {
-              UpdatedFields = new List<string>
-              {
-                  request.Name != user.Name ? "Name" : null,
-                  request.UserName != user.UserName ? "UserName" : null,
-                  updatePasswword ? "Password" : null
-              }.Where(f => f != null).ToList()
+            UpdatedFields = updatedFields,
+            OldValues = oldValues,
+            NewValues = newValues,
         };
 
         await logger.LogSettingsAsync(
             user.Id,
             user.UserName,
-            $"Updated account settings for {user.Name}",
+            $"Updated account profile for {user.Name}",
             true,
             payload
         );
@@ -55,7 +99,7 @@ public class AccountService(
         {
             Name = user.Name,
             Success = true,
-            Message = $"Account updated for {user.UserName} successfully."
+            Message = $"Account updated for {user.UserName} successfully.",
         };
     }
 }

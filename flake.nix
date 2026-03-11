@@ -15,7 +15,7 @@
         buildInputs = with pkgs; [
           dotnet-sdk_10
           dotnet-ef
-          nodejs_24
+          nodejs_25
           omnisharp-roslyn
           csharp-ls
           # vimPlugins.omnisharp-extended-lsp-nvim

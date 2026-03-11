@@ -2,6 +2,7 @@ services:
   database:
     build:
       context: ./database/sqlserver
+    profiles: ["dev"]
     container_name: sqlserver-database
     ports:
       - "1433:1433"
@@ -11,28 +12,31 @@ services:
       SA_PASSWORD: "sq1server@Admin"
       ACCEPT_EULA: "Y"
       MSSQL_PID: "Developer"
+
   api:
     build:
       context: ./backend
+    profiles: ["dev"]
     container_name: aspnet-api
     depends_on:
       - database
     ports:
-      - "5029:80"
+      - "5029:8080"
     volumes:
       - ./backend:/app
     environment:
       ConnectionStrings__DefaultConnection: "Server=database,1433;Database=TestDB;User Id=SA;Password=sq1server@Admin;TrustServerCertificate=True;"
-      ASPNETCORE_URLS: "http://+:80"
+      ASPNETCORE_URLS: "http://+:8080"
       ASPNETCORE_ENVIRONMENT: Development
-    # stdin_open: true
-    # tty: true
+
   web:
     build:
       context: ./frontend
+      target: development
+    profiles: ["dev"]
     container_name: react-frontend
-    depends_on:
-      - api
+    # depends_on:
+    #   - api
     ports:
       - "5173:5173"
     volumes:
@@ -40,7 +44,20 @@ services:
       - /app/node_modules
     environment:
       - CHOKIDAR_USEPOLLING=true
-      - VITE_API_URL=http://api
+      - VITE_API_URL=http://api:8080
+    stdin_open: true
+    tty: true
+
+  web-prod:
+    build:
+      context: ./frontend
+      target: production
+    profiles: ["prod"]
+    container_name: react-frontend-prod
+    ports:
+      - "8000:80"
+    environment:
+      - VITE_API_URL=http://api:8080
     stdin_open: true
     tty: true
 
