@@ -1,28 +1,27 @@
-import { Outlet, useLocation, Link } from "react-router-dom";
+import { useAuth } from "@/auth-context";
 import { AppSidebar } from "@/components/app-sidebar";
+import { useDialog } from "@/components/dialogs/dialog-provider";
+import { Search } from "@/components/search";
+import { SearchProvider } from "@/components/search-provider";
 import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import React, { useEffect, useMemo, useRef } from "react";
-import NProgress from "@/lib/nprogress";
-import { SearchProvider } from "@/components/search-provider";
-import { Search } from "@/components/search";
 import { toolsData } from "@/data/tools";
-import { ChevronLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useTheme } from 'next-themes'
-import { Sun, Moon } from 'lucide-react'
-import { useDialog } from "@/components/dialogs/dialog-provider";
-import { useAuth } from "@/auth-context";
+import NProgress from "@/lib/nprogress";
+import { ChevronLeft, Moon, Sun } from "lucide-react";
+import { useTheme } from 'next-themes';
+import React, { useEffect, useMemo, useRef } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
 
 function toTitleCase(segment: string) {
   return segment.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -39,7 +38,7 @@ function buildBreadcrumbMap(): Record<string, string> {
 
     if (tool.subtools) {
       for (const sub of tool.subtools) {
-        if (!sub.url) continue; 
+        if (!sub.url) continue;
         const segments = sub.url.split("/").filter(Boolean);
         if (segments[0]) map[segments[0]] = tool.title;
         if (segments[1]) map[segments[1]] = sub.title;
@@ -145,7 +144,7 @@ export default function AppLayout() {
             </header>
 
             {/* Page Content */}
-            <div className="flex flex-1 flex-col gap-4 px-[100px] py-10">
+            <div className="flex flex-1 flex-col gap-4 px-48 py-10">
               <Outlet />
             </div>
           </SidebarInset>
