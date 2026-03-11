@@ -130,9 +130,8 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
   const isMatrixDirty = matrixForm.formState.isDirty
 
   const onMatrixSubmit = (data: { pageRoles: Record<string, string[]> }) => {
-    console.log('Save matrix', data.pageRoles)
-    matrixForm.reset(data) // resets dirty state with new values as baseline
-    notifToast({ name: 'Page Matrix' }, 'updateprivileges')
+    matrixForm.reset(data)
+    notifToast({ name: 'Matrix', }, 'updateprivileges')
   }
 
   return (
@@ -160,10 +159,10 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
         </DialogHeader>
 
         <Tabs defaultValue='pages' className='flex flex-col min-h-0 flex-1'>
-          <div className='px-6 py-3 border-b'>
-            <TabsList className='h-9'>
-              <TabsTrigger value='pages' className='text-xs'>By Page</TabsTrigger>
-              <TabsTrigger value='matrix' className='text-xs'>Matrix</TabsTrigger>
+          <div className='p-3 border-b flex justify-end'>
+            <TabsList className='h-9 w-[30%]'>
+              <TabsTrigger value='pages' className='text-xs w-full'>By Page</TabsTrigger>
+              <TabsTrigger value='matrix' className='text-xs w-full'>Matrix</TabsTrigger>
             </TabsList>
           </div>
 

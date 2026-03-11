@@ -1,4 +1,3 @@
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -60,15 +59,14 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
   })
   const { refreshRoles } = useUsers()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // const [error, setError] = useState<string | null>(null)
 
   const onSubmit = async (values: UserAddRoleForm) => {
     setIsSubmitting(true)
-    setError(null)
     try {
       const res = await usersApi.createRole(values.name.trim())
       if (!res.data.success) {
-        setError(res.data.message)
+        notifToast({ reason: res.data.message }, 'error')
         return
       }
       await refreshRoles()
@@ -76,7 +74,9 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
       form.reset()
       onOpenChange(false)
     } catch (err) {
-      setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to create role.')
+      notifToast({
+        reason: (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to create role.'
+      }, 'error')
     } finally {
       setIsSubmitting(false)
     }
@@ -84,11 +84,10 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
 
   return (
     <Dialog
-      modal={false}
       open={open}
       onOpenChange={(state) => {
         form.reset()
-        setError(null)
+        // setError(null)
         onOpenChange(state)
       }}
     >
@@ -153,13 +152,13 @@ export function UsersAddRoleDialog({ open, onOpenChange }: UserAddRoleDialogProp
             />
           </form>
         </Form>
-        {error && (
+        {/* {error && (
           <div className='w-full flex justify-center'>
             <Alert variant='destructive' className='w-[80%] text-center mt-2'>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           </div>
-        )}
+        )} */}
         <DialogFooter className='gap-y-2'>
           <DialogClose asChild>
             <Button variant='outline' disabled={isSubmitting}>Cancel</Button>
