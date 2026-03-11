@@ -1,4 +1,3 @@
-"use client";
 import { useAuth } from "@/auth-context";
 import { NavGroup } from "@/components/nav-group";
 import { NavUser } from "@/components/nav-user";
@@ -12,17 +11,41 @@ import {
 } from "@/components/ui/sidebar";
 import type { UserRole } from "@/data/schema";
 import { buildNavGroups } from "@/data/sidebar";
+import { users } from "@/data/users";
+import { usePagePrivileges } from "@/hooks/use-page-privileges";
 import { Atom } from "lucide-react";
 import * as React from "react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth();
+  const { privileges } = usePagePrivileges();
+  const [pendingCount, setPendingCount] = useState(0);
 
+  // Fetch pending user badge count
+  useEffect(() => {
+    users().then((data) => {
+      const count = data.filter((u) => u.status === "pending").length;
+      setPendingCount(count);
+    });
+  }, []);
+
+  // Build nav groups filtered by the live user role AND DB privileges
   const filteredNavGroups = useMemo(() => {
-    const role = user?.roleName?.toLowerCase() as UserRole | undefined
-    return buildNavGroups(role)
-  }, [user?.roleName])
+    const role = user?.roleName?.toLowerCase() as UserRole | undefined;
+    const groups = buildNavGroups(role, privileges);
+
+    // Inject pending badge on /users item
+    return groups.map((group) => ({
+      ...group,
+      items: group.items.map((item) => {
+        if ("url" in item && item.url === "/users" && pendingCount > 0) {
+          return { ...item, badge: String(pendingCount) };
+        }
+        return item;
+      }),
+    }));
+  }, [user?.roleName, pendingCount, privileges]);
 
   return (
     <Sidebar variant="inset" {...props}>

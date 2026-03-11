@@ -1,16 +1,19 @@
 import type { NavGroup, UserRole } from "./schema";
-import { hasAccess, toolsData } from "./tools";
+import { hasAccess, hasAccessForUrl, toolsData } from "./tools";
 
 // ---------------------------------------------------------------------------
 // Build filtered nav groups for a given role.
-// Call this inside the sidebar component with the live user role.
+// Pass dbPrivileges from PagePrivilegesContext so DB changes are reflected live.
 // ---------------------------------------------------------------------------
-export function buildNavGroups(userRole: UserRole | undefined): NavGroup[] {
+export function buildNavGroups(
+  userRole: UserRole | undefined,
+  dbPrivileges: Record<string, string[]> = {}
+): NavGroup[] {
   const groups: NavGroup[] = [];
 
   // ── Group 1: Home (always visible to authenticated users) ──────────────
   const homeTool = toolsData.find((t) => t.title === "Home");
-  if (homeTool && hasAccess(userRole, homeTool.allowedRoles)) {
+  if (homeTool && hasAccessForUrl(userRole, homeTool.url, homeTool.allowedRoles, dbPrivileges)) {
     groups.push({
       items: [
         {
@@ -29,7 +32,7 @@ export function buildNavGroups(userRole: UserRole | undefined): NavGroup[] {
     .filter(
       (t) =>
         managementTitles.includes(t.title) &&
-        hasAccess(userRole, t.allowedRoles)
+        hasAccessForUrl(userRole, t.url, t.allowedRoles, dbPrivileges)
     )
     .map((t) => ({
       title: t.title,
@@ -46,17 +49,23 @@ export function buildNavGroups(userRole: UserRole | undefined): NavGroup[] {
   // ── Group 3: Modules (tools with subtools) ─────────────────────────────
   const excludedTitles = ["Home", "Dashboard", "User Management"];
   const moduleItems = toolsData
-    .filter(
-      (t) =>
-        !excludedTitles.includes(t.title) && hasAccess(userRole, t.allowedRoles)
-    )
+    .filter((t) => {
+      if (excludedTitles.includes(t.title)) return false;
+      // For parent groups (no URL), show if user can access ANY child subtool
+      if (!t.url && t.subtools) {
+        return t.subtools.some(
+          (sub) => !!sub.url && hasAccessForUrl(userRole, sub.url, sub.allowedRoles ?? t.allowedRoles, dbPrivileges)
+        );
+      }
+      return hasAccessForUrl(userRole, t.url, t.allowedRoles, dbPrivileges);
+    })
     .map((tool) => {
       // Filter subtools the user can access AND have an internal url
       // External-only subtools (externalUrl only, no url) are excluded from sidebar
       const visibleSubtools = (tool.subtools ?? []).filter(
         (sub) =>
           !!sub.url &&
-          hasAccess(userRole, sub.allowedRoles ?? tool.allowedRoles)
+          hasAccessForUrl(userRole, sub.url, sub.allowedRoles ?? tool.allowedRoles, dbPrivileges)
       );
 
       if (tool.url) {

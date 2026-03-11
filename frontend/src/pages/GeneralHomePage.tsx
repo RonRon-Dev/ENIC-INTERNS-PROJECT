@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { UserRole } from "@/data/schema";
-import { hasAccess, toolsData } from "@/data/tools";
+import { hasAccessForUrl, toolsData } from "@/data/tools";
+import { usePagePrivileges } from "@/hooks/use-page-privileges";
 import { cn } from "@/lib/utils";
 import {
   Calendar,
@@ -84,6 +85,7 @@ export default function GeneralHomePage() {
     return () => clearTimeout(timer);
   }, []);
 
+  const { privileges } = usePagePrivileges();
   const userRole = user?.roleName?.toLowerCase() as UserRole | undefined;
   const firstName = user?.name?.split(" ")[0] ?? "User";
   const fullName = user?.name ?? "";
@@ -126,9 +128,11 @@ export default function GeneralHomePage() {
               url: sub.url ?? null,
               externalUrl: sub.externalUrl ?? null,
               parentTitle: tool.title,
-              isAccessible: hasAccess(
+              isAccessible: hasAccessForUrl(
                 userRole,
-                sub.allowedRoles ?? tool.allowedRoles
+                sub.url,
+                sub.allowedRoles ?? tool.allowedRoles,
+                privileges
               ),
             })
           );
@@ -141,7 +145,7 @@ export default function GeneralHomePage() {
             url: tool.url ?? null,
             externalUrl: tool.externalUrl ?? null,
             parentTitle: null,
-            isAccessible: hasAccess(userRole, tool.allowedRoles),
+            isAccessible: hasAccessForUrl(userRole, tool.url, tool.allowedRoles, privileges),
           },
         ];
       });

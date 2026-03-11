@@ -3,7 +3,7 @@ import useDialogState from '@/hooks/use-dialog-state'
 import { usersApi } from '@/services/users'
 import React, { useEffect, useRef, useState } from 'react'
 
-export type ApiRole = { id: number; name: string }
+export type ApiRole = { id: number; name: string; icon?: string }
 
 type UsersDialogType = 'add' | 'edit' | 'deactivate' | 'activate' | 'role' | 'approve' | 'reject' | 'approveReset' | 'adminReset' | 'unlock' | 'privileges' | 'assignRole'
 

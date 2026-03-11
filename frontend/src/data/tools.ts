@@ -210,6 +210,25 @@ export function hasAccess(
   return allowedRoles.includes(userRole.toLowerCase() as UserRole);
 }
 
+/**
+ * Like hasAccess, but checks DB privileges (by URL) first.
+ * Falls back to toolsData.allowedRoles when the page has no DB entry yet.
+ */
+export function hasAccessForUrl(
+  userRole: UserRole | undefined,
+  url: string | undefined,
+  toolAllowedRoles: UserRole[] | undefined,
+  dbPrivileges: Record<string, string[]>
+): boolean {
+  if (!userRole) return false;
+  if (url && url in dbPrivileges) {
+    const roles = dbPrivileges[url];
+    // Empty array = all roles allowed
+    return roles.length === 0 || roles.includes(userRole.toLowerCase());
+  }
+  return hasAccess(userRole, toolAllowedRoles);
+}
+
 // ---------------------------------------------------------------------------
 // Components to create — check off as you build each page
 // ---------------------------------------------------------------------------
