@@ -90,7 +90,7 @@ export function ExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v: boolean) => !v && onClose()}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
             <Download className="h-4 w-4 text-muted-foreground" />
