@@ -172,7 +172,7 @@ public class UserService(
     }
 
     // This method should be UpdateRoleAsync, ,to be updated
-    public async Task<UpdateUserResponse> AssignRoleAsync(int id, UpdateUserRequest request, int currentUser)
+    public async Task<UpdateUserResponse> AssignRoleAsync(int id, int currentUser, UpdateUserRequest request)
     {
         var entity = await context.Users
             .Include(u => u.Role)
@@ -525,16 +525,26 @@ public class UserService(
         };
     }
 
-    public async Task<(bool Success, string Message, RoleResponse? Role)> CreateRoleAsync(CreateRoleRequest request, int currentUserId)
+    public async Task<CreateRoleResponse> CreateRoleAsync(CreateRoleRequest request, int currentUserId)
     {
         var name = (request.Name ?? "").Trim();
 
         if (string.IsNullOrWhiteSpace(name))
-            return (false, "Role name is required.", null);
+            return new CreateRoleResponse
+            {
+                Success = false,
+                Message = "Role name is required.",
+                Name = ""
+            };
 
         var exists = await context.Roles.AnyAsync(r => r.Name.ToLower() == name.ToLower());
         if (exists)
-            return (false, "Role already exists.", null);
+            return new CreateRoleResponse
+            {
+                Success = false,
+                Message = "Role name already exists.",
+                Name = ""
+            };
 
         var role = new Roles { Name = name };
         context.Roles.Add(role);
@@ -551,7 +561,12 @@ public class UserService(
             new { role = name }
         );
 
-        return (true, "Role created successfully.", new RoleResponse { Id = role.Id, Name = role.Name });
+        return new CreateRoleResponse
+        {
+            Success = true,
+            Message = "Role created successfully.",
+            Name = name
+        };
     }
 
     public async Task<UpdateUserResponse> UnlockUserAsync(int id, int currentUserId)
