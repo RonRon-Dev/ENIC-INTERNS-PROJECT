@@ -83,17 +83,12 @@ dotnet tool install --global dotnet-ef
 Install required NuGet packages:
 
 ```bash
-dotnet add package Microsoft.AspNetCore.OpenApi
-dotnet add package Microsoft.EntityFrameworkCore
-dotnet add package Microsoft.EntityFrameworkCore.SqlServer
-dotnet add package Microsoft.EntityFrameworkCore.Tools
-dotnet add package BCrypt.Net-Next
+dotnet restore
 ```
 
-Restore and build:
+Build the project:
 
 ```bash
-dotnet restore
 dotnet build
 ```
 
@@ -126,7 +121,7 @@ npm run dev
 In the `frontend/` directory, create a `.env` file:
 
 ```env
-VITE_API_URL=http://localhost:5000
+VITE_API_URL=http://localhost:5029
 ```
 
 #### 5. Access the Application
@@ -143,14 +138,23 @@ VITE_API_URL=http://localhost:5000
 > [!IMPORTANT]
 > Make sure [Docker Desktop](https://www.docker.com/get-started/) is installed and running before proceeding.
 
-#### 1. Clone the repository
+> [!WARNING]
+> You need to change the `VITE_API_URL` in `frontend/.env` 
+> to point to the desired api url whether its for development or production.
+
+#### Development Setup
+> [!INFO] This setup is intended for development purposes. It uses `dotnet watch run` for hot-reloading 
+> the backend and Vite's dev server for the frontend. 
+> For production deployment, additional configuration is required.
+
+##### 1. Clone the repository
 
 ```bash
 git clone https://github.com/RonRon-Dev/ENIC-INTERNS-PROJECT.git
 cd ENIC-INTERNS-PROJECT
 ```
 
-#### 2. Build and start all containers
+##### 2. Build and start all containers
 
 ```bash
 docker-compose up -d --build
@@ -159,23 +163,36 @@ docker-compose up -d --build
 docker-compose up -d
 ```
 
-#### 3. Apply database migrations
+##### 3. Create Migrations and Update Database
 
 ```bash
+docker-compose exec api dotnet ef migrations add InitialCreate
 docker-compose exec api dotnet ef database update
 ```
 
-#### 4. Access the Application
+##### 4. Access the Application
 
 | Service     | URL                   |
 | ----------- | --------------------- |
 | Frontend    | http://localhost:5173 |
 | Backend API | http://localhost:5029 |
 
-#### 5. Stop the containers
+##### 5. Stop the containers
 
 ```bash
 docker-compose down
+```
+
+#### Production Setup
+> [!INFO] For production deployment, you just need build the container
+> for `web-prod` it uses nginx to serve the frontend.
+> The backend will be deployed in a windows server using iss and the db
+> will be hosted in a separate sql server instance.
+
+##### 1. Build the production frontend container
+
+```bash
+docker compose up -d --build web-prod
 ```
 
 ---
@@ -195,10 +212,13 @@ The following accounts are automatically seeded into the database on first run.
 ---
 
 ## 🌍 Environment Variables
+> [!INFO] This is for Development.
+> For production, pleas e set the environment variables according to your 
+> hosting provider's guidelines (e.g. Azure App Service, AWS Elastic Beanstalk, etc.)
 
 | Variable       | Default                 | Description                  |
 | -------------- | ----------------------- | ---------------------------- |
-| `VITE_API_URL` | `http://localhost:5000` | Base URL for the backend API |
+| `VITE_API_URL` | `http://localhost:5029` | Base URL for the backend API |
 
 ---
 

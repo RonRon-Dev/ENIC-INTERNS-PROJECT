@@ -1,4 +1,3 @@
-"use client";
 import { useAuth } from "@/auth-context";
 import { NavGroup } from "@/components/nav-group";
 import { NavUser } from "@/components/nav-user";
@@ -19,9 +18,9 @@ import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const [pendingCount, setPendingCount] = useState(0);
   const { user } = useAuth();
   const { privileges } = usePagePrivileges();
+  const [pendingCount, setPendingCount] = useState(0);
 
   // Fetch pending user badge count
   useEffect(() => {
