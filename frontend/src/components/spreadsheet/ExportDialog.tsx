@@ -54,10 +54,45 @@ export function ExportDialog({
     skipNullNames: false,
   });
 
+  // FIX: Reset config each time the dialog opens so stale values (e.g. a
+  // fileNameCol that no longer exists after hiding columns) don't persist.
+  const prevOpenRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!prevOpenRef.current && open) {
+      const newName = makeFileName("xlsx", "single");
+      setConfig({
+        format: "xlsx",
+        mode: "single",
+        fileName: newName,
+        fileNameCol: columns[0] ?? "",
+        zipFileName: newName,
+        skipNullNames: false,
+      });
+    }
+    prevOpenRef.current = open;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   // Auto-update fileName and zipFileName when format or mode changes,
   // but only if the user hasn't manually edited them.
   const prevFormatRef = React.useRef(config.format);
   const prevModeRef = React.useRef(config.mode);
+  React.useEffect(() => {
+    const formatChanged = prevFormatRef.current !== config.format;
+    const modeChanged = prevModeRef.current !== config.mode;
+    if (formatChanged || modeChanged) {
+      const newName = makeFileName(config.format, config.mode);
+      setConfig((prev) => ({
+        ...prev,
+        fileName: newName,
+        zipFileName: newName,
+      }));
+      prevFormatRef.current = config.format;
+      prevModeRef.current = config.mode;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.format, config.mode]);
+  // const prevModeRef = React.useRef(config.mode);
   React.useEffect(() => {
     const formatChanged = prevFormatRef.current !== config.format;
     const modeChanged = prevModeRef.current !== config.mode;

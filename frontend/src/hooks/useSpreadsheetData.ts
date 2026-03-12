@@ -26,6 +26,11 @@ const FILE_SIZE_WARN_MB = 20;
 // Increased debounce — reduces filter thrashing on low-RAM machines
 const SEARCH_DEBOUNCE_MS = 500;
 
+// FIX: How long to wait before revoking a blob URL after triggering a download.
+// Revoking synchronously after .click() cancels the blob before the browser
+// has queued the download — silent failure on Firefox/Safari.
+const REVOKE_DELAY_MS = 30_000;
+
 interface QueryMsg {
   type: "QUERY";
   search: string;
@@ -163,12 +168,16 @@ export function useSpreadsheetData() {
         if (lastQueryRef.current) worker.postMessage(lastQueryRef.current);
       } else if (msg.type === "EXPORT_DONE") {
         setIsExporting(false);
+
+        // FIX: Always defer revokeObjectURL — calling it synchronously after
+        // .click() races with the browser's download initiation and silently
+        // cancels the download on Firefox and Safari.
         if (msg.kind === "file" || msg.kind === "zip") {
           const a = document.createElement("a");
           a.href = msg.url;
           a.download = msg.fileName;
           a.click();
-          URL.revokeObjectURL(msg.url);
+          setTimeout(() => URL.revokeObjectURL(msg.url), REVOKE_DELAY_MS);
         } else if (msg.kind === "files") {
           (msg.files as { url: string; fileName: string }[]).forEach(
             ({ url, fileName }, i) => {
@@ -177,7 +186,8 @@ export function useSpreadsheetData() {
                 a.href = url;
                 a.download = fileName;
                 a.click();
-                URL.revokeObjectURL(url);
+                // Each file gets its own deferred revoke, staggered after its download trigger
+                setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
               }, i * 80);
             }
           );
@@ -213,7 +223,6 @@ export function useSpreadsheetData() {
   // ── Parse file ────────────────────────────────────────────────────────────
   const parseFile = useCallback(
     (file: File) => {
-      // Soft warning for large files
       const sizeMB = file.size / 1024 / 1024;
       if (sizeMB > FILE_SIZE_WARN_MB) {
         toast.warning(`Large file (${sizeMB.toFixed(1)} MB)`, {
@@ -252,7 +261,6 @@ export function useSpreadsheetData() {
         clearInterval(interval);
         setProgress(90);
         const buffer = ev.target!.result as ArrayBuffer;
-        // KEY CHANGE: pass fileName so worker can pick CSV vs XLSX path
         worker.postMessage({ type: "PARSE", buffer, fileName: file.name }, [
           buffer,
         ]);
@@ -316,6 +324,8 @@ export function useSpreadsheetData() {
     (overrides: Partial<QueryMsg> = {}): QueryMsg => ({
       type: "QUERY",
       search: searchCommitted,
+      // FIX: ActiveFilters uses Set<string> — must convert to string[] before
+      // sending over postMessage (Sets serialize as empty objects {}).
       filters: Object.fromEntries(
         Object.entries(activeFilters).map(([k, v]) => [k, [...v]])
       ),
@@ -530,4 +540,3 @@ export function useSpreadsheetData() {
     resetData,
   };
 }
-  
