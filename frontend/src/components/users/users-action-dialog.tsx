@@ -27,6 +27,14 @@ import NProgress from '@/lib/nprogress'
 import { usersApi } from '@/services/users'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AlertTriangle, Check, Copy, UserCheck, UserX } from 'lucide-react'
+import { registrationRejectReasons, resetPasswordRejectReasons } from '@/data/requestRejectReasons'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import nProgress from 'nprogress'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -655,17 +663,44 @@ export function UsersRejectDialog({
   onOpenChange,
   currentRow,
 }: UserRejectDialogProps) {
-  const [reason, setReason] = useState('')
+  const { refresh, currentRequest } = useUsers()
+  const [selectedReason, setSelectedReason] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  const handleReject = () => {
-    onOpenChange(false)
+  const requestType = currentRequest?.requestType ?? 'Account Registration'
+  const reasons = requestType === 'Account Registration'
+    ? registrationRejectReasons
+    : resetPasswordRejectReasons
+
+  const handleReject = async () => {
+    if (!selectedReason || !currentRequest) return
+    setIsSubmitting(true)
+    setErrorMsg(null)
+    try {
+      NProgress.start()
+      await usersApi.rejectRequest(currentRequest.requestId, selectedReason)
+      notifToast({ name: currentRow.name }, 'error')
+      refresh()
+      setSelectedReason('')
+      onOpenChange(false)
+    } catch (err: any) {
+      setErrorMsg(err?.response?.data?.message ?? 'Failed to reject request.')
+      toast.error('Failed to reject request.')
+    } finally {
+      NProgress.done()
+      setIsSubmitting(false)
+    }
   }
 
   return (
     <ConfirmDialog
       open={open}
-      onOpenChange={onOpenChange}
-      disabled={!reason}
+      onOpenChange={(state) => {
+        if (!state) { setSelectedReason(''); setErrorMsg(null) }
+        onOpenChange(state)
+      }}
+      disabled={!selectedReason || isSubmitting}
       handleConfirm={handleReject}
       title={
         <span className='text-destructive'>
@@ -680,25 +715,33 @@ export function UsersRejectDialog({
         <div className='space-y-4'>
           <p>
             Are you sure you want to reject{' '}
-            <span className='font-bold'>{currentRow.username}</span>'s request?
-            <br />
-            This action will deny their access to the system.
+            <span className='font-bold'>{currentRow.username}</span>'s{' '}
+            <span className='font-bold'>{requestType}</span> request?
           </p>
-          <Textarea
-            className='h-20'
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder='Reason for rejection'
-          />
+          <Select value={selectedReason} onValueChange={setSelectedReason}>
+            <SelectTrigger className='w-full'>
+              <SelectValue placeholder='Select a reason for rejection' />
+            </SelectTrigger>
+            <SelectContent>
+              {reasons.map((r) => (
+                <SelectItem key={r} value={r}>{r}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errorMsg && (
+            <Alert variant='destructive'>
+              <AlertDescription>{errorMsg}</AlertDescription>
+            </Alert>
+          )}
           <Alert variant='destructive'>
             <AlertTitle>Warning!</AlertTitle>
             <AlertDescription>
-              The user will be notified of the rejection.
+              This will mark the request as rejected. The user will remain in a pending state.
             </AlertDescription>
           </Alert>
         </div>
       }
-      confirmText='Reject'
+      confirmText={isSubmitting ? 'Rejecting...' : 'Reject'}
       destructive
     />
   )

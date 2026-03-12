@@ -60,6 +60,16 @@ public class AuthController(IAuthService service, IWebHostEnvironment env) : Con
         return Ok(result);
     }
 
+    [Authorize]
+    [HttpGet("my-request-status")]
+    public async Task<ActionResult<MyRequestStatusResponse>> GetMyRequestStatus([FromQuery] string requestType = "Reset Password")
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return Unauthorized();
+        var result = await service.GetMyRequestStatusAsync(int.Parse(userId), requestType);
+        return Ok(result);
+    }
+
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
     {

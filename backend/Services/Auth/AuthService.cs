@@ -139,6 +139,12 @@ public class AuthService(
 
         if (!user.IsVerified)
         {
+            // Check their latest registration request for status/reason
+            var latestReq = await context.UserRequests
+                .Where(r => r.UserId == user.Id && r.RequestType == "Account Registration")
+                .OrderByDescending(r => r.RequestDate)
+                .FirstOrDefaultAsync();
+
             await logger.LogAuthenticationAsync(
                   user.Id,
                   user.UserName,
@@ -148,13 +154,19 @@ public class AuthService(
             );
 
             await context.SaveChangesAsync();
+
+            var isRejected = latestReq?.RequestStatus == "Rejected";
             return new AuthResponse
             {
                 Success = false,
-                Message = "Account pending approval. Please contact your administrator.",
+                Message = isRejected
+                    ? "Your registration was rejected. Please see the reason below."
+                    : "Account pending approval. Please contact your administrator.",
                 AccessToken = null!,
                 RefreshToken = null!,
-                ForcePasswordChange = false
+                ForcePasswordChange = false,
+                RequestStatus = latestReq?.RequestStatus ?? "Pending",
+                DecisionReason = latestReq?.DecisionReason,
             };
         }
 
@@ -498,6 +510,25 @@ public class AuthService(
         await context.SaveChangesAsync();
 
         return new ForgotPasswordResponse { Success = true, Message = "Password updated successfully." };
+    }
+
+    public async Task<MyRequestStatusResponse?> GetMyRequestStatusAsync(int userId, string requestType)
+    {
+        var req = await context.UserRequests
+            .Where(r => r.UserId == userId && r.RequestType == requestType)
+            .OrderByDescending(r => r.RequestDate)
+            .FirstOrDefaultAsync();
+
+        if (req is null) return null;
+
+        return new MyRequestStatusResponse
+        {
+            RequestType = req.RequestType,
+            RequestStatus = req.RequestStatus,
+            DecisionReason = req.DecisionReason,
+            RequestDate = req.RequestDate,
+            DecisionAtUtc = req.DecisionAtUtc,
+        };
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

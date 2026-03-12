@@ -10,10 +10,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { notifToast } from "@/lib/notifToast";
 import NProgress from "@/lib/nprogress";
 import { authenticationApi } from "@/services/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { XCircle } from "lucide-react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
@@ -38,6 +41,9 @@ export function LoginForm({
   const { refreshUser } = useAuth()
   const navigate = useNavigate();
 
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null)
+  const [requestStatus, setRequestStatus] = useState<string | null>(null)
+
   const form = useForm<UserForm>({
     mode: "onChange",
     resolver: zodResolver(formSchema),
@@ -48,11 +54,20 @@ export function LoginForm({
   });
 
   const onSubmit = async (data: UserForm) => {
+    setRejectionReason(null)
+    setRequestStatus(null)
     try {
       NProgress.start()
       const response = await authenticationApi.login(data)
       if (!response.success) {
-        notifToast({ reason: response.message }, 'error')
+        if (response.requestStatus === 'Rejected' && response.decisionReason) {
+          setRejectionReason(response.decisionReason)
+          setRequestStatus('Rejected')
+        } else if (response.requestStatus === 'Pending') {
+          setRequestStatus('Pending')
+        } else {
+          notifToast({ reason: response.message }, 'error')
+        }
         return
       }
       await refreshUser()
@@ -80,6 +95,27 @@ export function LoginForm({
           Enter your credentials below
         </p>
       </div>
+
+      {requestStatus === 'Rejected' && (
+        <Alert variant="destructive" className="text-start">
+          <XCircle className="h-4 w-4" />
+          <AlertTitle>Registration Rejected</AlertTitle>
+          <AlertDescription>
+            {rejectionReason
+              ? <>Reason: <span className="font-semibold">{rejectionReason}</span>. Please sign up again or contact your administrator.</>
+              : 'Your registration was rejected. Please contact your administrator.'}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {requestStatus === 'Pending' && (
+        <Alert className="text-start border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400">
+          <AlertTitle>Pending Approval</AlertTitle>
+          <AlertDescription>
+            Your account is still awaiting approval from an administrator.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -123,14 +159,9 @@ export function LoginForm({
             )}
           />
 
-          {/* {serverError && (
-            <p className="text-destructive text-sm">{serverError}</p>
-          )} */}
-
           <Button
             type="submit"
             className="w-full disabled:opacity-100 !mt-10"
-          // disabled={!form.formState.isValid || form.formState.isSubmitting}
           >
             Login
           </Button>

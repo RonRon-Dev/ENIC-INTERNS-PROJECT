@@ -31,4 +31,6 @@ export const usersApi = {
     api.put(`/users/unlock-user/${id}`),
   createRole: (name: string) =>
     api.post('/users/roles', { name }),
+  rejectRequest: (requestId: number, reason: string) =>
+    api.put('/users/reject-request', { requestId, reason }),
 }
