@@ -116,7 +116,7 @@ export function DataTable({ columns, data }: DataTableProps) {
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row, i) => (
                 <TableRow key={row.id}
-                  className={i % 2 === 0 ? "bg-foreground/5" : ""}
+                  className={i % 2 === 0 ? "" : "bg-accent/80"}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
