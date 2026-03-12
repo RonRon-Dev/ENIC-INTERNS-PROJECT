@@ -19,8 +19,7 @@ import {
 } from "@/components/ui/sidebar";
 import { toolsData } from "@/data/tools";
 import NProgress from "@/lib/nprogress";
-import { ChevronLeft, Moon, Sun } from "lucide-react";
-import { useTheme } from "next-themes";
+import { ChevronLeft } from "lucide-react";
 import React, { useEffect, useMemo, useRef } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
@@ -154,5 +153,3 @@ export default function AppLayout() {
     </>
   );
 }
-
-
