@@ -13,14 +13,14 @@ namespace backend.Controllers.Auth;
 public class AuthController(IAuthService service, IWebHostEnvironment env) : ControllerBase
 {
     // Secure = true and SameSite = Strict in production
-    private bool IsProduction => env.IsProduction();
+    private bool IsProduction => env.IsProduction() && false; // Set to false for testing in production-like environment. Change to true for actual production.
 
     private CookieOptions AccessTokenCookieOptions => new CookieOptions
     {
         HttpOnly = true,
         Secure = IsProduction,
         SameSite = IsProduction ? SameSiteMode.Strict : SameSiteMode.Lax,
-        Expires = DateTime.UtcNow.AddMinutes(15)
+        Expires = DateTime.UtcNow.AddMinutes(30)
     };
 
     private CookieOptions RefreshTokenCookieOptions => new CookieOptions
