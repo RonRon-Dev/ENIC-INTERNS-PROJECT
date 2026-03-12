@@ -78,11 +78,13 @@ public class AuthController(IAuthService service, IWebHostEnvironment env) : Con
         Response.Cookies.Append("accessToken", result.AccessToken, AccessTokenCookieOptions);
         Response.Cookies.Append("refreshToken", result.RefreshToken, RefreshTokenCookieOptions);
 
+        result.AccessToken = null;
+        result.RefreshToken = null;
         return Ok(result);
     }
 
     [HttpPost("forgot-password")]
-    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request)
+    public async Task<ActionResult<ForgotPasswordResponse>> ForgotPassword(ForgotPasswordRequest request)
     {
         var response = await service.ForgotPasswordAsync(request);
 
@@ -93,7 +95,7 @@ public class AuthController(IAuthService service, IWebHostEnvironment env) : Con
 
     [Authorize]
     [HttpPatch("update-password")]
-    public async Task<IActionResult> UpdatePassword(ResetPasswordRequest request)
+    public async Task<ActionResult<ForgotPasswordResponse>> UpdatePassword(ResetPasswordRequest request)
     {
         var response = await service.UpdatePasswordAsync(request);
 
@@ -117,12 +119,14 @@ public class AuthController(IAuthService service, IWebHostEnvironment env) : Con
         Response.Cookies.Append("accessToken", result.AccessToken, AccessTokenCookieOptions);
         Response.Cookies.Append("refreshToken", result.RefreshToken, RefreshTokenCookieOptions);
 
+        result.AccessToken = null;
+        result.RefreshToken = null;
         return Ok(result);
     }
 
     [Authorize]
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout()
+    public async Task<ActionResult<AuthResponse>> Logout()
     {
         var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         var result = await service.LogoutAsync(userId);

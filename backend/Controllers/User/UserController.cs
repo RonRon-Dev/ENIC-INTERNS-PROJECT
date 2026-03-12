@@ -39,7 +39,7 @@ public class UserController(IUserService service) : ControllerBase
 
     [Authorize(Roles = "Admin,Superadmin")]
     [HttpPost("roles")]
-    public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
+    public async Task<ActionResult<CreateRoleResponse>> CreateRole(CreateRoleRequest request)
     {
         var currentUser = User.GetCurrentUser();
         if (currentUser <= 0)
@@ -47,8 +47,8 @@ public class UserController(IUserService service) : ControllerBase
 
         var response = await service.CreateRoleAsync(request, currentUser);
         return response.Success
-            ? Ok(new { success = true, message = response.Message, role = response.Role })
-            : BadRequest(new { success = false, message = response.Message });
+            ? Ok(response)
+            : BadRequest(response);
     }
 
     [Authorize(Roles = "Admin,Superadmin")]
@@ -83,7 +83,7 @@ public class UserController(IUserService service) : ControllerBase
             var currentUser = User.GetCurrentUser();
             if (currentUser <= 0)
                 return Unauthorized(new { message = "Invalid user." });
-            var response = await service.AssignRoleAsync(id, request, currentUser);
+            var response = await service.AssignRoleAsync(id, currentUser, request);
             return response.Success ? 
                 Ok(response) : 
                 BadRequest(response);
@@ -144,21 +144,21 @@ public class UserController(IUserService service) : ControllerBase
     // ADMIN: approve reset -> generates temp password/code 
     [Authorize(Roles = "Admin,Superadmin")]
     [HttpPatch("approve-reset-password")]
-    public async Task<ActionResult> ApproveResetPasswordAsync(ApproveResetPasswordRequest request)
+    public async Task<ActionResult<ResetPasswordResponse>> ApproveResetPasswordAsync(ApproveResetPasswordRequest request)
     {
         var currentUser = User.GetCurrentUser();
         if (currentUser <= 0)
             return Unauthorized(new { message = "Invalid user." });
         var response = await service.ApproveResetPasswordAsync(request, currentUser);
         return response.Success
-            ? Ok(new { message = response.Message, temporaryPassword = response.TemporaryPassword })
-            : BadRequest(new { message = response.Message });
+            ? Ok(response)
+            : BadRequest(response);
     }
 
     // ADMIN: directly reset any user's password (no pending request needed)
     [Authorize(Roles = "Admin,Superadmin")]
     [HttpPatch("admin-reset-password")]
-    public async Task<ActionResult> AdminResetPassword([FromBody] AdminResetPasswordRequest request)
+    public async Task<ActionResult<ResetPasswordResponse>> AdminResetPassword(AdminResetPasswordRequest request)
     {
         var currentUser = User.GetCurrentUser();
         if (currentUser <= 0)
@@ -167,13 +167,13 @@ public class UserController(IUserService service) : ControllerBase
         var response = await service.AdminResetPasswordAsync(request, currentUser);
 
         return response.Success
-            ? Ok(new { message = response.Message, temporaryPassword = response.TemporaryPassword })
-            : BadRequest(new { message = response.Message });
+            ? Ok(response)
+            : BadRequest(response);
     }
 
     [Authorize(Roles = "Admin,Superadmin")]
     [HttpPut("unlock-user/{id:int}")]
-    public async Task<IActionResult> UnlockUser(int id)
+    public async Task<ActionResult<UpdateUserResponse>> UnlockUser(int id)
     {
         var currentUser = User.GetCurrentUser();
         if (currentUser <= 0) return Unauthorized(new { message = "Invalid user." });
