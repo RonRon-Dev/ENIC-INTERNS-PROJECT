@@ -1,8 +1,9 @@
 import { useAuth } from "@/auth-context";
 import { UnauthorisedError } from "@/components/errors/401";
+import { usePagePrivileges } from "@/hooks/use-page-privileges";
 import type { UserRole } from "@/data/schema";
 import { Atom } from "lucide-react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 
 type ProtectedRouteProps = {
   children: React.ReactNode;
@@ -42,18 +43,27 @@ export function ProtectedRoute({
   allowedRoles,
 }: ProtectedRouteProps) {
   const { isAuthenticated, loading, user, sessionExpired } = useAuth();
+  const { privileges, loading: privilegesLoading } = usePagePrivileges();
+  const { pathname } = useLocation();
 
-  if (loading) return <LoadingScreen />;
+  if (loading || privilegesLoading) return <LoadingScreen />;
 
   if (sessionExpired) return null;
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  // Role check
+  // Role check — DB privileges take precedence over toolsData.allowedRoles
   const userRole = user?.roleName?.toLowerCase() as UserRole | undefined;
-  if (allowedRoles && allowedRoles.length > 0) {
-    const normalised = allowedRoles.map((r) => r.toLowerCase() as UserRole);
-    if (!userRole || !normalised.includes(userRole)) {
+  const dbRoles = privileges[pathname]; // undefined if page not in DB yet
+
+  // Only enforce roles when either DB has an entry or toolsData specified allowedRoles
+  if (dbRoles !== undefined || (allowedRoles && allowedRoles.length > 0)) {
+    const effectiveRoles =
+      dbRoles !== undefined
+        ? (dbRoles as UserRole[]) // already lowercase from backend
+        : allowedRoles!.map((r) => r.toLowerCase() as UserRole);
+
+    if (effectiveRoles.length > 0 && (!userRole || !effectiveRoles.includes(userRole))) {
       return <UnauthorisedError />;
     }
   }

@@ -1,4 +1,5 @@
 using backend.Data;
+using backend.Data.Seeders;
 using backend.Models;
 using BCrypt.Net;
 using Microsoft.EntityFrameworkCore;
@@ -71,5 +72,7 @@ public class DatabaseSeeder
 
             await context.SaveChangesAsync();
         }
+
+        await PageSeeder.SeedAsync(context);
     }
 }

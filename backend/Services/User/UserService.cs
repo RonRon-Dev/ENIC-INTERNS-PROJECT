@@ -154,8 +154,8 @@ public class UserService(
         };
 
         await logger.LogAccountManagementAsync(
-            authUser.Id,
-            authUser.UserName,
+            authUser!.Id,
+            authUser!.UserName,
             "Admin Created User",
             true,
             payload
@@ -211,8 +211,8 @@ public class UserService(
         };
 
         await logger.LogPrivilegeChangeAsync(
-            authUser.Id,
-            authUser.UserName,
+            authUser!.Id,
+            authUser!.UserName,
             $"Assign New Role to User (Role: {role.Name})",
             true,
             payload
@@ -249,13 +249,13 @@ public class UserService(
                 id = user.Id,
                 name = user.Name,
                 username = user.UserName,
-                role = user.Role.Name,
+                role = user.Role?.Name ?? "No Role",
             }
         };
 
         await logger.LogPrivilegeChangeAsync(
-            authUser.Id,
-            authUser.UserName,
+            authUser!.Id,
+            authUser!.UserName,
             $"Enable User {user.UserName}",
             true,
             payload
@@ -296,13 +296,13 @@ public class UserService(
                 id = user.Id,
                 name = user.Name,
                 username = user.UserName,
-                role = user.Role.Name,
+                role = user.Role?.Name ?? "No Role",
             }
         };
 
         await logger.LogPrivilegeChangeAsync(
-            authUser.Id,
-            authUser.UserName,
+            authUser!.Id,
+            authUser!.UserName,
             $"Disable User {user.UserName}",
             true,
             payload
@@ -362,8 +362,8 @@ public class UserService(
         };
 
         await logger.LogAccountManagementAsync(
-            authUser.Id,
-            authUser.UserName,
+            authUser!.Id,
+            authUser!.UserName,
             "Admin Approved Registration",
             true,
             payload 
@@ -441,8 +441,8 @@ public class UserService(
         };
 
         await logger.LogAccountManagementAsync(
-            authUser.Id,
-            authUser.UserName,
+            authUser!.Id,
+            authUser!.UserName,
             "Admin Approved Reset (Temp Password Generated)",
             true,
             payload
@@ -510,8 +510,8 @@ public class UserService(
         await context.SaveChangesAsync();
 
         await logger.LogAccountManagementAsync(
-            authUser.Id,
-            authUser.UserName,
+            authUser!.Id,
+            authUser!.UserName,
             "Admin Reset User Password",
             true,
             payload
