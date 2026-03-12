@@ -217,9 +217,8 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
   const isSaving = activeTab === 'pages' ? saving : savingMatrix
 
   const handleReset = () => {
-    if (activeTab === 'pages' && selected) {
+    if (selected) {
       form.reset({ allowedRoles: getPrivilegesForUrl(selected.url) })
-    } else {
       const map = Object.fromEntries(allPages.map((p) => [p.url, getPrivilegesForUrl(p.url)]))
       matrixForm.reset({ pageRoles: map })
     }
