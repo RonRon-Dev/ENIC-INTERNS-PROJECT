@@ -35,8 +35,8 @@ let rawValues: Record<string, unknown>[] = []; // parallel — pre-conversion ce
 let columns: string[] = [];
 let selectedIds = new Set<number>();
 let storedWorksheet: XLSX.WorkSheet | null = null;
-let colTypes: Record<string, string> = {};       // user-assigned overrides
-let detectedColIndices = new Set<number>();       // date col indices from last COMMIT
+let colTypes: Record<string, string> = {}; // user-assigned overrides
+let detectedColIndices = new Set<number>(); // date col indices from last COMMIT
 
 const PAGE_SIZE = 50;
 const ZIP_THRESHOLD = 5;
@@ -83,11 +83,7 @@ const excelSerialToDate = (serial: number): string => {
 };
 
 // ── Type conversion ───────────────────────────────────────────────────────────
-function applyColType(
-  raw: unknown,
-  type: string,
-  colIndex: number,
-): unknown {
+function applyColType(raw: unknown, type: string, colIndex: number): unknown {
   if (type === "text") return String(raw ?? "");
 
   if (type === "number") {
@@ -97,19 +93,26 @@ function applyColType(
 
   if (type === "date") {
     if (raw instanceof Date)
-      return `${raw.getUTCMonth() + 1}/${raw.getUTCDate()}/${raw.getUTCFullYear()}`;
+      return `${
+        raw.getUTCMonth() + 1
+      }/${raw.getUTCDate()}/${raw.getUTCFullYear()}`;
     if (typeof raw === "number") return excelSerialToDate(raw);
     return String(raw ?? "");
   }
 
   // "auto" — use detected logic
   if (raw instanceof Date)
-    return `${(raw as Date).getUTCMonth() + 1}/${(raw as Date).getUTCDate()}/${(raw as Date).getUTCFullYear()}`;
+    return `${(raw as Date).getUTCMonth() + 1}/${(raw as Date).getUTCDate()}/${(
+      raw as Date
+    ).getUTCFullYear()}`;
   if (typeof raw === "number" && detectedColIndices.has(colIndex))
     return excelSerialToDate(raw as number);
   if (typeof raw === "number" && !isFinite(raw as number)) return "";
   if (typeof raw === "number" && Math.abs(raw as number) > 999_999_999_999)
-    return (raw as number).toLocaleString("en", { useGrouping: false, maximumFractionDigits: 0 });
+    return (raw as number).toLocaleString("en", {
+      useGrouping: false,
+      maximumFractionDigits: 0,
+    });
   return raw ?? "";
 }
 
@@ -125,13 +128,21 @@ function runQuery(msg: {
   const ps = msg.pageSize ?? PAGE_SIZE;
   let result = allRows;
 
-  const filterEntries = Object.entries(msg.filters).filter(([, vals]) => vals.length > 0);
+  const filterEntries = Object.entries(msg.filters).filter(
+    ([, vals]) => vals.length > 0
+  );
   if (filterEntries.length > 0) {
-    const sets = filterEntries.map(([col, vals]) => [col, new Set(vals)] as const);
-    result = result.filter((row) => sets.every(([col, s]) => s.has(String(row[col] ?? ""))));
+    const sets = filterEntries.map(
+      ([col, vals]) => [col, new Set(vals)] as const
+    );
+    result = result.filter((row) =>
+      sets.every(([col, s]) => s.has(String(row[col] ?? "")))
+    );
   }
 
-  const dateEntries = Object.entries(msg.dateFilters).filter(([, r]) => r.from || r.to);
+  const dateEntries = Object.entries(msg.dateFilters).filter(
+    ([, r]) => r.from || r.to
+  );
   if (dateEntries.length > 0) {
     result = result.filter((row) =>
       dateEntries.every(([col, range]) => {
@@ -149,7 +160,11 @@ function runQuery(msg: {
   if (msg.search.trim()) {
     const q = msg.search.toLowerCase();
     result = result.filter((row) =>
-      columns.some((col) => String(row[col] ?? "").toLowerCase().includes(q))
+      columns.some((col) =>
+        String(row[col] ?? "")
+          .toLowerCase()
+          .includes(q)
+      )
     );
   }
 
@@ -157,8 +172,10 @@ function runQuery(msg: {
     const col = msg.sort.col;
     const dir = msg.sort.dir === "asc" ? 1 : -1;
     result = [...result].sort((a, b) => {
-      const av = String(a[col] ?? ""), bv = String(b[col] ?? "");
-      const an = parseFloat(av), bn = parseFloat(bv);
+      const av = String(a[col] ?? ""),
+        bv = String(b[col] ?? "");
+      const an = parseFloat(av),
+        bn = parseFloat(bv);
       if (!isNaN(an) && !isNaN(bn)) return (an - bn) * dir;
       return av.localeCompare(bv) * dir;
     });
@@ -170,10 +187,12 @@ function runQuery(msg: {
   const pagedRows = result.slice((clampedPage - 1) * ps, clampedPage * ps);
   const allFilteredIds = result.map((r) => (r as { __id: number }).__id);
   const selectedFilteredCount = allFilteredIds.reduce(
-    (acc, id) => acc + (selectedIds.has(id) ? 1 : 0), 0
+    (acc, id) => acc + (selectedIds.has(id) ? 1 : 0),
+    0
   );
   const allFilteredSelected =
-    allFilteredIds.length > 0 && selectedFilteredCount === allFilteredIds.length;
+    allFilteredIds.length > 0 &&
+    selectedFilteredCount === allFilteredIds.length;
 
   return {
     pagedRows,
@@ -189,23 +208,43 @@ function runQuery(msg: {
 
 // ── Export helpers ────────────────────────────────────────────────────────────
 function getRawXml(row: Record<string, unknown>): string {
-  return Object.values(row).map((v) => String(v ?? "").trim()).filter(Boolean).join("\n");
+  return Object.values(row)
+    .map((v) => String(v ?? "").trim())
+    .filter(Boolean)
+    .join("\n");
 }
 
-function buildFileBytes(data: Record<string, unknown>[], format: string): Uint8Array | string {
+function buildFileBytes(
+  data: Record<string, unknown>[],
+  format: string
+): Uint8Array<ArrayBuffer> | string {
   if (format === "xml") return data.map(getRawXml).join("\n");
-  const ws = XLSX.utils.json_to_sheet(data, { raw: true } as XLSX.JSON2SheetOpts);
+  const ws = XLSX.utils.json_to_sheet(data, {
+    raw: true,
+  } as XLSX.JSON2SheetOpts);
   if (format === "xlsx") {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Export");
-    const raw = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as Uint8Array;
-    return new Uint8Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength));
+    const raw = XLSX.write(wb, {
+      bookType: "xlsx",
+      type: "array",
+    }) as Uint8Array;
+    return new Uint8Array(
+      raw.buffer.slice(
+        raw.byteOffset,
+        raw.byteOffset + raw.byteLength
+      ) as ArrayBuffer
+    );
   }
   const delim = format === "tsv" ? "\t" : ",";
   return XLSX.utils.sheet_to_csv(ws, { FS: delim });
 }
 
-function resolveName(row: Record<string, unknown>, fileNameCol: string, fallback: string): string {
+function resolveName(
+  row: Record<string, unknown>,
+  fileNameCol: string,
+  fallback: string
+): string {
   if (!fileNameCol) return fallback;
   const val = String(row[fileNameCol] ?? "").trim();
   const isEmpty = !val || /^(null|undefined|n\/a|-)$/i.test(val);
@@ -233,17 +272,30 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({ type: "ERROR", message: String(err) });
     }
 
-  // ── COMMIT ──
+    // ── COMMIT ──
   } else if (msg.type === "COMMIT") {
     if (!storedWorksheet) {
-      self.postMessage({ type: "ERROR", message: "No worksheet — please re-upload." });
+      self.postMessage({
+        type: "ERROR",
+        message: "No worksheet — please re-upload.",
+      });
       return;
     }
     try {
-      const rawRows = XLSX.utils.sheet_to_json<(string | number | boolean | null | Date)[]>(
-        storedWorksheet,
-        { header: 1, defval: "", raw: true, cellDates: true } as XLSX.Sheet2JSONOpts
-      ) as (string | number | boolean | null | Date)[][];
+      const rawRows = XLSX.utils.sheet_to_json<
+        (string | number | boolean | null | Date)[]
+      >(storedWorksheet, {
+        header: 1,
+        defval: "",
+        raw: true,
+        cellDates: true,
+      } as XLSX.Sheet2JSONOpts) as (
+        | string
+        | number
+        | boolean
+        | null
+        | Date
+      )[][];
 
       storedWorksheet = null;
 
@@ -264,9 +316,17 @@ self.onmessage = async (e: MessageEvent) => {
       for (let ci = 0; ci < columns.length; ci++) {
         for (const row of sampleRows) {
           const val = row[ci];
-          if (val instanceof Date) { detectedColIndices.add(ci); break; }
-          if (typeof val === "number" && val >= EXCEL_DATE_MIN && val <= EXCEL_DATE_MAX) {
-            detectedColIndices.add(ci); break;
+          if (val instanceof Date) {
+            detectedColIndices.add(ci);
+            break;
+          }
+          if (
+            typeof val === "number" &&
+            val >= EXCEL_DATE_MIN &&
+            val <= EXCEL_DATE_MAX
+          ) {
+            detectedColIndices.add(ci);
+            break;
           }
         }
       }
@@ -274,7 +334,9 @@ self.onmessage = async (e: MessageEvent) => {
       // Build detectedTypes map to send to main thread
       const detectedTypes: Record<string, string> = {};
       for (let ci = 0; ci < columns.length; ci++) {
-        detectedTypes[columns[ci]] = detectedColIndices.has(ci) ? "date" : "text";
+        detectedTypes[columns[ci]] = detectedColIndices.has(ci)
+          ? "date"
+          : "text";
       }
 
       // Reset user overrides on new import
@@ -303,16 +365,21 @@ self.onmessage = async (e: MessageEvent) => {
       rawValues.length = count;
       selectedIds = new Set();
 
-      self.postMessage({ type: "READY", cols: columns, totalRows: count, detectedTypes });
+      self.postMessage({
+        type: "READY",
+        cols: columns,
+        totalRows: count,
+        detectedTypes,
+      });
     } catch (err) {
       self.postMessage({ type: "ERROR", message: String(err) });
     }
 
-  // ── QUERY ──
+    // ── QUERY ──
   } else if (msg.type === "QUERY") {
     self.postMessage({ type: "RESULT", ...runQuery(msg) });
 
-  // ── SELECT ──
+    // ── SELECT ──
   } else if (msg.type === "SELECT") {
     if (msg.mode === "toggle" && msg.id !== undefined) {
       if (selectedIds.has(msg.id)) selectedIds.delete(msg.id);
@@ -326,11 +393,13 @@ self.onmessage = async (e: MessageEvent) => {
     } else if (msg.mode === "all_query") {
       runQuery(msg.query).allFilteredIds.forEach((id) => selectedIds.add(id));
     } else if (msg.mode === "deselect_query") {
-      runQuery(msg.query).allFilteredIds.forEach((id) => selectedIds.delete(id));
+      runQuery(msg.query).allFilteredIds.forEach((id) =>
+        selectedIds.delete(id)
+      );
     }
     self.postMessage({ type: "SELECTION", selectedCount: selectedIds.size });
 
-  // ── RETYPE ──
+    // ── RETYPE ──
   } else if (msg.type === "RETYPE") {
     const newTypes = msg.colTypes as Record<string, string>;
     colTypes = { ...colTypes, ...newTypes };
@@ -347,13 +416,15 @@ self.onmessage = async (e: MessageEvent) => {
     }
     self.postMessage({ type: "RETYPE_DONE" });
 
-  // ── EXPORT ──
+    // ── EXPORT ──
   } else if (msg.type === "EXPORT") {
     try {
       const config = msg.config;
       const visibleCols: string[] = msg.visibleCols;
 
-      let exportRows = allRows.filter((r) => selectedIds.has((r as { __id: number }).__id));
+      let exportRows = allRows.filter((r) =>
+        selectedIds.has((r as { __id: number }).__id)
+      );
 
       const project = (r: Record<string, unknown>) =>
         Object.fromEntries(visibleCols.map((c) => [c, r[c]]));
@@ -371,56 +442,89 @@ self.onmessage = async (e: MessageEvent) => {
 
       if (config.mode === "single") {
         const bytes = buildFileBytes(exportRows.map(project), config.format);
-        const blob = config.format === "xlsx"
-          ? new Blob([bytes as Uint8Array], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
-          : new Blob([bytes as string], { type: "text/plain" });
+        const blob =
+          config.format === "xlsx"
+            ? new Blob([bytes as Uint8Array<ArrayBuffer>], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              })
+            : new Blob([bytes as string], { type: "text/plain" });
         self.postMessage({
-          type: "EXPORT_DONE", kind: "file",
+          type: "EXPORT_DONE",
+          kind: "file",
           url: URL.createObjectURL(blob),
           fileName: `${config.fileName || "export"}.${config.format}`,
           description: `${exportRows.length} rows saved`,
         });
-      } else if (config.mode === "per-row" && exportRows.length > ZIP_THRESHOLD) {
+      } else if (
+        config.mode === "per-row" &&
+        exportRows.length > ZIP_THRESHOLD
+      ) {
         const zip = new JSZip();
         const usedNames = new Map<string, number>();
         for (let i = 0; i < exportRows.length; i++) {
           const row = exportRows[i];
-          const safeName = resolveName(row, config.fileNameCol, `row_${i + 1}`).replace(/[/:*?"<>|]/g, "_");
+          const safeName = resolveName(
+            row,
+            config.fileNameCol,
+            `row_${i + 1}`
+          ).replace(/[/:*?"<>|]/g, "_");
           const cnt = usedNames.get(safeName) ?? 0;
           usedNames.set(safeName, cnt + 1);
-          zip.file(`${cnt === 0 ? safeName : `${safeName}_${cnt + 1}`}.${config.format}`, buildFileBytes([project(row)], config.format));
+          zip.file(
+            `${cnt === 0 ? safeName : `${safeName}_${cnt + 1}`}.${
+              config.format
+            }`,
+            buildFileBytes([project(row)], config.format)
+          );
         }
         const zipBlob = await zip.generateAsync({ type: "blob" });
         self.postMessage({
-          type: "EXPORT_DONE", kind: "zip",
+          type: "EXPORT_DONE",
+          kind: "zip",
           url: URL.createObjectURL(zipBlob),
           fileName: `${config.zipFileName || "export"}.zip`,
-          description: `${exportRows.length} files zipped${skippedCount > 0 ? ` · ${skippedCount} skipped` : ""}`,
+          description: `${exportRows.length} files zipped${
+            skippedCount > 0 ? ` · ${skippedCount} skipped` : ""
+          }`,
         });
       } else {
         const files: { url: string; fileName: string }[] = [];
         const usedNames = new Map<string, number>();
         for (let i = 0; i < exportRows.length; i++) {
           const row = exportRows[i];
-          const safeName = resolveName(row, config.fileNameCol, `row_${i + 1}`).replace(/[/:*?"<>|]/g, "_");
+          const safeName = resolveName(
+            row,
+            config.fileNameCol,
+            `row_${i + 1}`
+          ).replace(/[/:*?"<>|]/g, "_");
           const cnt = usedNames.get(safeName) ?? 0;
           usedNames.set(safeName, cnt + 1);
           const bytes = buildFileBytes([project(row)], config.format);
           files.push({
-            url: URL.createObjectURL(new Blob([bytes], { type: "text/plain" })),
-            fileName: `${cnt === 0 ? safeName : `${safeName}_${cnt + 1}`}.${config.format}`,
+            url: URL.createObjectURL(
+              new Blob([bytes as Uint8Array<ArrayBuffer>], {
+                type: "text/plain",
+              })
+            ),
+            fileName: `${cnt === 0 ? safeName : `${safeName}_${cnt + 1}`}.${
+              config.format
+            }`,
           });
         }
         self.postMessage({
-          type: "EXPORT_DONE", kind: "files", files,
-          description: `${files.length} files downloading${skippedCount > 0 ? ` · ${skippedCount} skipped` : ""}`,
+          type: "EXPORT_DONE",
+          kind: "files",
+          files,
+          description: `${files.length} files downloading${
+            skippedCount > 0 ? ` · ${skippedCount} skipped` : ""
+          }`,
         });
       }
     } catch (err) {
       self.postMessage({ type: "EXPORT_ERROR", message: String(err) });
     }
 
-  // ── RESET ──
+    // ── RESET ──
   } else if (msg.type === "RESET") {
     allRows = [];
     rawValues = [];

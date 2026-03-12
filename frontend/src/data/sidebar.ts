@@ -1,5 +1,5 @@
 import type { NavGroup, UserRole } from "./schema";
-import { hasAccess, hasAccessForUrl, toolsData } from "./tools";
+import { hasAccessForUrl, toolsData } from "./tools";
 
 // ---------------------------------------------------------------------------
 // Build filtered nav groups for a given role.
@@ -13,7 +13,10 @@ export function buildNavGroups(
 
   // ── Group 1: Home (always visible to authenticated users) ──────────────
   const homeTool = toolsData.find((t) => t.title === "Home");
-  if (homeTool && hasAccessForUrl(userRole, homeTool.url, homeTool.allowedRoles, dbPrivileges)) {
+  if (
+    homeTool &&
+    hasAccessForUrl(userRole, homeTool.url, homeTool.allowedRoles, dbPrivileges)
+  ) {
     groups.push({
       items: [
         {
@@ -54,7 +57,14 @@ export function buildNavGroups(
       // For parent groups (no URL), show if user can access ANY child subtool
       if (!t.url && t.subtools) {
         return t.subtools.some(
-          (sub) => !!sub.url && hasAccessForUrl(userRole, sub.url, sub.allowedRoles ?? t.allowedRoles, dbPrivileges)
+          (sub) =>
+            !!sub.url &&
+            hasAccessForUrl(
+              userRole,
+              sub.url,
+              sub.allowedRoles ?? t.allowedRoles,
+              dbPrivileges
+            )
         );
       }
       return hasAccessForUrl(userRole, t.url, t.allowedRoles, dbPrivileges);
@@ -65,7 +75,12 @@ export function buildNavGroups(
       const visibleSubtools = (tool.subtools ?? []).filter(
         (sub) =>
           !!sub.url &&
-          hasAccessForUrl(userRole, sub.url, sub.allowedRoles ?? tool.allowedRoles, dbPrivileges)
+          hasAccessForUrl(
+            userRole,
+            sub.url,
+            sub.allowedRoles ?? tool.allowedRoles,
+            dbPrivileges
+          )
       );
 
       if (tool.url) {
