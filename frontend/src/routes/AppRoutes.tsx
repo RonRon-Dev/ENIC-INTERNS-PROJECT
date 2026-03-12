@@ -10,7 +10,7 @@ import type { SubTool, Tool } from "@/data/tools";
 import { toolsData } from "@/data/tools";
 import AppOverviewPage from "@/pages/AppOverviewPage";
 import DevPage from "@/pages/DevPage";
-import EurolinkPage from "@/pages/EuroLandingPage";
+import EurolinkPage from "@/pages/CompanyProfilePage";
 import AboutDevPage from "@/pages/general/AboutDevPage";
 import SettingsPage from "@/pages/general/SettingsPage";
 import GeneralHomePage from "@/pages/GeneralHomePage";

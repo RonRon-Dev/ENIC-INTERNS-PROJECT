@@ -3,8 +3,8 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { MenuToggleIcon } from '@/components/ui/menu-toggle-icon';
 import { cn } from '@/lib/utils';
-import { ArrowRightIcon, Box, Code, Container, Database, Github, GlobeIcon, Layers, LayoutDashboard, RocketIcon, Server, Shield, Zap } from "lucide-react";
-import React, { useEffect, useState } from 'react';
+import { ArrowRightIcon, Box, Code, Container, Database, Github, GlobeIcon, Layers, LayoutDashboard, Server, Shield, Zap } from "lucide-react";
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import Marquee from "react-fast-marquee";
 import { useNavigate } from "react-router-dom";
@@ -50,7 +50,7 @@ export function Header() {
   }, [open])
 
   return (
-    <header className="sticky top-0 z-50 w-full h-20 bg-background backdrop-blur-lg">
+    <header className="sticky top-0 z-50 w-full flex h-20 bg-background backdrop-blur-lg">
       <nav className="mx-auto flex h-full w-full max-w-5xl items-center justify-between px-4">
         <a href="/" className="flex items-center p-2 transition-colors">
           <AppIcon className="w-auto h-12 transition-all duration-300" />
@@ -74,7 +74,6 @@ export function Header() {
           <Button asChild>
             <a href="/home">Launch App</a>
           </Button>
-          <ThemeToggle />
         </div>
         <Button size="icon" variant="outline" onClick={() => setOpen(!open)}
           className="md:hidden" aria-expanded={open} aria-controls="mobile-menu" aria-label="Toggle menu">
@@ -96,6 +95,7 @@ export function Header() {
           <ThemeToggle />
         </div>
       </MobileMenu>
+      <ThemeToggle className='m-6' />
     </header>
   )
 }
@@ -167,7 +167,7 @@ export function HeroSection() {
           "group mx-auto flex w-fit items-center gap-3 rounded-full border bg-card px-3 py-1 shadow",
           "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards transition-all delay-500 duration-500 ease-out"
         )}>
-          <RocketIcon className="size-3 text-muted-foreground" />
+          {/* <RocketIcon className="size-3 text-muted-foreground" /> */}
           <span className="text-xs">Eurolink Network International Corporation</span>
         </div>
 
@@ -230,20 +230,6 @@ export function FeaturesSection() {
 // ── Stack Marquee ──────────────────────────────────────────────────────────────
 
 export function StackSection() {
-  const [bgColor, setBgColor] = useState('');
-
-  useEffect(() => {
-    const update = () => {
-      const raw = getComputedStyle(document.documentElement)
-        .getPropertyValue('--background').trim();
-      setBgColor(`hsl(${raw})`);
-    };
-    update();
-
-    const observer = new MutationObserver(update);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
   return (
     <section id="stack" className="relative space-y-6 mt-9 h-full overflow-hidden">
       <div className="[mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
