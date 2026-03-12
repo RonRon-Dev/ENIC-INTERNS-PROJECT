@@ -9,14 +9,14 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { toolsData } from '@/data/tools'
 import { usePagePrivileges } from '@/hooks/use-page-privileges'
 import { notifToast } from '@/lib/notifToast'
 import { cn } from '@/lib/utils'
 import { pagePrivilegesApi } from '@/services/pagePrivileges'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Check, ChevronDown, ChevronRight, Code, Cpu, FileText, Megaphone, Minus, Settings, Shield, ShieldCheck, User, UserCheck, Users } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Code, Cpu, FileText, LayoutGrid, List, Megaphone, Minus, Settings, Shield, ShieldCheck, User, UserCheck, Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -258,11 +258,25 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className='flex flex-col min-h-0 flex-1'>
-          <div className='p-3 border-b flex justify-end'>
-            <TabsList className='h-9 w-[30%]'>
-              <TabsTrigger value='pages' className='text-xs w-full'>By Page</TabsTrigger>
-              <TabsTrigger value='matrix' className='text-xs w-full'>Matrix</TabsTrigger>
-            </TabsList>
+          <div className='px-4 py-2 border-b flex justify-end gap-1'>
+            <Button
+              type='button'
+              variant={activeTab === 'pages' ? 'secondary' : 'ghost'}
+              size='icon'
+              className='h-7 w-7'
+              onClick={() => handleTabChange('pages')}
+            >
+              <List className='size-3.5' />
+            </Button>
+            <Button
+              type='button'
+              variant={activeTab === 'matrix' ? 'secondary' : 'ghost'}
+              size='icon'
+              className='h-7 w-7'
+              onClick={() => handleTabChange('matrix')}
+            >
+              <LayoutGrid className='size-3.5' />
+            </Button>
           </div>
 
           {/* ── By Page tab ── */}
@@ -488,29 +502,48 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
             </Form>
           </TabsContent>
         </Tabs>
-        {isDirty && (
-          <div className='flex gap-2 px-4 pb-4 pt-3 border-t'>
+        <div className='flex items-center justify-between px-4 pb-4 pt-3 border-t'>
+          <div className='flex gap-1'>
+            <Button
+              type='button'
+              variant={activeTab === 'pages' ? 'secondary' : 'ghost'}
+              size='icon'
+              className='h-7 w-7'
+              onClick={() => handleTabChange('pages')}
+            >
+              <List className='size-3.5' />
+            </Button>
+            <Button
+              type='button'
+              variant={activeTab === 'matrix' ? 'secondary' : 'ghost'}
+              size='icon'
+              className='h-7 w-7'
+              onClick={() => handleTabChange('matrix')}
+            >
+              <LayoutGrid className='size-3.5' />
+            </Button>
+          </div>
+
+          <div className='flex gap-2'>
             <Button
               type='button'
               size='sm'
               variant='outline'
-              className='flex-1'
               onClick={handleReset}
-              disabled={isSaving}
+              disabled={isSaving || !isDirty}
             >
               Reset
             </Button>
             <Button
               type='button'
               size='sm'
-              className='flex-1'
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || !isDirty}
             >
               {isSaving ? 'Saving…' : 'Save'}
             </Button>
           </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   )
