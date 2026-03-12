@@ -506,7 +506,6 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
           <div className='flex gap-2'>
             <Button
               type='button'
-              size='lg'
               variant='outline'
               onClick={handleReset}
               disabled={isSaving || !isDirty}
@@ -515,7 +514,6 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
             </Button>
             <Button
               type='button'
-              size='lg'
               onClick={handleSave}
               disabled={isSaving || !isDirty}
             >
