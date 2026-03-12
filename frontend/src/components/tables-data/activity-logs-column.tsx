@@ -258,7 +258,7 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className={i % 2 === 0 ? "bg-muted/10" : ""}
+                  className={i % 2 === 0 ? "" : "bg-accent/80"}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

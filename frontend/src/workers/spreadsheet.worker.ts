@@ -866,15 +866,26 @@ function buildFileBytes(
 ): Uint8Array | string {
   const safeData = Array.isArray(data) ? data : [];
 
-  if (format === "xml")
-    return safeData
-      .map((r) =>
-        Object.entries(r ?? {})
-          .map(([, v]) => String(v ?? "").trim())
-          .filter(Boolean)
-          .join("\n")
-      )
-      .join("\n");
+  if (format === "xml") {
+    // Produce a proper XML document: one <row> per record, one child element
+    // per column. Column names are sanitised so they are valid XML tag names
+    // (leading digits prefixed with "_", spaces/special chars replaced with "_").
+    const toTag = (s: string) =>
+      s.replace(/[^a-zA-Z0-9_.-]/g, "_").replace(/^([^a-zA-Z_])/, "_$1") || "_col";
+    const escape = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const lines = ['<?xml version="1.0" encoding="UTF-8"?>', "<rows>"];
+    for (const r of safeData) {
+      lines.push("  <row>");
+      for (const [k, v] of Object.entries(r ?? {})) {
+        const tag = toTag(k);
+        lines.push(`    <${tag}>${escape(String(v ?? ""))}</${tag}>`);
+      }
+      lines.push("  </row>");
+    }
+    lines.push("</rows>");
+    return lines.join("\n");
+  }
 
   const ws = XLSX.utils.json_to_sheet(safeData, {
     raw: true,
@@ -884,10 +895,7 @@ function buildFileBytes(
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Export");
     // XLSX.write may return number[] or Uint8Array — re-wrap to guarantee Uint8Array
-    const raw = XLSX.write(wb, {
-      bookType: "xlsx",
-      type: "array",
-    }) as ArrayLike<number>;
+    const raw = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayLike<number>;
     return new Uint8Array(raw);
   }
 
@@ -908,10 +916,7 @@ function buildBlob(data: Record<string, unknown>[], format: string): Blob {
     // FIX: Uint8Array<ArrayBufferLike> is not a valid BlobPart in strict TS.
     // Copy into a guaranteed plain ArrayBuffer via slice() to satisfy the type.
     const u8 = bytes as Uint8Array;
-    const plain = u8.buffer.slice(
-      u8.byteOffset,
-      u8.byteOffset + u8.byteLength
-    ) as ArrayBuffer;
+    const plain = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer;
     return new Blob([plain], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
@@ -977,9 +982,7 @@ self.onmessage = async (e: MessageEvent) => {
   } else if (msg.type === "EXPORT") {
     try {
       const config = msg.config;
-      const visCols: string[] = Array.isArray(msg.visibleCols)
-        ? msg.visibleCols
-        : [];
+      const visCols: string[] = Array.isArray(msg.visibleCols) ? msg.visibleCols : [];
 
       const exportIndices: number[] = [];
       for (let ri = 0; ri < totalRows; ri++) {
@@ -1060,9 +1063,7 @@ self.onmessage = async (e: MessageEvent) => {
             url: URL.createObjectURL(
               buildBlob([project(finalIndices[i])], config.format)
             ),
-            fileName: `${cnt === 0 ? safe : `${safe}_${cnt + 1}`}.${
-              config.format
-            }`,
+            fileName: `${cnt === 0 ? safe : `${safe}_${cnt + 1}`}.${config.format}`,
           });
         }
         self.postMessage({
