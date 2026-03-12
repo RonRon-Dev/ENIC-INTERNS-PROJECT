@@ -14,7 +14,7 @@ interface DataTableProps {
   visibleCols: ColVisibility;
   selectedIds: Set<number>;
   onToggleRow: (id: number) => void;
-  onToggleAll: () => void;
+  onToggleAll: (select: boolean) => void; // FIX: was () => void
   sort: SortState;
   onSort: (col: string) => void;
   allFilteredSelected: boolean;
@@ -46,7 +46,7 @@ export const DataTable = React.memo(function DataTable({
             <tr className="bg-muted/60 border-b border-border">
               <th
                 className="w-10 px-3 py-2.5 text-center cursor-pointer"
-                onClick={onToggleAll}
+                onClick={() => onToggleAll(!allFilteredSelected)}
               >
                 {allFilteredSelected ? (
                   <CheckSquare className="h-3.5 w-3.5 text-primary mx-auto" />
@@ -69,9 +69,9 @@ export const DataTable = React.memo(function DataTable({
                     {col}
                     {sort.col === col ? (
                       sort.dir === "asc" ? (
-                        <ChevronUp className="h-3 w-3 shrink-0" />
+                        <ChevronUp className="h-3 w-3" />
                       ) : (
-                        <ChevronDown className="h-3 w-3 shrink-0" />
+                        <ChevronDown className="h-3 w-3" />
                       )
                     ) : null}
                   </span>
@@ -80,39 +80,33 @@ export const DataTable = React.memo(function DataTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => {
+            {rows.map((row, idx) => {
               const isSelected = selectedIds.has(row.__id);
+              const rowNum = (page - 1) * pageSize + idx + 1;
               return (
                 <tr
                   key={row.__id}
-                  onClick={() => onToggleRow(row.__id)}
-                  className={`border-b border-border/40 cursor-pointer transition-colors duration-100 ${
+                  className={`border-b border-border/50 cursor-pointer transition-colors ${
                     isSelected
-                      ? "bg-primary/10 hover:bg-primary/[0.13]"
-                      : i % 2 === 0
-                      ? "hover:bg-muted/50"
-                      : "bg-muted/20 hover:bg-muted/50"
+                      ? "bg-primary/5 hover:bg-primary/10"
+                      : "hover:bg-muted/30"
                   }`}
+                  onClick={() => onToggleRow(row.__id)}
                 >
-                  <td className="px-3 py-2 text-center">
+                  <td className="w-10 px-3 py-2 text-center">
                     {isSelected ? (
                       <CheckSquare className="h-3.5 w-3.5 text-primary mx-auto" />
                     ) : (
-                      <Square className="h-3.5 w-3.5 text-muted-foreground/25 mx-auto" />
+                      <Square className="h-3.5 w-3.5 text-muted-foreground/30 mx-auto" />
                     )}
                   </td>
-                  <td
-                    className="px-2 py-2 text-right font-mono text-muted-foreground/25 select-none"
-                    style={{ fontSize: 10 }}
-                  >
-                    {(page - 1) * pageSize + i + 1}
+                  <td className="w-12 px-2 py-2 text-right text-muted-foreground/40 tabular-nums select-none">
+                    {rowNum}
                   </td>
                   {visibleColumns.map((col) => (
                     <td
                       key={col}
-                      className={`px-3 py-2 whitespace-nowrap max-w-[220px] truncate transition-colors duration-100 ${
-                        isSelected ? "text-foreground" : "text-foreground/70"
-                      }`}
+                      className="px-3 py-2 text-foreground/80 max-w-[200px] truncate"
                       title={String(row[col] ?? "")}
                     >
                       {String(row[col] ?? "")}
@@ -125,9 +119,9 @@ export const DataTable = React.memo(function DataTable({
               <tr>
                 <td
                   colSpan={visibleColumns.length + 2}
-                  className="py-14 text-center text-xs text-muted-foreground/40"
+                  className="px-3 py-8 text-center text-muted-foreground"
                 >
-                  No rows match your search
+                  No rows match the current filters.
                 </td>
               </tr>
             )}
