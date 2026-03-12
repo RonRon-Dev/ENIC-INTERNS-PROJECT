@@ -1,8 +1,9 @@
+import { cn } from "@/lib/utils";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "./ui/button";
 
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string }) {
   const { theme, setTheme } = useTheme();
 
   const next = theme === "dark" ? "light" : "dark";
@@ -12,7 +13,7 @@ export function ThemeToggle() {
     <Button
       variant="outline"
       size="icon"
-      className="h-8 w-8 shadow-none"
+      className={cn("h-8 w-8 shadow-none", className)}
       onClick={() => setTheme(next)}
     >
       <Icon className="h-4 w-4" />
