@@ -8,20 +8,23 @@ public static class ActivityLogExtensions
 {
     public static ActivityLogResponse ToResponse(this ActivityLogs log)
     {
+
+        var user = log.User ?? throw new InvalidOperationException(
+            $"ActivityLog {log.Id} must be loaded with User navigation property.");
         return new ActivityLogResponse
         {
             Id = log.Id.ToString(),
             User =
               new ActivityLogUserResponse
               {
-                  Id = log.User.Id.ToString(),
-                  Name = log.User.Name,
-                  Username = log.User.UserName,
+                  Id = user.Id.ToString(),
+                  Name = user.Name,
+                  Username = user.UserName,
                   Status =
-                    log.User.IsVerified
-                        ? (log.User.IsActive ? "active" : "deactivated")
+                    user.IsVerified
+                        ? (user.IsActive ? "active" : "deactivated")
                         : "pending",
-                  Role = log.User.Role.Name ?? "",
+                  Role = user.Role?.Name.ToLower() ?? "guest"
               },
             Description = log.Description,
             Date = log.Timestamp.ToString("yyyy-MM-dd"),
