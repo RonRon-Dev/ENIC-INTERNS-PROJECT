@@ -74,6 +74,9 @@ export default function DataCleaningPage() {
     resetData,
     rowsReady,
     setRowsReady,
+    colTypes,
+    setColType,
+    detectedTypes,
   } = useSpreadsheetData();
 
   const { showBlocker, confirmLeave, cancelLeave } = useUnsavedChanges(
@@ -109,9 +112,7 @@ export default function DataCleaningPage() {
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground">
                 <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" />
-                <span className="font-mono max-w-[100px] truncate">
-                  {fileName}
-                </span>
+                <span className="font-mono max-w-[100px] truncate">{fileName}</span>
                 <span className="text-muted-foreground/40">·</span>
                 <span className="max-w-[140px] truncate">
                   {rows.length.toLocaleString()} rows
@@ -329,7 +330,6 @@ export default function DataCleaningPage() {
 
             {/* Pagination */}
             <div className="flex items-center justify-between shrink-0 text-xs text-muted-foreground pt-0.5 gap-3">
-              {/* Left: row range + page size selector */}
               <div className="flex items-center gap-2 shrink-0">
                 <span>
                   {(clampedPage - 1) * pageSize + 1}–
@@ -350,7 +350,6 @@ export default function DataCleaningPage() {
                 </select>
               </div>
 
-              {/* Right: prev, page buttons, jump input, next */}
               <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
@@ -365,8 +364,7 @@ export default function DataCleaningPage() {
                   let p: number;
                   if (totalPages <= 5) p = i + 1;
                   else if (clampedPage <= 3) p = i + 1;
-                  else if (clampedPage >= totalPages - 2)
-                    p = totalPages - 4 + i;
+                  else if (clampedPage >= totalPages - 2) p = totalPages - 4 + i;
                   else p = clampedPage - 2 + i;
                   return (
                     <Button
@@ -446,8 +444,11 @@ export default function DataCleaningPage() {
         open={showColDialog}
         columns={columns}
         visibility={colVisibility}
+        colTypes={colTypes}
+        detectedTypes={detectedTypes}
         onChange={setColVisible}
         onReorder={setColumns}
+        onSetColType={setColType}
         onClose={() => {
           setShowColDialog(false);
           if (!rowsReady) setRowsReady(true);

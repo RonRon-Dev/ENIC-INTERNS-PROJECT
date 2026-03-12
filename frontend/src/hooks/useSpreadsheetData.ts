@@ -5,7 +5,9 @@
 
 import type {
   ActiveFilters,
+  ColTypes,
   ColVisibility,
+  ColumnType,
   DateRangeFilters,
   ExportConfig,
   Row,
@@ -18,7 +20,6 @@ export const DEFAULT_PAGE_SIZE = 12;
 export const PAGE_SIZE_OPTIONS = [12, 25, 50, 100];
 export const ZIP_THRESHOLD = 5;
 
-// ── Query state shape sent to worker ─────────────────────────────────────────
 interface QueryMsg {
   type: "QUERY";
   search: string;
@@ -30,30 +31,25 @@ interface QueryMsg {
 }
 
 export function useSpreadsheetData() {
-  // ── Worker ──
   const workerRef = useRef<Worker | null>(null);
 
-  // ── UI-only state (never the full dataset) ──
   const [columns, setColumns] = useState<string[]>([]);
   const [colVisibility, setColVisibility] = useState<ColVisibility>({});
+  const [colTypes, setColTypesState] = useState<ColTypes>({});
+  const [detectedTypes, setDetectedTypes] = useState<ColTypes>({});
   const [fileName, setFileName] = useState<string | null>(null);
   const [hasData, setHasData] = useState(false);
   const [rowsReady, setRowsReady] = useState(false);
 
-  // Header picker
   const [rawSheetData, setRawSheetData] = useState<string[][]>([]);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showHeaderPicker, setShowHeaderPicker] = useState(false);
 
-  // Loading
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  // Filter / sort / search / page / pageSize
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
-  const [dateRangeFilters, setDateRangeFilters] = useState<DateRangeFilters>(
-    {}
-  );
+  const [dateRangeFilters, setDateRangeFilters] = useState<DateRangeFilters>({});
   const [sort, setSort] = useState<SortState>({ col: null, dir: null });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSizeState] = useState(DEFAULT_PAGE_SIZE);
@@ -63,19 +59,16 @@ export function useSpreadsheetData() {
   const [isFiltering, setIsFiltering] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Query results — only the current page
   const [pagedRows, setPagedRows] = useState<Row[]>([]);
   const [processedCount, setProcessedCount] = useState(0);
   const [totalRows, setTotalRows] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [clampedPage, setClampedPage] = useState(1);
 
-  // Selection — counts only, ids live in worker
   const [selectedCount, setSelectedCount] = useState(0);
   const [allFilteredSelected, setAllFilteredSelected] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  // ── Latest query ref — for re-issuing after SELECT ────────────────────────
   const lastQueryRef = useRef<QueryMsg | null>(null);
 
   // ── Spawn worker ──────────────────────────────────────────────────────────
@@ -100,10 +93,9 @@ export function useSpreadsheetData() {
       } else if (msg.type === "READY") {
         setColumns(msg.cols);
         setColVisibility(
-          Object.fromEntries(
-            (msg.cols as string[]).map((c: string) => [c, true])
-          )
+          Object.fromEntries((msg.cols as string[]).map((c: string) => [c, true]))
         );
+        setDetectedTypes(msg.detectedTypes ?? {});
         setTotalRows(msg.totalRows);
         setHasData(true);
         setIsLoading(false);
@@ -136,6 +128,8 @@ export function useSpreadsheetData() {
         setIsFiltering(false);
       } else if (msg.type === "SELECTION") {
         setSelectedCount(msg.selectedCount);
+        if (lastQueryRef.current) worker.postMessage(lastQueryRef.current);
+      } else if (msg.type === "RETYPE_DONE") {
         if (lastQueryRef.current) worker.postMessage(lastQueryRef.current);
       } else if (msg.type === "EXPORT_DONE") {
         setIsExporting(false);
@@ -179,7 +173,6 @@ export function useSpreadsheetData() {
     return worker;
   }, []);
 
-  // ── Send query to worker ──────────────────────────────────────────────────
   const sendQuery = useCallback((q: QueryMsg) => {
     lastQueryRef.current = q;
     workerRef.current?.postMessage(q);
@@ -201,6 +194,8 @@ export function useSpreadsheetData() {
       setPageSizeState(DEFAULT_PAGE_SIZE);
       setActiveFilters({});
       setDateRangeFilters({});
+      setColTypesState({});
+      setDetectedTypes({});
 
       const worker = spawnWorker();
 
@@ -242,15 +237,12 @@ export function useSpreadsheetData() {
       workerRef.current.onmessage = (e) => {
         if (e.data.type === "READY") {
           toast.success("File imported", {
-            description: `${(
-              e.data.totalRows as number
-            ).toLocaleString()} rows · ${
+            description: `${(e.data.totalRows as number).toLocaleString()} rows · ${
               (e.data.cols as string[]).length
             } columns · "${pendingFile.name}"`,
           });
           onSuccess?.();
-          if (workerRef.current)
-            workerRef.current.onmessage = originalOnMessage;
+          if (workerRef.current) workerRef.current.onmessage = originalOnMessage;
         }
         originalOnMessage.call(workerRef.current!, e);
       };
@@ -287,20 +279,11 @@ export function useSpreadsheetData() {
     [searchCommitted, activeFilters, dateRangeFilters, sort, page, pageSize]
   );
 
-  // Re-query whenever filter/sort/page/pageSize/search changes
   useEffect(() => {
     if (!hasData) return;
     sendQuery(buildQuery());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    hasData,
-    searchCommitted,
-    activeFilters,
-    dateRangeFilters,
-    sort,
-    page,
-    pageSize,
-  ]);
+  }, [hasData, searchCommitted, activeFilters, dateRangeFilters, sort, page, pageSize]);
 
   // ── Sort ──────────────────────────────────────────────────────────────────
   const handleSort = useCallback((col: string) => {
@@ -329,12 +312,9 @@ export function useSpreadsheetData() {
     }, 250);
   }, []);
 
-  useEffect(
-    () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    },
-    []
-  );
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
 
   // ── Filters ───────────────────────────────────────────────────────────────
   const updateActiveFilters = useCallback((f: ActiveFilters) => {
@@ -391,6 +371,12 @@ export function useSpreadsheetData() {
     setColVisibility((prev) => ({ ...prev, [col]: visible }));
   }, []);
 
+  // ── Column type ──────────────────────────────────────────────────────────
+  const setColType = useCallback((col: string, type: ColumnType) => {
+    setColTypesState((prev) => ({ ...prev, [col]: type }));
+    workerRef.current?.postMessage({ type: "RETYPE", colTypes: { [col]: type } });
+  }, []);
+
   // ── Export ────────────────────────────────────────────────────────────────
   const handleExport = useCallback(
     (config: ExportConfig) => {
@@ -409,6 +395,8 @@ export function useSpreadsheetData() {
     setIsExporting(false);
     setColumns([]);
     setColVisibility({});
+    setColTypesState({});
+    setDetectedTypes({});
     setFileName(null);
     setHasData(false);
     setRowsReady(false);
@@ -433,6 +421,9 @@ export function useSpreadsheetData() {
     setColumns,
     colVisibility,
     setColVisible,
+    colTypes,
+    setColType,
+    detectedTypes,
     fileName,
     hasData,
     totalRows,
