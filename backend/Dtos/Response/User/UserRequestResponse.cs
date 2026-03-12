@@ -7,6 +7,10 @@ public class UserRequestResponse
     public string RequestStatus { get; set; } = string.Empty;
     public DateTime RequestDate { get; set; }
 
+    public string? DecisionReason { get; set; }
+    public int? DecisionByUserId { get; set; }
+    public DateTime? DecisionAtUtc { get; set; }
+
     public int UserId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;

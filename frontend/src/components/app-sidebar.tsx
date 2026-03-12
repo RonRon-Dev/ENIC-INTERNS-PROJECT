@@ -11,8 +11,8 @@ import {
 } from "@/components/ui/sidebar";
 import type { UserRole } from "@/data/schema";
 import { buildNavGroups } from "@/data/sidebar";
-import { users } from "@/data/users";
 import { usePagePrivileges } from "@/hooks/use-page-privileges";
+import { usersApi } from "@/services/users";
 import { Atom } from "lucide-react";
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -22,11 +22,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { privileges } = usePagePrivileges();
   const [pendingCount, setPendingCount] = useState(0);
 
-  // Fetch pending user badge count
+  // Fetch pending request badge count
   useEffect(() => {
-    users().then((data) => {
-      const count = data.filter((u) => u.status === "pending").length;
-      setPendingCount(count);
+    usersApi.getUserRequests("Pending").then((res) => {
+      setPendingCount((res.data as any[]).length);
     });
   }, []);
 

@@ -5,6 +5,19 @@ import React, { useEffect, useRef, useState } from 'react'
 
 export type ApiRole = { id: number; name: string; icon?: string }
 
+export type UserRequest = {
+  requestId: number
+  requestType: string
+  requestStatus: string
+  requestDate: string
+  userId: number
+  name: string
+  userName: string
+  isVerified: boolean
+  isActive: boolean
+  currentRole: { id: number; name: string } | null
+}
+
 type UsersDialogType = 'add' | 'edit' | 'deactivate' | 'activate' | 'role' | 'approve' | 'reject' | 'approveReset' | 'adminReset' | 'unlock' | 'privileges' | 'assignRole'
 
 type UsersContextType = {
@@ -12,6 +25,8 @@ type UsersContextType = {
   setOpen: (str: UsersDialogType | null) => void
   currentRow: User | null
   setCurrentRow: React.Dispatch<React.SetStateAction<User | null>>
+  currentRequest: UserRequest | null
+  setCurrentRequest: React.Dispatch<React.SetStateAction<UserRequest | null>>
   apiRoles: ApiRole[]
   refreshRoles: () => Promise<void>
   refresh: () => void
@@ -23,6 +38,7 @@ const UsersContext = React.createContext<UsersContextType | null>(null)
 export function UsersProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useDialogState<UsersDialogType>(null)
   const [currentRow, setCurrentRow] = useState<User | null>(null)
+  const [currentRequest, setCurrentRequest] = useState<UserRequest | null>(null)
   const [apiRoles, setApiRoles] = useState<ApiRole[]>([])
   const refreshRef = useRef<() => void>(() => { })
 
@@ -42,7 +58,7 @@ export function UsersProvider({ children }: { children: React.ReactNode }) {
   const setRefresh = (fn: () => void) => { refreshRef.current = fn }
 
   return (
-    <UsersContext value={{ open, setOpen, currentRow, setCurrentRow, apiRoles, refreshRoles, refresh, setRefresh }}>
+    <UsersContext value={{ open, setOpen, currentRow, setCurrentRow, currentRequest, setCurrentRequest, apiRoles, refreshRoles, refresh, setRefresh }}>
       {children}
     </UsersContext>
   )

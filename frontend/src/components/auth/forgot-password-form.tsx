@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { ChevronLeft, ShieldCheck } from "lucide-react";
+import { ChevronLeft, Clock, ShieldCheck, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Field,
   FieldDescription,
@@ -19,7 +20,8 @@ interface ForgotPasswordFormProps {
 
 export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
   const [isSent, setIsSent] = useState(false);
-  // Initialize the form with react-hook-form and zod validation
+  const [resetRequestStatus, setResetRequestStatus] = useState<{ status: string; reason: string | null } | null>(null)
+
   const {
     register,
     handleSubmit,
@@ -29,10 +31,8 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
     resolver: zodResolver(forgotPasswordSchema),
   });
 
-  // State to hold any server-side error messages
   const [serverError, setServerError] = useState<string | null>(null);
 
-  // Function to handle form submission
   const onSubmit = async (data: ForgotPasswordRequest) => {
     try {
       setServerError(null);
@@ -42,6 +42,14 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
         setServerError(response.message);
         return;
       }
+      // After a successful submission, check the current status of the latest reset request
+      // (it could be newly Pending, or the previous one was Rejected giving them a reason to resubmit)
+      try {
+        const status = await authenticationApi.getMyRequestStatus('Reset Password');
+        if (status) {
+          setResetRequestStatus({ status: status.requestStatus, reason: status.decisionReason });
+        }
+      } catch { /* not authenticated — ignore */ }
     } catch (error: any) {
       const res = error.response?.data;
 
@@ -49,7 +57,6 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
         setServerError("Something went wrong");
         return;
       }
-      // Handle field-level errors
       if (res.errors) {
         Object.entries(res.errors).forEach(([key, value]) => {
           setError(key as keyof ForgotPasswordRequest, {
@@ -58,7 +65,6 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
           });
         });
       }
-      // Handle general message
       if (res.message) {
         setServerError(res.message);
       }
@@ -118,6 +124,21 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
             Please wait for an administrator to verify your identity and contact
             you.
           </p>
+          {resetRequestStatus?.status === 'Rejected' && resetRequestStatus.reason && (
+            <Alert variant="destructive" className="text-start mt-2">
+              <XCircle className="h-4 w-4" />
+              <AlertTitle>Previous Request Rejected</AlertTitle>
+              <AlertDescription>
+                Reason: <span className="font-semibold">{resetRequestStatus.reason}</span>. Your new request has been submitted.
+              </AlertDescription>
+            </Alert>
+          )}
+          {!resetRequestStatus && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="size-3" />
+              New request submitted successfully.
+            </div>
+          )}
         </div>
       )}
 

@@ -19,6 +19,7 @@ public class UserService(
     {
         var users = await context.Users
             .Include(u => u.Role)
+            .Where(u => u.IsVerified)
             .AsNoTracking()
             .ToListAsync();
 
@@ -68,6 +69,10 @@ public class UserService(
                 RequestStatus = r.RequestStatus,
                 RequestDate = r.RequestDate,
 
+                DecisionReason = r.DecisionReason,
+                DecisionByUserId = r.DecisionByUserId,
+                DecisionAtUtc = r.DecisionAtUtc,
+
                 UserId = r.UserId,
                 Name = r.User.Name,
                 UserName = r.User.UserName,
@@ -90,10 +95,10 @@ public class UserService(
 
     public async Task<UserStatsResponse> GetUserStatsAsync()
     {
-        var total = await context.Users.CountAsync();
-        var pending = await context.Users.CountAsync(u => !u.IsVerified);
-        var active = await context.Users.CountAsync(u => u.IsActive);
-        var deactivated = await context.Users.CountAsync(u => !u.IsActive);
+        var total = await context.Users.CountAsync(u => u.IsVerified);
+        var pending = await context.UserRequests.CountAsync(r => r.RequestStatus == "Pending");
+        var active = await context.Users.CountAsync(u => u.IsVerified && u.IsActive);
+        var deactivated = await context.Users.CountAsync(u => u.IsVerified && !u.IsActive);
 
         var assigned = await context.Users
             .Include(u => u.Role)
@@ -172,7 +177,7 @@ public class UserService(
     }
 
     // This method should be UpdateRoleAsync, ,to be updated
-    public async Task<UpdateUserResponse> AssignRoleAsync(int id, UpdateUserRequest request, int currentUser)
+    public async Task<UpdateUserResponse> AssignRoleAsync(int id, int currentUser, UpdateUserRequest request)
     {
         var entity = await context.Users
             .Include(u => u.Role)
@@ -345,7 +350,12 @@ public class UserService(
             .FirstOrDefaultAsync();
 
         if (regReq != null)
+        {
             regReq.RequestStatus = "Approved";
+            regReq.DecisionByUserId = currentUser;
+            regReq.DecisionAtUtc = DateTime.UtcNow;
+            regReq.DecisionReason = "Approved";
+        }
 
         var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
 
@@ -419,7 +429,12 @@ public class UserService(
             .FirstOrDefault();
 
         if (resetReq != null)
+        {
             resetReq.RequestStatus = "Approved";
+            resetReq.DecisionByUserId = currentUser;
+            resetReq.DecisionAtUtc = DateTime.UtcNow;
+            resetReq.DecisionReason = "Approved";
+        }
 
         // TEMP password becomes active password (so login works)
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(code, 10);
@@ -525,16 +540,26 @@ public class UserService(
         };
     }
 
-    public async Task<(bool Success, string Message, RoleResponse? Role)> CreateRoleAsync(CreateRoleRequest request, int currentUserId)
+    public async Task<CreateRoleResponse> CreateRoleAsync(CreateRoleRequest request, int currentUserId)
     {
         var name = (request.Name ?? "").Trim();
 
         if (string.IsNullOrWhiteSpace(name))
-            return (false, "Role name is required.", null);
+            return new CreateRoleResponse
+            {
+                Success = false,
+                Message = "Role name is required.",
+                Name = ""
+            };
 
         var exists = await context.Roles.AnyAsync(r => r.Name.ToLower() == name.ToLower());
         if (exists)
-            return (false, "Role already exists.", null);
+            return new CreateRoleResponse
+            {
+                Success = false,
+                Message = "Role name already exists.",
+                Name = ""
+            };
 
         var role = new Roles { Name = name };
         context.Roles.Add(role);
@@ -551,7 +576,58 @@ public class UserService(
             new { role = name }
         );
 
-        return (true, "Role created successfully.", new RoleResponse { Id = role.Id, Name = role.Name });
+        return new CreateRoleResponse
+        {
+            Success = true,
+            Message = "Role created successfully.",
+            Name = name
+        };
+    }
+
+    public async Task<UpdateUserResponse> RejectUserRequestAsync(RejectUserRequestRequest request, int currentUserId)
+    {
+        if (request.RequestId <= 0)
+            return new UpdateUserResponse { Success = false, Message = "RequestId is required." };
+
+        var reason = (request.Reason ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(reason))
+            return new UpdateUserResponse { Success = false, Message = "Rejection reason is required." };
+
+        var req = await context.UserRequests
+            .Include(r => r.User)
+            .FirstOrDefaultAsync(r => r.Id == request.RequestId);
+
+        if (req is null)
+            return new UpdateUserResponse { Success = false, Message = "Request not found." };
+
+        if (req.RequestStatus != "Pending")
+            return new UpdateUserResponse { Success = false, Message = "Only pending requests can be rejected." };
+
+        req.RequestStatus = "Rejected";
+        req.DecisionReason = reason;
+        req.DecisionByUserId = currentUserId;
+        req.DecisionAtUtc = DateTime.UtcNow;
+
+        context.ActivityLogs.Add(new ActivityLogs
+        {
+            UserId = req.UserId,
+            UserName = req.User.UserName,
+            ActivityType = "privilege",
+            Description = $"Request Rejected: {req.RequestType}",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                requestId = req.Id,
+                requestType = req.RequestType,
+                reason,
+                decidedBy = currentUserId
+            }),
+            IsSuccess = true,
+            Timestamp = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+
+        return new UpdateUserResponse { Success = true, Message = "Request rejected successfully." };
     }
 
     public async Task<UpdateUserResponse> UnlockUserAsync(int id, int currentUserId)

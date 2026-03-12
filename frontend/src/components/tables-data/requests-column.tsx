@@ -21,20 +21,10 @@ import { DataTablePagination } from "../data-table-components/data-table-paginat
 import { DataTableToolbar } from "../data-table-components/data-table-toolbar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from "../ui/dropdown-menu"
 import { useUsers } from "../users/users-provider"
+import type { UserRequest } from "../users/users-provider"
 import type { User } from "./users-column"
 
-export type UserRequest = {
-  requestId: number
-  requestType: string
-  requestStatus: string
-  requestDate: string
-  userId: number
-  name: string
-  userName: string
-  isVerified: boolean
-  isActive: boolean
-  currentRole: { id: number; name: string } | null
-}
+export type { UserRequest }
 
 interface DataTableProps {
   columns: ColumnDef<UserRequest>[]
@@ -153,7 +143,7 @@ type RequestRowActionsProps = CellContext<UserRequest, unknown> & {
 }
 
 export function RequestRowActions({ row, onApprove }: RequestRowActionsProps) {
-  const { setOpen, setCurrentRow } = useUsers()
+  const { setOpen, setCurrentRow, setCurrentRequest } = useUsers()
 
   return (
     <DropdownMenu modal={false}>
@@ -175,6 +165,7 @@ export function RequestRowActions({ row, onApprove }: RequestRowActionsProps) {
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
+            setCurrentRequest(row.original)
             setCurrentRow({
               id: String(row.original.userId),
               name: row.original.name,

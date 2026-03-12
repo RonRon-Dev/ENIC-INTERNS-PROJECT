@@ -16,6 +16,7 @@ services:
   api:
     build:
       context: ./backend
+      target: development
     profiles: ["dev"]
     container_name: aspnet-api
     depends_on:
@@ -25,7 +26,6 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      ConnectionStrings__DefaultConnection: "Server=database,1433;Database=TestDB;User Id=SA;Password=sq1server@Admin;TrustServerCertificate=True;"
       ASPNETCORE_URLS: "http://+:8080"
       ASPNETCORE_ENVIRONMENT: Development
 
@@ -35,8 +35,6 @@ services:
       target: development
     profiles: ["dev"]
     container_name: react-frontend
-    # depends_on:
-    #   - api
     ports:
       - "5173:5173"
     volumes:
@@ -48,6 +46,20 @@ services:
     stdin_open: true
     tty: true
 
+  api-prod:
+    build:
+      context: ./backend
+      target: production
+    profiles: ["prod"]
+    container_name: aspnet-api-prod
+    # ports:
+    #   - "5029:8080"
+    volumes:
+      - dataprotection-keys:/root/.aspnet/DataProtection-Keys
+    environment:
+      ASPNETCORE_URLS: "http://+:8080"
+      ASPNETCORE_ENVIRONMENT: Production
+
   web-prod:
     build:
       context: ./frontend
@@ -56,10 +68,11 @@ services:
     container_name: react-frontend-prod
     ports:
       - "8000:80"
-    environment:
-      - VITE_API_URL=http://api:8080
+    # environment:
+    #   - VITE_API_URL=http://api-prod:8080
     stdin_open: true
     tty: true
 
 volumes:
   mssql-data:
+  dataprotection-keys:

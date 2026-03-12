@@ -13,14 +13,14 @@ namespace backend.Controllers.Auth;
 public class AuthController(IAuthService service, IWebHostEnvironment env) : ControllerBase
 {
     // Secure = true and SameSite = Strict in production
-    private bool IsProduction => env.IsProduction();
+    private bool IsProduction => env.IsProduction() && false; // Set to false for testing in production-like environment. Change to true for actual production.
 
     private CookieOptions AccessTokenCookieOptions => new CookieOptions
     {
         HttpOnly = true,
         Secure = IsProduction,
         SameSite = IsProduction ? SameSiteMode.Strict : SameSiteMode.Lax,
-        Expires = DateTime.UtcNow.AddMinutes(15)
+        Expires = DateTime.UtcNow.AddMinutes(30)
     };
 
     private CookieOptions RefreshTokenCookieOptions => new CookieOptions
@@ -60,6 +60,16 @@ public class AuthController(IAuthService service, IWebHostEnvironment env) : Con
         return Ok(result);
     }
 
+    [Authorize]
+    [HttpGet("my-request-status")]
+    public async Task<ActionResult<MyRequestStatusResponse>> GetMyRequestStatus([FromQuery] string requestType = "Reset Password")
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return Unauthorized();
+        var result = await service.GetMyRequestStatusAsync(int.Parse(userId), requestType);
+        return Ok(result);
+    }
+
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
     {
@@ -78,11 +88,13 @@ public class AuthController(IAuthService service, IWebHostEnvironment env) : Con
         Response.Cookies.Append("accessToken", result.AccessToken, AccessTokenCookieOptions);
         Response.Cookies.Append("refreshToken", result.RefreshToken, RefreshTokenCookieOptions);
 
+        result.AccessToken = null;
+        result.RefreshToken = null;
         return Ok(result);
     }
 
     [HttpPost("forgot-password")]
-    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request)
+    public async Task<ActionResult<ForgotPasswordResponse>> ForgotPassword(ForgotPasswordRequest request)
     {
         var response = await service.ForgotPasswordAsync(request);
 
@@ -93,7 +105,7 @@ public class AuthController(IAuthService service, IWebHostEnvironment env) : Con
 
     [Authorize]
     [HttpPatch("update-password")]
-    public async Task<IActionResult> UpdatePassword(ResetPasswordRequest request)
+    public async Task<ActionResult<ForgotPasswordResponse>> UpdatePassword(ResetPasswordRequest request)
     {
         var response = await service.UpdatePasswordAsync(request);
 
@@ -117,12 +129,14 @@ public class AuthController(IAuthService service, IWebHostEnvironment env) : Con
         Response.Cookies.Append("accessToken", result.AccessToken, AccessTokenCookieOptions);
         Response.Cookies.Append("refreshToken", result.RefreshToken, RefreshTokenCookieOptions);
 
+        result.AccessToken = null;
+        result.RefreshToken = null;
         return Ok(result);
     }
 
     [Authorize]
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout()
+    public async Task<ActionResult<AuthResponse>> Logout()
     {
         var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         var result = await service.LogoutAsync(userId);

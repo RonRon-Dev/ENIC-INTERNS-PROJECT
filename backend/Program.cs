@@ -35,7 +35,7 @@ builder.Services.AddCors(options =>
         policy =>
         {
             policy
-                .WithOrigins("http://localhost:5173", "http://127.14.0.8:5173")
+                .WithOrigins(allowedOrigins)
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
@@ -196,6 +196,14 @@ builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ActivityLoggerService>();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+    await DatabaseSeeder.SeedAsync(db);
+
+}
 
 if (app.Environment.IsDevelopment())
 {
