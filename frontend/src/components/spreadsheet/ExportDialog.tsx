@@ -27,7 +27,7 @@ const ZIP_THRESHOLD = 5;
 interface ExportDialogProps {
   open: boolean;
   onClose: () => void;
-  onExport: (config: ExportConfig) => void;
+  onExport: (config: ExportConfig, visibleCols: string[]) => void; // FIX: was (config: ExportConfig) => void
   columns: string[];
   selectedCount: number;
   isExporting?: boolean;
@@ -213,17 +213,6 @@ export function ExportDialog({
                         {desc}
                       </p>
                     </div>
-                    <div
-                      className={`ml-auto h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                        config.mode === value
-                          ? "border-primary"
-                          : "border-border"
-                      }`}
-                    >
-                      {config.mode === value && (
-                        <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-                      )}
-                    </div>
                   </button>
                 );
               })}
@@ -231,7 +220,7 @@ export function ExportDialog({
           </div>
 
           {/* Single file name */}
-          {config.mode === "single" && (
+          {!isPerRow && (
             <div className="flex flex-col gap-2">
               <label className="text-xs font-medium text-foreground">
                 File name
@@ -358,7 +347,7 @@ export function ExportDialog({
             size="sm"
             className="gap-1.5"
             disabled={isExporting}
-            onClick={() => onExport(config)}
+            onClick={() => onExport(config, columns)} // FIX: pass columns as visibleCols
           >
             {isExporting ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

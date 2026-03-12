@@ -238,9 +238,6 @@ async function parseCSVFromBuffer(buffer: ArrayBuffer): Promise<string[][]> {
 }
 
 // ── Large CSV → columnar stream ───────────────────────────────────────────────
-// Parses the raw buffer in CSV_CHUNK_BYTES slices and writes cells directly
-// into pre-allocated column arrays. Never builds row objects or accumulates
-// a parallel string[][] array. Peak memory = 2 × numCols × numRows strings.
 async function streamCSVToColStore(
   buffer: ArrayBuffer,
   headerRowIndex: number
@@ -256,8 +253,6 @@ async function streamCSVToColStore(
   let headerDone = false;
   let skippedRows = 0;
   let ri = 0;
-  // fieldBuf accumulates characters as an array — avoids O(n²) string concat
-  // for long cell values. join() is called once per field completion.
   let fieldBuf: string[] = [];
   let inQuotes = false;
   let curRow: string[] = [];
@@ -266,12 +261,7 @@ async function streamCSVToColStore(
   const SAMPLE_SIZE = 50;
   let dateDetected = false;
 
-  // Grow column arrays in 50 k-row blocks to avoid per-row reallocation
-  // For CSV: colStoreRaw is NOT populated — CSV cells are already plain strings.
-  // colStore holds the display value. For date cols, the original string is
-  // recoverable via parseDate reversal, and RETYPE re-reads from colStore directly.
-  // This halves peak memory vs maintaining a full duplicate array set.
-  const BLOCK = 100_000; // larger blocks = fewer resize operations
+  const BLOCK = 100_000;
   let capacity = 0;
 
   const ensureCapacity = () => {
@@ -292,7 +282,7 @@ async function streamCSVToColStore(
       csvCols = dedupeColumns(row);
       columns = csvCols;
       colStore = csvCols.map(() => new Array<string>(BLOCK));
-      colStoreRaw = csvCols.map(() => []); // empty — not used for CSV
+      colStoreRaw = csvCols.map(() => []);
       capacity = BLOCK;
       headerDone = true;
       return;
@@ -301,12 +291,10 @@ async function streamCSVToColStore(
     if (ri >= ROW_CAP) return;
     ensureCapacity();
 
-    // Accumulate sample for date detection
     if (!dateDetected) {
       if (sample.length < SAMPLE_SIZE) {
         sample.push(row.slice(0, csvCols.length));
       } else {
-        // Enough sample — detect and back-apply to rows already written
         detectedColIndices = detectDateCols(sample, csvCols.length);
         dateDetected = true;
         for (let pRi = 0; pRi < ri; pRi++) {
@@ -369,13 +357,11 @@ async function streamCSVToColStore(
     flushRow(curRow);
   }
 
-  // Trim to actual size (colStoreRaw not used for CSV)
   for (let ci = 0; ci < csvCols.length; ci++) {
     colStore[ci].length = ri;
   }
   totalRows = ri;
 
-  // File ended before sample was full — run detection now
   if (!dateDetected && sample.length > 0) {
     detectedColIndices = detectDateCols(sample, csvCols.length);
     if (detectedColIndices.size > 0) {
@@ -432,7 +418,6 @@ async function commitToColStore(
     if (columns[ci]) detectedTypes[columns[ci]] = "date";
   });
 
-  // Pre-allocate columnar arrays
   colStore = columns.map(() => new Array<string>(numRows));
   colStoreRaw = columns.map(() => new Array<string>(numRows));
   totalRows = numRows;
@@ -544,11 +529,11 @@ function parseSheetXml(
         inner = cellMatch[2];
       const refM = /\br="([A-Z]+)\d+"/.exec(attrs);
       if (refM) {
-        let colIndex = 0;
+        let colIdx = 0;
         for (const ch of refM[1])
-          colIndex = colIndex * 26 + (ch.charCodeAt(0) - 64);
-        colIndex--;
-        while (cells.length < colIndex) cells.push("");
+          colIdx = colIdx * 26 + (ch.charCodeAt(0) - 64);
+        colIdx--;
+        while (cells.length < colIdx) cells.push("");
       }
       const typeM = /\bt="([^"]*)"/.exec(attrs);
       const sM = /\bs="(\d+)"/.exec(attrs);
@@ -635,7 +620,6 @@ async function handleParse(buffer: ArrayBuffer, fileName: string) {
 
     if (lower.endsWith(".csv") || lower.endsWith(".tsv")) {
       if (buffer.byteLength >= LARGE_CSV_THRESHOLD) {
-        // Large CSV: hold buffer, show preview from first 512 KB only
         storedLargeCSVBuffer = buffer;
         const previewText = new TextDecoder("utf-8").decode(
           buffer.slice(0, Math.min(512 * 1024, buffer.byteLength))
@@ -743,7 +727,6 @@ function runQuery(msg: {
   const hasSearch = msg.search.trim().length > 0;
   const hasSort = !!(msg.sort.col && msg.sort.dir);
 
-  // Fast path: no filters/search/sort — skip scan entirely
   if (!hasFilters && !hasDateFilter && !hasSearch && !hasSort) {
     const processedCount = totalRows;
     const totalPages = Math.max(1, Math.ceil(processedCount / ps));
@@ -752,7 +735,6 @@ function runQuery(msg: {
     const pagedRows = [];
     for (let i = start; i < Math.min(start + ps, totalRows); i++)
       pagedRows.push({ ...getRow(i), __id: i });
-    // Build allFilteredIds lazily — only needed for select-all
     if (!fullIndexCache) {
       fullIndexCache = new Int32Array(totalRows);
       for (let i = 0; i < totalRows; i++) fullIndexCache[i] = i;
@@ -769,8 +751,6 @@ function runQuery(msg: {
     };
   }
 
-  // Filtered path — use a compact Uint8Array pass-mask to avoid building intermediate arrays
-  // pass[ri] = 1 means the row passes all filters
   const pass = new Uint8Array(totalRows).fill(1);
 
   if (hasFilters) {
@@ -823,7 +803,6 @@ function runQuery(msg: {
     }
   }
 
-  // Collect passing indices
   const indices: number[] = [];
   for (let ri = 0; ri < totalRows; ri++) {
     if (pass[ri]) indices.push(ri);
@@ -868,37 +847,77 @@ function runQuery(msg: {
 }
 
 // ── Export helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Build raw file bytes for the given data + format.
+ *
+ * FIX 1 — `map` on undefined:
+ *   Added `Array.isArray` guard so an accidental non-array never throws.
+ *   Also switched xml path from Object.values to Object.entries with null-guard.
+ *
+ * FIX 2 — `slice` of undefined (xlsx path):
+ *   XLSX.write with type:"array" can return a plain number[] in some SheetJS
+ *   versions, meaning .buffer/.byteOffset/.byteLength are all undefined.
+ *   Fix: always wrap with `new Uint8Array(raw)` instead of relying on .buffer.
+ */
 function buildFileBytes(
   data: Record<string, unknown>[],
   format: string
-): Uint8Array<ArrayBuffer> | string {
+): Uint8Array | string {
+  const safeData = Array.isArray(data) ? data : [];
+
   if (format === "xml")
-    return data
+    return safeData
       .map((r) =>
-        Object.values(r)
-          .map((v) => String(v ?? "").trim())
+        Object.entries(r ?? {})
+          .map(([, v]) => String(v ?? "").trim())
           .filter(Boolean)
           .join("\n")
       )
       .join("\n");
-  const ws = XLSX.utils.json_to_sheet(data, {
+
+  const ws = XLSX.utils.json_to_sheet(safeData, {
     raw: true,
   } as XLSX.JSON2SheetOpts);
+
   if (format === "xlsx") {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Export");
+    // XLSX.write may return number[] or Uint8Array — re-wrap to guarantee Uint8Array
     const raw = XLSX.write(wb, {
       bookType: "xlsx",
       type: "array",
-    }) as Uint8Array;
-    return new Uint8Array(
-      raw.buffer.slice(
-        raw.byteOffset,
-        raw.byteOffset + raw.byteLength
-      ) as ArrayBuffer
-    );
+    }) as ArrayLike<number>;
+    return new Uint8Array(raw);
   }
+
   return XLSX.utils.sheet_to_csv(ws, { FS: format === "tsv" ? "\t" : "," });
+}
+
+/**
+ * Build a correctly typed Blob for any export format.
+ *
+ * FIX 3 — corrupted CSV/TSV blob in per-row small-batch path:
+ *   The old code hardcast buildFileBytes output as Uint8Array even for CSV/TSV
+ *   which returns a string — producing a garbled file. This helper picks the
+ *   right Blob constructor based on format.
+ */
+function buildBlob(data: Record<string, unknown>[], format: string): Blob {
+  const bytes = buildFileBytes(data, format);
+  if (format === "xlsx") {
+    // FIX: Uint8Array<ArrayBufferLike> is not a valid BlobPart in strict TS.
+    // Copy into a guaranteed plain ArrayBuffer via slice() to satisfy the type.
+    const u8 = bytes as Uint8Array;
+    const plain = u8.buffer.slice(
+      u8.byteOffset,
+      u8.byteOffset + u8.byteLength
+    ) as ArrayBuffer;
+    return new Blob([plain], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+  }
+  // csv, tsv, xml → plain text
+  return new Blob([bytes as string], { type: "text/plain" });
 }
 
 function resolveName(
@@ -950,9 +969,6 @@ self.onmessage = async (e: MessageEvent) => {
       if (ci < 0) continue;
       const hasRaw = colStoreRaw[ci]?.length > 0;
       for (let ri = 0; ri < totalRows; ri++) {
-        // For CSV files colStoreRaw is empty — colStore already holds the original
-        // string value unless it was previously date-converted, in which case we
-        // can still re-apply the new type against the current display value.
         const raw = hasRaw ? colStoreRaw[ci][ri] ?? "" : colStore[ci][ri] ?? "";
         colStore[ci][ri] = applyColType(raw, type, ci);
       }
@@ -961,7 +977,9 @@ self.onmessage = async (e: MessageEvent) => {
   } else if (msg.type === "EXPORT") {
     try {
       const config = msg.config;
-      const visCols: string[] = msg.visibleCols;
+      const visCols: string[] = Array.isArray(msg.visibleCols)
+        ? msg.visibleCols
+        : [];
 
       const exportIndices: number[] = [];
       for (let ri = 0; ri < totalRows; ri++) {
@@ -985,13 +1003,8 @@ self.onmessage = async (e: MessageEvent) => {
       };
 
       if (config.mode === "single") {
-        const bytes = buildFileBytes(finalIndices.map(project), config.format);
-        const blob =
-          config.format === "xlsx"
-            ? new Blob([bytes as Uint8Array<ArrayBuffer>], {
-                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-              })
-            : new Blob([bytes as string], { type: "text/plain" });
+        // FIX 2 applied via buildBlob — correct Blob type for all formats
+        const blob = buildBlob(finalIndices.map(project), config.format);
         self.postMessage({
           type: "EXPORT_DONE",
           kind: "file",
@@ -1014,6 +1027,7 @@ self.onmessage = async (e: MessageEvent) => {
           ).replace(/[/:*?"<>|]/g, "_");
           const cnt = usedNames.get(safe) ?? 0;
           usedNames.set(safe, cnt + 1);
+          // JSZip accepts both Uint8Array and string — buildFileBytes is fine here
           zip.file(
             `${cnt === 0 ? safe : `${safe}_${cnt + 1}`}.${config.format}`,
             buildFileBytes([project(finalIndices[i])], config.format)
@@ -1030,6 +1044,7 @@ self.onmessage = async (e: MessageEvent) => {
           }`,
         });
       } else {
+        // FIX 3 — was hardcasting string result as Uint8Array for CSV/TSV
         const files: { url: string; fileName: string }[] = [];
         const usedNames = new Map<string, number>();
         for (let i = 0; i < finalIndices.length; i++) {
@@ -1043,15 +1058,7 @@ self.onmessage = async (e: MessageEvent) => {
           usedNames.set(safe, cnt + 1);
           files.push({
             url: URL.createObjectURL(
-              new Blob(
-                [
-                  buildFileBytes(
-                    [project(finalIndices[i])],
-                    config.format
-                  ) as Uint8Array<ArrayBuffer>,
-                ],
-                { type: "text/plain" }
-              )
+              buildBlob([project(finalIndices[i])], config.format)
             ),
             fileName: `${cnt === 0 ? safe : `${safe}_${cnt + 1}`}.${
               config.format
