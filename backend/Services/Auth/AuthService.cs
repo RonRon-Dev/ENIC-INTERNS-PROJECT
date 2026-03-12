@@ -156,11 +156,12 @@ public class AuthService(
             await context.SaveChangesAsync();
 
             var isRejected = latestReq?.RequestStatus == "Rejected";
+            var reason = latestReq?.DecisionReason;
             return new AuthResponse
             {
                 Success = false,
                 Message = isRejected
-                    ? "Your registration was rejected. Please see the reason below."
+                    ? $"Your registration was rejected. Reason: {reason ?? "No reason provided"}."
                     : "Account pending approval. Please contact your administrator.",
                 AccessToken = null!,
                 RefreshToken = null!,

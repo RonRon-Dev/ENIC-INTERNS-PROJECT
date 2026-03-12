@@ -680,7 +680,7 @@ export function UsersRejectDialog({
     try {
       NProgress.start()
       await usersApi.rejectRequest(currentRequest.requestId, selectedReason)
-      notifToast({ name: currentRow.name }, 'error')
+      notifToast({ name: currentRow.name }, 'reject')
       refresh()
       setSelectedReason('')
       onOpenChange(false)
