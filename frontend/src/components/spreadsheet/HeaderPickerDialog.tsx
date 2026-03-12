@@ -114,7 +114,7 @@ export function HeaderPickerDialog({
                         )}
                       </td>
                     ))}
-                    <td className="px-2 py-2 w-28">
+                    {/* <td className="px-2 py-2 w-28">
                       {isSelected && (
                         <span className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/30 rounded-full px-2 py-0.5 whitespace-nowrap">
                           ← header row
@@ -125,7 +125,7 @@ export function HeaderPickerDialog({
                           skipped
                         </span>
                       )}
-                    </td>
+                    </td> */}
                   </tr>
                 );
               })}
