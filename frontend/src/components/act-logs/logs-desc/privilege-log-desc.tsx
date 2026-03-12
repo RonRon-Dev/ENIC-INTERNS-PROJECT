@@ -8,7 +8,7 @@ export default function PrivilegeLogDesc({ currentRow }: { currentRow: ActivityL
   console.log(payload);
   return (
     <>
-      <span className="text-muted-foreground text-sm">Target User </span>
+      <span className="text-muted-foreground text-sm">edser </span>
       <span className="text-right text-sm"></span>
 
       <span className="text-muted-foreground text-sm">Name</span>

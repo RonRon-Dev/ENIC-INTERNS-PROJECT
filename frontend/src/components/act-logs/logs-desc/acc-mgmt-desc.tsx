@@ -9,7 +9,7 @@ export default function AccMgmtLogDesc({ currentRow }: { currentRow: ActivityLog
 
   return (
     <>
-      <span className="text-foreground text-sm">Target User </span>
+      <span className="text-foreground text-sm">Targeted User</span>
       <span className="text-right text-sm"></span>
 
       <span className="text-muted-foreground text-sm">Name</span>
