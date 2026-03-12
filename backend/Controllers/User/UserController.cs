@@ -83,7 +83,7 @@ public class UserController(IUserService service) : ControllerBase
             var currentUser = User.GetCurrentUser();
             if (currentUser <= 0)
                 return Unauthorized(new { message = "Invalid user." });
-            var response = await service.AssignRoleAsync(id, request, currentUser);
+            var response = await service.AssignRoleAsync(id, currentUser, request);
             return response.Success ? 
                 Ok(response) : 
                 BadRequest(response);
