@@ -1,4 +1,4 @@
-import type { Payload, AccMgmtPayload, ActivityLog } from "@/data/schema";
+import type { AccMgmtPayload, ActivityLog, Payload } from "@/data/schema";
 
 export default function AccMgmtLogDesc({ currentRow }: { currentRow: ActivityLog }) {
   const payload: Payload = currentRow.payload as Payload;
@@ -9,7 +9,7 @@ export default function AccMgmtLogDesc({ currentRow }: { currentRow: ActivityLog
 
   return (
     <>
-      <span className="text-muted-foreground text-sm">Target User </span>
+      <span className="text-foreground text-sm">Target User </span>
       <span className="text-right text-sm"></span>
 
       <span className="text-muted-foreground text-sm">Name</span>
