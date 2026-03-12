@@ -20,6 +20,12 @@ export const DEFAULT_PAGE_SIZE = 12;
 export const PAGE_SIZE_OPTIONS = [12, 25, 50, 100];
 export const ZIP_THRESHOLD = 5;
 
+// File size threshold for soft warning
+const FILE_SIZE_WARN_MB = 20;
+
+// Increased debounce — reduces filter thrashing on low-RAM machines
+const SEARCH_DEBOUNCE_MS = 500;
+
 interface QueryMsg {
   type: "QUERY";
   search: string;
@@ -47,9 +53,12 @@ export function useSpreadsheetData() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [loadingPhase, setLoadingPhase] = useState("Reading file");
 
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
-  const [dateRangeFilters, setDateRangeFilters] = useState<DateRangeFilters>({});
+  const [dateRangeFilters, setDateRangeFilters] = useState<DateRangeFilters>(
+    {}
+  );
   const [sort, setSort] = useState<SortState>({ col: null, dir: null });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSizeState] = useState(DEFAULT_PAGE_SIZE);
@@ -88,18 +97,22 @@ export function useSpreadsheetData() {
         setTimeout(() => {
           setIsLoading(false);
           setProgress(0);
+          setLoadingPhase("Reading file");
           setShowHeaderPicker(true);
         }, 350);
       } else if (msg.type === "READY") {
         setColumns(msg.cols);
         setColVisibility(
-          Object.fromEntries((msg.cols as string[]).map((c: string) => [c, true]))
+          Object.fromEntries(
+            (msg.cols as string[]).map((c: string) => [c, true])
+          )
         );
         setDetectedTypes(msg.detectedTypes ?? {});
         setTotalRows(msg.totalRows);
         setHasData(true);
         setIsLoading(false);
         setProgress(0);
+        setLoadingPhase("Reading file");
         const q: QueryMsg = {
           type: "QUERY",
           search: "",
@@ -111,6 +124,23 @@ export function useSpreadsheetData() {
         };
         lastQueryRef.current = q;
         worker.postMessage(q);
+      } else if (msg.type === "PROGRESS") {
+        setLoadingPhase(msg.phase ?? "Processing rows");
+        setProgress(msg.pct ?? 0);
+      } else if (msg.type === "SIZE_WARNING") {
+        toast.warning(`Large file detected (${msg.sizeMB} MB)`, {
+          description:
+            "Processing may take longer on devices with limited memory. Consider splitting the file if it becomes unresponsive.",
+          duration: 8000,
+        });
+      } else if (msg.type === "ROW_CAP") {
+        toast.warning(
+          `Row limit reached — showing first ${msg.capped.toLocaleString()} rows`,
+          {
+            description: `The file contains more than ${msg.capped.toLocaleString()} rows. Split the file into smaller parts to load the rest.`,
+            duration: 10000,
+          }
+        );
       } else if (msg.type === "RESULT") {
         setPagedRows(msg.pagedRows);
         setProcessedCount(msg.processedCount);
@@ -159,6 +189,7 @@ export function useSpreadsheetData() {
       } else if (msg.type === "ERROR") {
         setIsLoading(false);
         setProgress(0);
+        setLoadingPhase("Reading file");
         toast.error("Error", { description: msg.message });
       }
     };
@@ -166,6 +197,7 @@ export function useSpreadsheetData() {
     worker.onerror = (err) => {
       setIsLoading(false);
       setProgress(0);
+      setLoadingPhase("Reading file");
       toast.error("Worker error", { description: err.message });
     };
 
@@ -181,8 +213,18 @@ export function useSpreadsheetData() {
   // ── Parse file ────────────────────────────────────────────────────────────
   const parseFile = useCallback(
     (file: File) => {
+      // Soft warning for large files
+      const sizeMB = file.size / 1024 / 1024;
+      if (sizeMB > FILE_SIZE_WARN_MB) {
+        toast.warning(`Large file (${sizeMB.toFixed(1)} MB)`, {
+          description: "This may take a while on devices with limited RAM.",
+          duration: 6000,
+        });
+      }
+
       setIsLoading(true);
       setProgress(0);
+      setLoadingPhase("Reading file");
       setHasData(false);
       setRowsReady(false);
       setSelectedIds(new Set());
@@ -210,7 +252,10 @@ export function useSpreadsheetData() {
         clearInterval(interval);
         setProgress(90);
         const buffer = ev.target!.result as ArrayBuffer;
-        worker.postMessage({ type: "PARSE", buffer }, [buffer]);
+        // KEY CHANGE: pass fileName so worker can pick CSV vs XLSX path
+        worker.postMessage({ type: "PARSE", buffer, fileName: file.name }, [
+          buffer,
+        ]);
       };
       reader.onerror = () => {
         clearInterval(interval);
@@ -231,18 +276,22 @@ export function useSpreadsheetData() {
       setShowHeaderPicker(false);
       setIsLoading(true);
       setProgress(0);
+      setLoadingPhase("Processing rows");
       setFileName(pendingFile.name);
 
       const originalOnMessage = workerRef.current.onmessage!;
       workerRef.current.onmessage = (e) => {
         if (e.data.type === "READY") {
           toast.success("File imported", {
-            description: `${(e.data.totalRows as number).toLocaleString()} rows · ${
+            description: `${(
+              e.data.totalRows as number
+            ).toLocaleString()} rows · ${
               (e.data.cols as string[]).length
             } columns · "${pendingFile.name}"`,
           });
           onSuccess?.();
-          if (workerRef.current) workerRef.current.onmessage = originalOnMessage;
+          if (workerRef.current)
+            workerRef.current.onmessage = originalOnMessage;
         }
         originalOnMessage.call(workerRef.current!, e);
       };
@@ -283,7 +332,15 @@ export function useSpreadsheetData() {
     if (!hasData) return;
     sendQuery(buildQuery());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasData, searchCommitted, activeFilters, dateRangeFilters, sort, page, pageSize]);
+  }, [
+    hasData,
+    searchCommitted,
+    activeFilters,
+    dateRangeFilters,
+    sort,
+    page,
+    pageSize,
+  ]);
 
   // ── Sort ──────────────────────────────────────────────────────────────────
   const handleSort = useCallback((col: string) => {
@@ -295,25 +352,15 @@ export function useSpreadsheetData() {
     setPage(1);
   }, []);
 
-  // ── Page size ─────────────────────────────────────────────────────────────
-  const setPageSize = useCallback((size: number) => {
-    setPageSizeState(size);
-    setPage(1);
-  }, []);
-
-  // ── Search ────────────────────────────────────────────────────────────────
-  const updateSearch = useCallback((value: string) => {
-    setSearchInput(value);
+  // ── Search (500ms debounce) ───────────────────────────────────────────────
+  const updateSearch = useCallback((val: string) => {
+    setSearchInput(val);
     setIsFiltering(true);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      setSearchCommitted(value);
+      setSearchCommitted(val);
       setPage(1);
-    }, 250);
-  }, []);
-
-  useEffect(() => () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    }, SEARCH_DEBOUNCE_MS);
   }, []);
 
   // ── Filters ───────────────────────────────────────────────────────────────
@@ -333,58 +380,55 @@ export function useSpreadsheetData() {
     setPage(1);
   }, []);
 
-  // ── Selection ─────────────────────────────────────────────────────────────
-  const toggleRow = useCallback((id: number) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-    workerRef.current?.postMessage({ type: "SELECT", mode: "toggle", id });
-  }, []);
-
-  const toggleAll = useCallback(() => {
-    if (allFilteredSelected) {
-      workerRef.current?.postMessage({
-        type: "SELECT",
-        mode: "deselect_query",
-        query: buildQuery(),
-      });
-      setSelectedIds(new Set());
-    } else {
-      workerRef.current?.postMessage({
-        type: "SELECT",
-        mode: "all_query",
-        query: buildQuery(),
-      });
-    }
-  }, [allFilteredSelected, buildQuery]);
-
-  const clearSelection = useCallback(() => {
-    setSelectedIds(new Set());
-    workerRef.current?.postMessage({ type: "SELECT", mode: "clear" });
-  }, []);
-
   // ── Column visibility ─────────────────────────────────────────────────────
   const setColVisible = useCallback((col: string, visible: boolean) => {
     setColVisibility((prev) => ({ ...prev, [col]: visible }));
   }, []);
 
-  // ── Column type ──────────────────────────────────────────────────────────
+  // ── Column type ───────────────────────────────────────────────────────────
   const setColType = useCallback((col: string, type: ColumnType) => {
     setColTypesState((prev) => ({ ...prev, [col]: type }));
-    workerRef.current?.postMessage({ type: "RETYPE", colTypes: { [col]: type } });
+    workerRef.current?.postMessage({
+      type: "RETYPE",
+      colTypes: { [col]: type },
+    });
+  }, []);
+
+  // ── Page size ─────────────────────────────────────────────────────────────
+  const setPageSize = useCallback((ps: number) => {
+    setPageSizeState(ps);
+    setPage(1);
+  }, []);
+
+  // ── Selection ─────────────────────────────────────────────────────────────
+  const toggleRow = useCallback((id: number) => {
+    workerRef.current?.postMessage({ type: "SELECT", mode: "toggle", id });
+  }, []);
+
+  const toggleAll = useCallback(
+    (select: boolean) => {
+      const q = buildQuery();
+      workerRef.current?.postMessage({
+        type: "SELECT",
+        mode: select ? "all_query" : "deselect_query",
+        query: q,
+      });
+    },
+    [buildQuery]
+  );
+
+  const clearSelection = useCallback(() => {
+    workerRef.current?.postMessage({ type: "SELECT", mode: "clear" });
   }, []);
 
   // ── Export ────────────────────────────────────────────────────────────────
   const handleExport = useCallback(
-    (config: ExportConfig) => {
-      const visibleCols = columns.filter((c) => colVisibility[c] !== false);
+    (config: ExportConfig, visibleCols: string[]) => {
+      if (!workerRef.current) return;
       setIsExporting(true);
-      workerRef.current?.postMessage({ type: "EXPORT", config, visibleCols });
+      workerRef.current.postMessage({ type: "EXPORT", config, visibleCols });
     },
-    [columns, colVisibility]
+    []
   );
 
   // ── Reset ─────────────────────────────────────────────────────────────────
@@ -413,6 +457,15 @@ export function useSpreadsheetData() {
     setPagedRows([]);
     setProcessedCount(0);
     setTotalRows(0);
+    setLoadingPhase("Reading file");
+  }, []);
+
+  // ── Cleanup ───────────────────────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      workerRef.current?.terminate();
+    };
   }, []);
 
   return {
@@ -436,6 +489,7 @@ export function useSpreadsheetData() {
 
     isLoading,
     progress,
+    loadingPhase,
 
     activeFilters,
     updateActiveFilters,
@@ -476,3 +530,4 @@ export function useSpreadsheetData() {
     resetData,
   };
 }
+  
