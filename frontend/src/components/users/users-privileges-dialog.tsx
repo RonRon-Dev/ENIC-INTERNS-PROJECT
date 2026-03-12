@@ -215,6 +215,8 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
 
   const isDirty = (form.formState.isDirty && !isHome) || isMatrixDirty
   const isSaving = activeTab === 'pages' ? saving : savingMatrix
+  const displayRoles = apiRoles.filter((r) => r.name.toLowerCase() !== 'superadmin')
+
 
   const handleReset = () => {
     if (selected) {
@@ -344,7 +346,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                             </FormLabel>
                             <FormControl>
                               <div className='space-y-2'>
-                                {apiRoles.map((role) => {
+                                {displayRoles.map((role) => {
                                   const value = role.name.toLowerCase()
                                   const Icon = getRoleIcon(role.icon)
                                   const checked = field.value.includes(value)
@@ -410,7 +412,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                         <TableHead className='sticky top-0 bg-background z-10 text-xs font-medium uppercase tracking-wide min-w-[160px]'>
                           Page
                         </TableHead>
-                        {apiRoles.map((role) => {
+                        {displayRoles.map((role) => {
                           const Icon = getRoleIcon(role.icon)
                           return (
                             <TableHead key={role.name.toLowerCase()} className='sticky top-0 bg-background z-10 text-center p-2 max-w-[80px]'>
@@ -441,7 +443,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                                   </span>
                                 </div>
                               </TableCell>
-                              {apiRoles.map((role) => {
+                              {displayRoles.map((role) => {
                                 const value = role.name.toLowerCase()
                                 const checked = (field.value ?? []).includes(value)
                                 const locked = isHomeUrl(page.url)
@@ -489,6 +491,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
               size='icon'
               className='h-7 w-7'
               onClick={() => handleTabChange('pages')}
+              disabled={isDirty}
             >
               <List className='size-3.5' />
             </Button>
@@ -498,6 +501,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
               size='icon'
               className='h-7 w-7'
               onClick={() => handleTabChange('matrix')}
+              disabled={isDirty}
             >
               <LayoutGrid className='size-3.5' />
             </Button>
