@@ -9,14 +9,14 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { toolsData } from '@/data/tools'
 import { usePagePrivileges } from '@/hooks/use-page-privileges'
 import { notifToast } from '@/lib/notifToast'
 import { cn } from '@/lib/utils'
 import { pagePrivilegesApi } from '@/services/pagePrivileges'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Check, ChevronDown, ChevronRight, Code, Cpu, FileText, Megaphone, Minus, Settings, Shield, ShieldCheck, User, UserCheck, Users } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Code, Cpu, FileText, LayoutGrid, List, Megaphone, Minus, Settings, Shield, ShieldCheck, User, UserCheck, Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -215,6 +215,8 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
 
   const isDirty = (form.formState.isDirty && !isHome) || isMatrixDirty
   const isSaving = activeTab === 'pages' ? saving : savingMatrix
+  const displayRoles = apiRoles.filter((r) => r.name.toLowerCase() !== 'superadmin')
+
 
   const handleReset = () => {
     if (selected) {
@@ -258,13 +260,6 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className='flex flex-col min-h-0 flex-1'>
-          <div className='p-3 border-b flex justify-end'>
-            <TabsList className='h-9 w-[30%]'>
-              <TabsTrigger value='pages' className='text-xs w-full'>By Page</TabsTrigger>
-              <TabsTrigger value='matrix' className='text-xs w-full'>Matrix</TabsTrigger>
-            </TabsList>
-          </div>
-
           {/* ── By Page tab ── */}
           <TabsContent value='pages' className='flex flex-1 overflow-hidden mt-0'>
             <ScrollArea className='w-2/5 border-r'>
@@ -351,7 +346,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                             </FormLabel>
                             <FormControl>
                               <div className='space-y-2'>
-                                {apiRoles.map((role) => {
+                                {displayRoles.map((role) => {
                                   const value = role.name.toLowerCase()
                                   const Icon = getRoleIcon(role.icon)
                                   const checked = field.value.includes(value)
@@ -417,13 +412,13 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                         <TableHead className='sticky top-0 bg-background z-10 text-xs font-medium uppercase tracking-wide min-w-[160px]'>
                           Page
                         </TableHead>
-                        {apiRoles.map((role) => {
+                        {displayRoles.map((role) => {
                           const Icon = getRoleIcon(role.icon)
                           return (
-                            <TableHead key={role.name.toLowerCase()} className='sticky top-0 bg-background z-10 text-center p-2'>
+                            <TableHead key={role.name.toLowerCase()} className='sticky top-0 bg-background z-10 text-center p-2 max-w-[80px]'>
                               <div className='flex flex-col items-center gap-1'>
                                 <Icon className='size-3.5 text-muted-foreground' />
-                                <span className='text-xs font-medium text-muted-foreground capitalize whitespace-nowrap'>{role.name}</span>
+                                <span className='text-xs font-medium text-muted-foreground capitalize truncate w-full text-center'>{role.name}</span>
                               </div>
                             </TableHead>
                           )
@@ -448,7 +443,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                                   </span>
                                 </div>
                               </TableCell>
-                              {apiRoles.map((role) => {
+                              {displayRoles.map((role) => {
                                 const value = role.name.toLowerCase()
                                 const checked = (field.value ?? []).includes(value)
                                 const locked = isHomeUrl(page.url)
@@ -488,29 +483,48 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
             </Form>
           </TabsContent>
         </Tabs>
-        {isDirty && (
-          <div className='flex gap-2 px-4 pb-4 pt-3 border-t'>
+        <div className='flex items-center justify-between px-4 pb-4 pt-3 border-t'>
+          <div className='flex gap-1'>
             <Button
               type='button'
-              size='sm'
+              variant={activeTab === 'pages' ? 'secondary' : 'ghost'}
+              size='icon'
+              className='h-7 w-7'
+              onClick={() => handleTabChange('pages')}
+              disabled={isDirty}
+            >
+              <List className='size-3.5' />
+            </Button>
+            <Button
+              type='button'
+              variant={activeTab === 'matrix' ? 'secondary' : 'ghost'}
+              size='icon'
+              className='h-7 w-7'
+              onClick={() => handleTabChange('matrix')}
+              disabled={isDirty}
+            >
+              <LayoutGrid className='size-3.5' />
+            </Button>
+          </div>
+
+          <div className='flex gap-2'>
+            <Button
+              type='button'
               variant='outline'
-              className='flex-1'
               onClick={handleReset}
-              disabled={isSaving}
+              disabled={isSaving || !isDirty}
             >
               Reset
             </Button>
             <Button
               type='button'
-              size='sm'
-              className='flex-1'
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || !isDirty}
             >
               {isSaving ? 'Saving…' : 'Save'}
             </Button>
           </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   )

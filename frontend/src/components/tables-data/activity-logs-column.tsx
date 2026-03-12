@@ -19,7 +19,6 @@ import type {
 import {
   flexRender,
   getCoreRowModel,
-  getFacetedUniqueValues,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
@@ -104,7 +103,12 @@ export function useColumns({ roles }: { roles: Roles[] }) {
     {
       id: "role",
       header: "Role",
-      accessorFn: (row: ActivityLog) => row.user.role,
+      accessorFn: (row: ActivityLog) => {
+        console.log('role value:', row.user.role)
+        return typeof row.user.role === 'string'
+          ? row.user.role.toLowerCase()
+          : (row.user.role as any)?.name?.toLowerCase() ?? ""
+      },
       filterFn: (row, id, value) => {
         if (!value?.length) return true;
         return value.includes(row.getValue(id));
@@ -192,7 +196,6 @@ export function DataTable<TData, TValue>({
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
     state: {
       sorting,
       columnFilters,
@@ -251,27 +254,22 @@ export function DataTable<TData, TValue>({
 
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map((row, i) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className={i % 2 === 0 ? "bg-muted/10" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
+                <TableCell colSpan={columns.length} className="h-24 text-center">
                   No results.
                 </TableCell>
               </TableRow>
