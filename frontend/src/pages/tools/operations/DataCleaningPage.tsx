@@ -1,6 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
-import { PAGE_SIZE, useSpreadsheetData } from "@/hooks/useSpreadsheetData";
+import {
+  PAGE_SIZE_OPTIONS,
+  useSpreadsheetData,
+} from "@/hooks/useSpreadsheetData";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import {
   ChevronLeft,
@@ -24,8 +27,6 @@ import { ExportDialog } from "@/components/spreadsheet/ExportDialog";
 import { FilterDrawer } from "@/components/spreadsheet/FilterDrawer";
 import { HeaderPickerDialog } from "@/components/spreadsheet/HeaderPickerDialog";
 import { UploadZone } from "@/components/spreadsheet/UploadZone";
-
-// const PAGE_SIZE = 15;
 
 export default function DataCleaningPage() {
   const { setOpen: setSidebarOpen } = useSidebar();
@@ -53,11 +54,14 @@ export default function DataCleaningPage() {
     handleSort,
     search,
     updateSearch,
-    processedRows,
+    processedCount,
     totalPages,
     clampedPage,
     pagedRows,
     setPage,
+    page,
+    pageSize,
+    setPageSize,
     selectedIds,
     selectedCount,
     toggleRow,
@@ -70,9 +74,11 @@ export default function DataCleaningPage() {
     resetData,
     rowsReady,
     setRowsReady,
+    colTypes,
+    setColType,
+    detectedTypes,
   } = useSpreadsheetData();
 
-  // ── Unsaved changes guard ──
   const { showBlocker, confirmLeave, cancelLeave } = useUnsavedChanges(
     hasData,
     "You have unsaved data. Leaving will clear all imported rows and selections."
@@ -106,10 +112,8 @@ export default function DataCleaningPage() {
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground">
                 <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" />
-                <span className="font-mono max-w-[100px] truncate">
-                  {fileName}
-                </span>
-                <span className="text-muted-foreground/40 ">·</span>
+                <span className="font-mono max-w-[100px] truncate">{fileName}</span>
+                <span className="text-muted-foreground/40">·</span>
                 <span className="max-w-[140px] truncate">
                   {rows.length.toLocaleString()} rows
                 </span>
@@ -241,8 +245,8 @@ export default function DataCleaningPage() {
                 )}
               </div>
               <span className="text-xs text-muted-foreground ml-auto">
-                {processedRows.length.toLocaleString()} row
-                {processedRows.length !== 1 ? "s" : ""}
+                {processedCount.toLocaleString()} row
+                {processedCount !== 1 ? "s" : ""}
                 {(search || activeFilterCount > 0) && " (filtered)"}
               </span>
             </div>
@@ -319,17 +323,33 @@ export default function DataCleaningPage() {
                 sort={sort}
                 onSort={handleSort}
                 allFilteredSelected={allFilteredSelected}
+                page={page}
+                pageSize={pageSize}
               />
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between shrink-0 text-xs text-muted-foreground pt-0.5">
-              <span>
-                Page {clampedPage} of {totalPages} ·{" "}
-                {(clampedPage - 1) * PAGE_SIZE + 1}–
-                {Math.min(clampedPage * PAGE_SIZE, processedRows.length)} of{" "}
-                {processedRows.length.toLocaleString()}
-              </span>
+            <div className="flex items-center justify-between shrink-0 text-xs text-muted-foreground pt-0.5 gap-3">
+              <div className="flex items-center gap-2 shrink-0">
+                <span>
+                  {(clampedPage - 1) * pageSize + 1}–
+                  {Math.min(clampedPage * pageSize, processedCount)} of{" "}
+                  {processedCount.toLocaleString()}
+                </span>
+                <span className="text-muted-foreground/30">·</span>
+                <select
+                  className="rounded border border-border bg-background px-1.5 py-0.5 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                >
+                  {PAGE_SIZE_OPTIONS.map((n) => (
+                    <option key={n} value={n}>
+                      {n} / page
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
@@ -344,8 +364,7 @@ export default function DataCleaningPage() {
                   let p: number;
                   if (totalPages <= 5) p = i + 1;
                   else if (clampedPage <= 3) p = i + 1;
-                  else if (clampedPage >= totalPages - 2)
-                    p = totalPages - 4 + i;
+                  else if (clampedPage >= totalPages - 2) p = totalPages - 4 + i;
                   else p = clampedPage - 2 + i;
                   return (
                     <Button
@@ -368,6 +387,26 @@ export default function DataCleaningPage() {
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
+                <span className="text-muted-foreground/30 mx-1">·</span>
+                <span className="text-muted-foreground/60 shrink-0">Go to</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  defaultValue={clampedPage}
+                  key={clampedPage}
+                  className="w-12 rounded border border-border bg-background px-1.5 py-0.5 text-xs text-center focus:outline-none focus:ring-1 focus:ring-ring [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const v = parseInt((e.target as HTMLInputElement).value);
+                      if (!isNaN(v) && v >= 1 && v <= totalPages) setPage(v);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const v = parseInt(e.target.value);
+                    if (!isNaN(v) && v >= 1 && v <= totalPages) setPage(v);
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -405,11 +444,13 @@ export default function DataCleaningPage() {
         open={showColDialog}
         columns={columns}
         visibility={colVisibility}
+        colTypes={colTypes}
+        detectedTypes={detectedTypes}
         onChange={setColVisible}
         onReorder={setColumns}
+        onSetColType={setColType}
         onClose={() => {
           setShowColDialog(false);
-          // Mark rows as ready to render on first close after import
           if (!rowsReady) setRowsReady(true);
         }}
       />
@@ -447,7 +488,6 @@ export default function DataCleaningPage() {
         destructive
       />
 
-      {/* ── Navigation guard ── */}
       <ConfirmDialog
         open={showBlocker}
         onOpenChange={(v) => !v && cancelLeave()}

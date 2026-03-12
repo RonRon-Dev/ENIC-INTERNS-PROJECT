@@ -22,6 +22,8 @@ export type DateRangeFilters = Record<string, { from: string; to: string }>;
 
 export type ExportFormat = "xlsx" | "csv" | "tsv" | "xml";
 export type ExportMode = "single" | "per-row" | "folder";
+export type ColumnType = "auto" | "date" | "text" | "number";
+export type ColTypes = Record<string, ColumnType>;
 
 export interface ExportConfig {
   format: ExportFormat;

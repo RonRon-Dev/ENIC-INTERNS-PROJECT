@@ -18,6 +18,8 @@ interface DataTableProps {
   sort: SortState;
   onSort: (col: string) => void;
   allFilteredSelected: boolean;
+  page: number;
+  pageSize: number;
 }
 
 export const DataTable = React.memo(function DataTable({
@@ -30,6 +32,8 @@ export const DataTable = React.memo(function DataTable({
   sort,
   onSort,
   allFilteredSelected,
+  page,
+  pageSize,
 }: DataTableProps) {
   const visibleColumns = columns.filter((c) => visibleCols[c] !== false);
   const someSelected = rows.some((r) => selectedIds.has(r.__id));
@@ -101,7 +105,7 @@ export const DataTable = React.memo(function DataTable({
                     className="px-2 py-2 text-right font-mono text-muted-foreground/25 select-none"
                     style={{ fontSize: 10 }}
                   >
-                    {row.__id + 1}
+                    {(page - 1) * pageSize + i + 1}
                   </td>
                   {visibleColumns.map((col) => (
                     <td

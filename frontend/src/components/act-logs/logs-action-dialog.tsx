@@ -1,13 +1,14 @@
 "use client";
 
+import { useAuth } from "@/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
+import { roles, userTypes } from "@/data/const";
 import {
   type ActivityLog,
   type Payload,
 } from "@/data/schema";
-import { roles, userTypes } from "@/data/const";
-import { useAuth } from "@/auth-context";
+import { useActivityLogParsing } from "@/hooks/activity-log-parsing";
 import {
   Bot,
   CircleCheck,
@@ -17,10 +18,9 @@ import {
   Tablet,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "../ui/avatar";
-import { useActivityLogParsing } from "@/hooks/activity-log-parsing";
 import AccMgmtLogDesc from "./logs-desc/acc-mgmt-desc";
-import SettingLogDesc from "./logs-desc/setting-log-desc";
 import PrivilegeLogDesc from "./logs-desc/privilege-log-desc";
+import SettingLogDesc from "./logs-desc/setting-log-desc";
 
 type DescViewDialogProps = {
   open: boolean;
@@ -174,8 +174,8 @@ export function DescViewDialog({
             <Badge
               variant="outline"
               className={`gap-x-1 py-1 ${currentRow.success
-                ? "text-green-600 border-green-600 bg-green-50"
-                : "text-red-500 border-red-500 bg-red-50"
+                ? "text-success border-success bg-success/10"
+                : "text-destructive border-destructive bg-destructive/10"
                 }
               `}
             >

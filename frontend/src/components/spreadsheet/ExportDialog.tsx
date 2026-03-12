@@ -41,16 +41,40 @@ export function ExportDialog({
   selectedCount,
   isExporting = false,
 }: ExportDialogProps) {
+  const today = new Date().toISOString().slice(0, 10);
+  const makeFileName = (format: ExportFormat, mode: ExportMode) =>
+    `exported-${format}-${mode}_${today}`;
+
   const [config, setConfig] = useState<ExportConfig>({
     format: "xlsx",
     mode: "single",
-    fileName: `export_${new Date().toISOString().slice(0, 10)}`,
+    fileName: makeFileName("xlsx", "single"),
     fileNameCol: columns[0] ?? "",
-    zipFileName: `export_${new Date().toISOString().slice(0, 10)}`,
+    zipFileName: makeFileName("xlsx", "single"),
     skipNullNames: false,
   });
 
-  // After the destructure and set helper:
+  // Auto-update fileName and zipFileName when format or mode changes,
+  // but only if the user hasn't manually edited them.
+  const prevFormatRef = React.useRef(config.format);
+  const prevModeRef = React.useRef(config.mode);
+  React.useEffect(() => {
+    const formatChanged = prevFormatRef.current !== config.format;
+    const modeChanged = prevModeRef.current !== config.mode;
+    if (formatChanged || modeChanged) {
+      const newName = makeFileName(config.format, config.mode);
+      setConfig((prev) => ({
+        ...prev,
+        fileName: newName,
+        zipFileName: newName,
+      }));
+      prevFormatRef.current = config.format;
+      prevModeRef.current = config.mode;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.format, config.mode]);
+
+  // Close dialog automatically when export finishes
   const prevExportingRef = React.useRef(false);
   React.useEffect(() => {
     if (prevExportingRef.current && !isExporting) {
@@ -141,7 +165,6 @@ export function ExportDialog({
               Export mode
             </label>
             <div className="flex flex-col gap-2">
-              {/* Single file */}
               {(["single", "per-row"] as ExportMode[]).map((value) => {
                 const label =
                   value === "single" ? "Single file" : "One file per row";
@@ -218,12 +241,15 @@ export function ExportDialog({
                   className="flex-1 rounded-l-md border border-border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                   value={config.fileName}
                   onChange={(e) => set("fileName", e.target.value)}
-                  placeholder="export"
+                  placeholder={makeFileName(config.format, config.mode)}
                 />
                 <span className="rounded-r-md border border-l-0 border-border bg-muted px-3 py-1.5 text-xs text-muted-foreground">
                   .{config.format}
                 </span>
               </div>
+              <p className="text-[11px] text-muted-foreground/50">
+                Auto-generated from format and mode. You can edit this freely.
+              </p>
             </div>
           )}
 
@@ -251,6 +277,10 @@ export function ExportDialog({
                 Files will be saved as:{" "}
                 <span className="font-mono text-foreground/60">
                   [value].{config.format}
+                </span>{" "}
+                · empty values export as{" "}
+                <span className="font-mono text-foreground/60">
+                  row_#.{config.format}
                 </span>
               </p>
 
@@ -285,7 +315,7 @@ export function ExportDialog({
               </div>
 
               {/* Zip file name — only when count exceeds threshold */}
-              {config.mode === "per-row" && selectedCount > ZIP_THRESHOLD && (
+              {selectedCount > ZIP_THRESHOLD && (
                 <div className="flex flex-col gap-2 pt-2 mt-1 border-t border-border">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
@@ -303,7 +333,7 @@ export function ExportDialog({
                       className="flex-1 rounded-l-md border border-border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                       value={config.zipFileName}
                       onChange={(e) => set("zipFileName", e.target.value)}
-                      placeholder="export"
+                      placeholder={makeFileName(config.format, config.mode)}
                     />
                     <span className="rounded-r-md border border-l-0 border-border bg-muted px-3 py-1.5 text-xs text-muted-foreground">
                       .zip

@@ -1,9 +1,10 @@
 // ─── useUnsavedChanges ────────────────────────────────────────────────────────
 // Works with legacy BrowserRouter (<Routes>) — does NOT require createBrowserRouter.
 //
-// Two layers:
-//   1. beforeunload  — tab close, refresh, external navigation
-//   2. Manual history intercept — in-app React Router navigation
+// Three layers:
+//   1. beforeunload      — tab close, refresh, external navigation
+//   2. pushState/replaceState intercept — in-app React Router link navigation
+//   3. popstate listener — browser back/forward button AND window.history.back()
 //
 // Usage:
 //   const { showBlocker, confirmLeave, cancelLeave } = useUnsavedChanges(hasData);
@@ -11,10 +12,10 @@
 //   <ConfirmDialog
 //     open={showBlocker}
 //     title="Leave page?"
-//     description="..."
-//     confirmLabel="Leave"
-//     onConfirm={confirmLeave}
-//     onClose={cancelLeave}
+//     desc="..."
+//     confirmText="Leave"
+//     handleConfirm={confirmLeave}
+//     onOpenChange={(v) => !v && cancelLeave()}
 //   />
 
 import { useEffect, useRef, useState } from "react";
@@ -26,12 +27,10 @@ export function useUnsavedChanges(isDirty: boolean, message?: string) {
   const location = useLocation();
 
   const [showBlocker, setShowBlocker] = useState(false);
-  // Store the intended destination so we can proceed after confirmation
   const pendingPath = useRef<string | null>(null);
-  // Flag to allow navigation after user confirms
   const confirmedRef = useRef(false);
 
-  // ── Layer 1: browser-level (tab close / refresh) ──
+  // ── Layer 1: browser-level (tab close / refresh) ──────────────────────────
   useEffect(() => {
     if (!isDirty) return;
     const handler = (e: BeforeUnloadEvent) => {
@@ -42,9 +41,7 @@ export function useUnsavedChanges(isDirty: boolean, message?: string) {
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty, msg]);
 
-  // ── Layer 2: intercept pushState / replaceState ──
-  // We patch history.pushState and history.replaceState to intercept
-  // in-app navigation before the route changes.
+  // ── Layer 2: intercept pushState / replaceState ───────────────────────────
   useEffect(() => {
     if (!isDirty) return;
 
@@ -61,19 +58,15 @@ export function useUnsavedChanges(isDirty: boolean, message?: string) {
         confirmedRef.current = false;
         return original(state, unused, url);
       }
-
       const target = url ? String(url) : "";
-      // Only block navigation away from current path
       const targetPath = target.startsWith("http")
         ? new URL(target).pathname
         : target;
-
       if (targetPath && targetPath !== location.pathname) {
         pendingPath.current = targetPath;
         setShowBlocker(true);
-        return; // block navigation
+        return;
       }
-
       return original(state, unused, url);
     };
 
@@ -88,11 +81,41 @@ export function useUnsavedChanges(isDirty: boolean, message?: string) {
     };
   }, [isDirty, location.pathname]);
 
+  // ── Layer 3: popstate (back/forward button, window.history.back()) ─────────
+  useEffect(() => {
+    if (!isDirty) return;
+
+    const handler = (e: PopStateEvent) => {
+      if (confirmedRef.current) {
+        confirmedRef.current = false;
+        return;
+      }
+
+      // Re-push the current state to cancel the browser navigation
+      // so the URL stays on the current page while we show the dialog.
+      history.pushState(e.state, "", location.pathname);
+
+      // We don't know exactly where back() was going, so we store -1
+      // as a sentinel meaning "go back one step after confirmation".
+      pendingPath.current = "__back__";
+      setShowBlocker(true);
+    };
+
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, [isDirty, location.pathname]);
+
+  // ── Confirm / cancel ──────────────────────────────────────────────────────
   const confirmLeave = () => {
     setShowBlocker(false);
     if (pendingPath.current) {
       confirmedRef.current = true;
-      navigate(pendingPath.current);
+      if (pendingPath.current === "__back__") {
+        // User confirmed after hitting browser back — actually go back now
+        navigate(-1);
+      } else {
+        navigate(pendingPath.current);
+      }
       pendingPath.current = null;
     }
   };
