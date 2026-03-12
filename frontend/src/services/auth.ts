@@ -36,6 +36,10 @@ export const authenticationApi = {
     const response = await api.post("/auth/logout");
     return response.data;
   },
+  getMyRequestStatus: async (requestType = 'Reset Password') => {
+    const response = await api.get(`/auth/my-request-status?requestType=${encodeURIComponent(requestType)}`);
+    return response.data as { requestType: string; requestStatus: string; decisionReason: string | null; requestDate: string; decisionAtUtc: string | null } | null;
+  },
   updatePassword: async (userName: string, newPassword: string) => {
     const response = await api.patch("/auth/update-password", {
       userName,

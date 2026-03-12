@@ -172,6 +172,18 @@ public class UserController(IUserService service) : ControllerBase
     }
 
     [Authorize(Roles = "Admin,Superadmin")]
+    [HttpPut("reject-request")]
+    public async Task<ActionResult<UpdateUserResponse>> RejectRequest([FromBody] RejectUserRequestRequest request)
+    {
+        var currentUser = User.GetCurrentUser();
+        if (currentUser <= 0)
+            return Unauthorized(new { message = "Invalid user." });
+
+        var response = await service.RejectUserRequestAsync(request, currentUser);
+        return response.Success ? Ok(response) : BadRequest(response);
+    }
+
+    [Authorize(Roles = "Admin,Superadmin")]
     [HttpPut("unlock-user/{id:int}")]
     public async Task<ActionResult<UpdateUserResponse>> UnlockUser(int id)
     {

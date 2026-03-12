@@ -19,4 +19,5 @@ public interface IUserService
   Task<UserStatsResponse> GetUserStatsAsync();
   Task<CreateRoleResponse> CreateRoleAsync(CreateRoleRequest request, int currentUserId);
   Task<UpdateUserResponse> UnlockUserAsync(int id, int currentUserId);
+  Task<UpdateUserResponse> RejectUserRequestAsync(RejectUserRequestRequest request, int currentUserId);
 }
