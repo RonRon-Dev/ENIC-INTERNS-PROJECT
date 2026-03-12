@@ -93,6 +93,12 @@ export default function DataCleaningPage() {
   const activeFilterCount =
     Object.keys(activeFilters).length + Object.keys(dateRangeFilters).length;
 
+  // FIX: only pass columns that are currently visible to the ExportDialog.
+  // Previously, all columns (including hidden ones) were passed, so the worker
+  // would include hidden columns in the export — or produce an empty file if
+  // colVisibility was out of sync with the actual column list.
+  const visibleColumns = columns.filter((c) => colVisibility[c] !== false);
+
   return (
     <div className="flex w-full flex-col h-full">
       <div className="w-full flex flex-col gap-4 rounded-xl border border-border bg-card p-6 h-full">
@@ -112,7 +118,9 @@ export default function DataCleaningPage() {
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground">
                 <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" />
-                <span className="font-mono max-w-[100px] truncate">{fileName}</span>
+                <span className="font-mono max-w-[100px] truncate">
+                  {fileName}
+                </span>
                 <span className="text-muted-foreground/40">·</span>
                 <span className="max-w-[140px] truncate">
                   {rows.length.toLocaleString()} rows
@@ -364,7 +372,8 @@ export default function DataCleaningPage() {
                   let p: number;
                   if (totalPages <= 5) p = i + 1;
                   else if (clampedPage <= 3) p = i + 1;
-                  else if (clampedPage >= totalPages - 2) p = totalPages - 4 + i;
+                  else if (clampedPage >= totalPages - 2)
+                    p = totalPages - 4 + i;
                   else p = clampedPage - 2 + i;
                   return (
                     <Button
@@ -387,26 +396,6 @@ export default function DataCleaningPage() {
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
-                <span className="text-muted-foreground/30 mx-1">·</span>
-                <span className="text-muted-foreground/60 shrink-0">Go to</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={totalPages}
-                  defaultValue={clampedPage}
-                  key={clampedPage}
-                  className="w-12 rounded border border-border bg-background px-1.5 py-0.5 text-xs text-center focus:outline-none focus:ring-1 focus:ring-ring [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      const v = parseInt((e.target as HTMLInputElement).value);
-                      if (!isNaN(v) && v >= 1 && v <= totalPages) setPage(v);
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const v = parseInt(e.target.value);
-                    if (!isNaN(v) && v >= 1 && v <= totalPages) setPage(v);
-                  }}
-                />
               </div>
             </div>
           </div>
@@ -415,7 +404,6 @@ export default function DataCleaningPage() {
 
       {/* ── Dialogs ── */}
       <HeaderPickerDialog
-        key={rawSheetData.length + (rawSheetData[0]?.join("") ?? "")}
         open={showHeaderPicker}
         rawData={rawSheetData}
         onConfirm={(rowIndex) =>
@@ -455,11 +443,14 @@ export default function DataCleaningPage() {
         }}
       />
 
+      {/* FIX: pass visibleColumns (filtered by colVisibility) instead of all columns.
+          This ensures hidden columns are excluded from the export file, and prevents
+          empty exports when colVisibility and columns are out of sync. */}
       <ExportDialog
         open={showExportDialog}
         onClose={() => setShowExportDialog(false)}
         onExport={handleExport}
-        columns={columns}
+        columns={visibleColumns}
         selectedCount={selectedCount}
         isExporting={isExporting}
       />
