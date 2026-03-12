@@ -3,6 +3,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { useDialog } from "@/components/dialogs/dialog-provider";
 import { Search } from "@/components/search";
 import { SearchProvider } from "@/components/search-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -18,8 +19,7 @@ import {
 } from "@/components/ui/sidebar";
 import { toolsData } from "@/data/tools";
 import NProgress from "@/lib/nprogress";
-import { ChevronLeft, Moon, Sun } from "lucide-react";
-import { useTheme } from 'next-themes';
+import { ChevronLeft } from "lucide-react";
 import React, { useEffect, useMemo, useRef } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
@@ -154,20 +154,4 @@ export default function AppLayout() {
   );
 }
 
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
 
-  const next = theme === "dark" ? "light" : "dark";
-  const Icon = theme === "dark" ? Sun : Moon;
-
-  return (
-    <Button
-      variant="outline"
-      size="icon"
-      className="h-8 w-8 shadow-none"
-      onClick={() => setTheme(next)}
-    >
-      <Icon className="h-4 w-4" />
-    </Button>
-  );
-}

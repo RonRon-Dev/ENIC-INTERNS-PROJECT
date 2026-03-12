@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { cn } from "@/lib/utils";
-import { LucideAtom } from "lucide-react";
 import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
 import { LoginForm } from "@/components/auth/login-form";
-import SignupForm from "@/components/auth/signup-form";
 import { RequestReceiptForm } from "@/components/auth/request-receipt";
+import SignupForm from "@/components/auth/signup-form";
+import { cn } from "@/lib/utils";
+import { LucideAtom } from "lucide-react";
+import { useState } from "react";
 
 type AuthMode = "login" | "signup" | "forgot" | "receipt";
 
@@ -30,7 +30,9 @@ export default function AuthPage() {
         <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
           <LucideAtom className="size-4" />
         </div>
-        <span className="text-foreground font-bold">ENIC - MIS</span>
+        <a href="/overview" className="text-foreground font-bold">
+          ENIC - MIS
+        </a>
       </div>
 
       <div
@@ -44,7 +46,9 @@ export default function AuthPage() {
         <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
           <LucideAtom className="size-4" />
         </div>
-        <span className="text-foreground font-bold">ENIC - MIS</span>
+        <a href="/overview" className="text-foreground font-bold">
+          ENIC - MIS
+        </a>
       </div>
 
       {/* Left Slot: Login / Forgot Password */}
