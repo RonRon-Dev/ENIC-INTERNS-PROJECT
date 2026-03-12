@@ -258,27 +258,6 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className='flex flex-col min-h-0 flex-1'>
-          <div className='px-4 py-2 border-b flex justify-end gap-1'>
-            <Button
-              type='button'
-              variant={activeTab === 'pages' ? 'secondary' : 'ghost'}
-              size='icon'
-              className='h-7 w-7'
-              onClick={() => handleTabChange('pages')}
-            >
-              <List className='size-3.5' />
-            </Button>
-            <Button
-              type='button'
-              variant={activeTab === 'matrix' ? 'secondary' : 'ghost'}
-              size='icon'
-              className='h-7 w-7'
-              onClick={() => handleTabChange('matrix')}
-            >
-              <LayoutGrid className='size-3.5' />
-            </Button>
-          </div>
-
           {/* ── By Page tab ── */}
           <TabsContent value='pages' className='flex flex-1 overflow-hidden mt-0'>
             <ScrollArea className='w-2/5 border-r'>
@@ -434,10 +413,10 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                         {apiRoles.map((role) => {
                           const Icon = getRoleIcon(role.icon)
                           return (
-                            <TableHead key={role.name.toLowerCase()} className='sticky top-0 bg-background z-10 text-center p-2'>
+                            <TableHead key={role.name.toLowerCase()} className='sticky top-0 bg-background z-10 text-center p-2 max-w-[80px]'>
                               <div className='flex flex-col items-center gap-1'>
                                 <Icon className='size-3.5 text-muted-foreground' />
-                                <span className='text-xs font-medium text-muted-foreground capitalize whitespace-nowrap'>{role.name}</span>
+                                <span className='text-xs font-medium text-muted-foreground capitalize truncate w-full text-center'>{role.name}</span>
                               </div>
                             </TableHead>
                           )
@@ -527,7 +506,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
           <div className='flex gap-2'>
             <Button
               type='button'
-              size='sm'
+              size='lg'
               variant='outline'
               onClick={handleReset}
               disabled={isSaving || !isDirty}
@@ -536,7 +515,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
             </Button>
             <Button
               type='button'
-              size='sm'
+              size='lg'
               onClick={handleSave}
               disabled={isSaving || !isDirty}
             >
