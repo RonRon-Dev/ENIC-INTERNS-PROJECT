@@ -57,7 +57,7 @@ const modeConfig: Record<
     description: ({ name, role }) =>
       `${name}'s request has been granted ${role}.`,
     icon: UserCheck,
-    iconClass: "text-green-600 bg-green-300",
+    iconClass: "text-success bg-success/70",
   },
   reject: {
     title: "User Rejected",
@@ -69,20 +69,20 @@ const modeConfig: Record<
     title: "User Activated",
     description: ({ name, role }) => `${role} ${name} has been reactivated.`,
     icon: ShieldCheck,
-    iconClass: "text-green-600 bg-green-300",
+    iconClass: "text-success bg-success/70",
   },
   deactivate: {
     title: "User Deactivated",
     description: ({ name, role }) => `${role} ${name} has been deactivated.`,
     icon: ShieldOff,
-    iconClass: "text-destructive bg-red-300",
+    iconClass: "text-destructive bg-destructive/70",
   },
   addrole: {
     title: "Role Added",
     description: ({ name }) =>
       `${name} has been added as a role to the system.`,
     icon: ShieldCheck,
-    iconClass: "text-green-600 bg-green-300",
+    iconClass: "text-success bg-success/70",
   },
   appsettings: {
     title: "Settings Updated",
@@ -94,7 +94,7 @@ const modeConfig: Record<
     title: "Error",
     description: ({ reason }) => reason ?? "Something went wrong.",
     icon: UserX,
-    iconClass: "text-red-600 bg-red-500",
+    iconClass: "text-destructive bg-destructive/70",
   },
   updateprivileges: {
     title: "Privilege Updated",
@@ -104,16 +104,16 @@ const modeConfig: Record<
   },
   copy: {
     title: "Copied",
-    description: ({ reason }) => reason ?? "Copied to clipboard.",
+    description: ({ reason }) => reason ?? "Saved to clipboard.",
     icon: Check,
-    iconClass: "text-green-600 bg-green-300",
+    iconClass: "text-success bg-success/70",
   },
   approveReset: {
     title: "Password Reset Approved",
     description: ({ name, tempPassword }) =>
       `${name}'s password reset request has been approved. Temporary password: ${tempPassword}`,
     icon: UserCheck,
-    iconClass: "text-green-600 bg-green-300",
+    iconClass: "text-success bg-success/70",
   },
 };
 

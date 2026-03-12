@@ -1,11 +1,13 @@
 // ─── useSpreadsheetData ───────────────────────────────────────────────────────
 // Thin message-passing shell. ALL data lives in the worker.
-// Main thread only holds: 50 displayed rows, column names, UI state.
+// Main thread only holds: paged rows, column names, UI state.
 // No full Row[] ever crosses the thread boundary after COMMIT.
 
 import type {
   ActiveFilters,
+  ColTypes,
   ColVisibility,
+  ColumnType,
   DateRangeFilters,
   ExportConfig,
   Row,
@@ -14,10 +16,10 @@ import type {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-export const PAGE_SIZE = 12;
+export const DEFAULT_PAGE_SIZE = 12;
+export const PAGE_SIZE_OPTIONS = [12, 25, 50, 100];
 export const ZIP_THRESHOLD = 5;
 
-// ── Query state shape sent to worker ─────────────────────────────────────────
 interface QueryMsg {
   type: "QUERY";
   search: string;
@@ -29,52 +31,44 @@ interface QueryMsg {
 }
 
 export function useSpreadsheetData() {
-  // ── Worker ──
   const workerRef = useRef<Worker | null>(null);
 
-  // ── UI-only state (never the full dataset) ──
   const [columns, setColumns] = useState<string[]>([]);
   const [colVisibility, setColVisibility] = useState<ColVisibility>({});
+  const [colTypes, setColTypesState] = useState<ColTypes>({});
+  const [detectedTypes, setDetectedTypes] = useState<ColTypes>({});
   const [fileName, setFileName] = useState<string | null>(null);
   const [hasData, setHasData] = useState(false);
   const [rowsReady, setRowsReady] = useState(false);
 
-  // Header picker
   const [rawSheetData, setRawSheetData] = useState<string[][]>([]);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showHeaderPicker, setShowHeaderPicker] = useState(false);
 
-  // Loading
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  // Filter / sort / search / page — kept in hook so UI is driven by React state
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
-  const [dateRangeFilters, setDateRangeFilters] = useState<DateRangeFilters>(
-    {}
-  );
+  const [dateRangeFilters, setDateRangeFilters] = useState<DateRangeFilters>({});
   const [sort, setSort] = useState<SortState>({ col: null, dir: null });
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSizeState] = useState(DEFAULT_PAGE_SIZE);
   const [searchInput, setSearchInput] = useState("");
   const [searchCommitted, setSearchCommitted] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isFiltering, setIsFiltering] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Query results — only the current page
   const [pagedRows, setPagedRows] = useState<Row[]>([]);
   const [processedCount, setProcessedCount] = useState(0);
   const [totalRows, setTotalRows] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [clampedPage, setClampedPage] = useState(1);
 
-  // Selection — counts only, ids live in worker
   const [selectedCount, setSelectedCount] = useState(0);
   const [allFilteredSelected, setAllFilteredSelected] = useState(false);
-  // We keep a local mirror of selectedIds for row-level checkbox state in the table
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  // ── Latest query ref — for re-issuing after SELECT ───────────────────────
   const lastQueryRef = useRef<QueryMsg | null>(null);
 
   // ── Spawn worker ──────────────────────────────────────────────────────────
@@ -99,15 +93,13 @@ export function useSpreadsheetData() {
       } else if (msg.type === "READY") {
         setColumns(msg.cols);
         setColVisibility(
-          Object.fromEntries(
-            (msg.cols as string[]).map((c: string) => [c, true])
-          )
+          Object.fromEntries((msg.cols as string[]).map((c: string) => [c, true]))
         );
+        setDetectedTypes(msg.detectedTypes ?? {});
         setTotalRows(msg.totalRows);
         setHasData(true);
         setIsLoading(false);
         setProgress(0);
-        // Immediately run default query so table has data when user opens ColumnDialog
         const q: QueryMsg = {
           type: "QUERY",
           search: "",
@@ -115,6 +107,7 @@ export function useSpreadsheetData() {
           dateFilters: {},
           sort: { col: null, dir: null },
           page: 1,
+          pageSize: DEFAULT_PAGE_SIZE,
         };
         lastQueryRef.current = q;
         worker.postMessage(q);
@@ -125,25 +118,18 @@ export function useSpreadsheetData() {
         setClampedPage(msg.clampedPage);
         setAllFilteredSelected(msg.allFilteredSelected);
         setSelectedCount(msg.selectedCount);
-        // Sync local selectedIds mirror from allFilteredIds + count
-        // We only need to know which IDs on the CURRENT PAGE are selected
         setSelectedIds((prev) => {
-          // Rebuild only from what worker confirmed
           const next = new Set<number>();
           (msg.pagedRows as Row[]).forEach((r) => {
-            if (
-              prev.has(r.__id) ||
-              // If allFilteredSelected we know all are selected
-              msg.allFilteredSelected
-            )
-              next.add(r.__id);
+            if (prev.has(r.__id) || msg.allFilteredSelected) next.add(r.__id);
           });
           return next;
         });
         setIsFiltering(false);
       } else if (msg.type === "SELECTION") {
         setSelectedCount(msg.selectedCount);
-        // Re-run last query to get updated allFilteredSelected and page checkbox states
+        if (lastQueryRef.current) worker.postMessage(lastQueryRef.current);
+      } else if (msg.type === "RETYPE_DONE") {
         if (lastQueryRef.current) worker.postMessage(lastQueryRef.current);
       } else if (msg.type === "EXPORT_DONE") {
         setIsExporting(false);
@@ -187,7 +173,6 @@ export function useSpreadsheetData() {
     return worker;
   }, []);
 
-  // ── Send query to worker (debounced path calls this after commit) ─────────
   const sendQuery = useCallback((q: QueryMsg) => {
     lastQueryRef.current = q;
     workerRef.current?.postMessage(q);
@@ -206,8 +191,11 @@ export function useSpreadsheetData() {
       setSearchInput("");
       setSearchCommitted("");
       setPage(1);
+      setPageSizeState(DEFAULT_PAGE_SIZE);
       setActiveFilters({});
       setDateRangeFilters({});
+      setColTypesState({});
+      setDetectedTypes({});
 
       const worker = spawnWorker();
 
@@ -222,7 +210,6 @@ export function useSpreadsheetData() {
         clearInterval(interval);
         setProgress(90);
         const buffer = ev.target!.result as ArrayBuffer;
-        // Transferable — zero-copy, buffer moves to worker
         worker.postMessage({ type: "PARSE", buffer }, [buffer]);
       };
       reader.onerror = () => {
@@ -246,21 +233,16 @@ export function useSpreadsheetData() {
       setProgress(0);
       setFileName(pendingFile.name);
 
-      // Intercept the READY message once to fire onSuccess + toast
       const originalOnMessage = workerRef.current.onmessage!;
       workerRef.current.onmessage = (e) => {
         if (e.data.type === "READY") {
           toast.success("File imported", {
-            description: `${(
-              e.data.totalRows as number
-            ).toLocaleString()} rows · ${
+            description: `${(e.data.totalRows as number).toLocaleString()} rows · ${
               (e.data.cols as string[]).length
             } columns · "${pendingFile.name}"`,
           });
           onSuccess?.();
-          // Restore normal handler
-          if (workerRef.current)
-            workerRef.current.onmessage = originalOnMessage;
+          if (workerRef.current) workerRef.current.onmessage = originalOnMessage;
         }
         originalOnMessage.call(workerRef.current!, e);
       };
@@ -280,7 +262,7 @@ export function useSpreadsheetData() {
     workerRef.current = null;
   }, []);
 
-  // ── Query helpers — all send to worker ───────────────────────────────────
+  // ── Build query ───────────────────────────────────────────────────────────
   const buildQuery = useCallback(
     (overrides: Partial<QueryMsg> = {}): QueryMsg => ({
       type: "QUERY",
@@ -291,19 +273,17 @@ export function useSpreadsheetData() {
       dateFilters: dateRangeFilters,
       sort,
       page,
-      pageSize: PAGE_SIZE,
+      pageSize,
       ...overrides,
     }),
-    [searchCommitted, activeFilters, dateRangeFilters, sort, page]
+    [searchCommitted, activeFilters, dateRangeFilters, sort, page, pageSize]
   );
 
-  // Re-query whenever filter/sort/page/search state changes
   useEffect(() => {
     if (!hasData) return;
-    const q = buildQuery();
-    sendQuery(q);
+    sendQuery(buildQuery());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasData, searchCommitted, activeFilters, dateRangeFilters, sort, page]);
+  }, [hasData, searchCommitted, activeFilters, dateRangeFilters, sort, page, pageSize]);
 
   // ── Sort ──────────────────────────────────────────────────────────────────
   const handleSort = useCallback((col: string) => {
@@ -312,6 +292,12 @@ export function useSpreadsheetData() {
       if (prev.dir === "asc") return { col, dir: "desc" };
       return { col: null, dir: null };
     });
+    setPage(1);
+  }, []);
+
+  // ── Page size ─────────────────────────────────────────────────────────────
+  const setPageSize = useCallback((size: number) => {
+    setPageSizeState(size);
     setPage(1);
   }, []);
 
@@ -326,12 +312,9 @@ export function useSpreadsheetData() {
     }, 250);
   }, []);
 
-  useEffect(
-    () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    },
-    []
-  );
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
 
   // ── Filters ───────────────────────────────────────────────────────────────
   const updateActiveFilters = useCallback((f: ActiveFilters) => {
@@ -352,7 +335,6 @@ export function useSpreadsheetData() {
 
   // ── Selection ─────────────────────────────────────────────────────────────
   const toggleRow = useCallback((id: number) => {
-    // Optimistic local update
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -364,8 +346,6 @@ export function useSpreadsheetData() {
 
   const toggleAll = useCallback(() => {
     if (allFilteredSelected) {
-      // Deselect all filtered — worker needs the IDs
-      // Re-run query to get allFilteredIds then deselect
       workerRef.current?.postMessage({
         type: "SELECT",
         mode: "deselect_query",
@@ -391,18 +371,18 @@ export function useSpreadsheetData() {
     setColVisibility((prev) => ({ ...prev, [col]: visible }));
   }, []);
 
+  // ── Column type ──────────────────────────────────────────────────────────
+  const setColType = useCallback((col: string, type: ColumnType) => {
+    setColTypesState((prev) => ({ ...prev, [col]: type }));
+    workerRef.current?.postMessage({ type: "RETYPE", colTypes: { [col]: type } });
+  }, []);
+
   // ── Export ────────────────────────────────────────────────────────────────
-  // Worker uses its own internal selectedIds — we just send config + visible cols.
-  // No need to transfer the ID set back to the worker; it already has it.
   const handleExport = useCallback(
     (config: ExportConfig) => {
       const visibleCols = columns.filter((c) => colVisibility[c] !== false);
       setIsExporting(true);
-      workerRef.current?.postMessage({
-        type: "EXPORT",
-        config,
-        visibleCols,
-      });
+      workerRef.current?.postMessage({ type: "EXPORT", config, visibleCols });
     },
     [columns, colVisibility]
   );
@@ -415,6 +395,8 @@ export function useSpreadsheetData() {
     setIsExporting(false);
     setColumns([]);
     setColVisibility({});
+    setColTypesState({});
+    setDetectedTypes({});
     setFileName(null);
     setHasData(false);
     setRowsReady(false);
@@ -425,6 +407,7 @@ export function useSpreadsheetData() {
     setSearchInput("");
     setSearchCommitted("");
     setPage(1);
+    setPageSizeState(DEFAULT_PAGE_SIZE);
     setActiveFilters({});
     setDateRangeFilters({});
     setPagedRows([]);
@@ -433,54 +416,51 @@ export function useSpreadsheetData() {
   }, []);
 
   return {
-    // Data shape (no full rows array — main thread never holds it)
-    rows: pagedRows, // alias so existing components don't break
+    rows: pagedRows,
     columns,
     setColumns,
     colVisibility,
     setColVisible,
+    colTypes,
+    setColType,
+    detectedTypes,
     fileName,
     hasData,
     totalRows,
 
-    // Header picker
     rawSheetData,
     pendingFile,
     showHeaderPicker,
     commitWithHeaderRow,
     dismissHeaderPicker,
 
-    // Loading
     isLoading,
     progress,
 
-    // Filters
     activeFilters,
     updateActiveFilters,
     dateRangeFilters,
     updateDateRangeFilters,
     clearAllFilters,
 
-    // Sort
     sort,
     handleSort,
 
-    // Search
     search: searchInput,
     searchCommitted,
     updateSearch,
     isFiltering,
 
-    // Paginated results
-    processedRows: pagedRows, // alias — components use processedRows for row count display
+    processedRows: pagedRows,
     processedCount,
     totalPages,
     clampedPage,
     pagedRows,
     page,
     setPage,
+    pageSize,
+    setPageSize,
 
-    // Selection
     selectedIds,
     selectedCount,
     toggleRow,
@@ -488,7 +468,6 @@ export function useSpreadsheetData() {
     clearSelection,
     allFilteredSelected,
 
-    // Actions
     rowsReady,
     setRowsReady,
     parseFile,

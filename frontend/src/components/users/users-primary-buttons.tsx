@@ -1,5 +1,5 @@
-import { ShieldCheck, ShieldPlus, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ShieldCheck, ShieldPlus, UserPlus } from 'lucide-react'
 import { useUsers } from './users-provider'
 
 export function UsersPrimaryButtons() {
@@ -11,7 +11,7 @@ export function UsersPrimaryButtons() {
         className='space-x-1'
         onClick={() => setOpen('privileges')}
       >
-        <span>Page Privileges</span> <ShieldCheck size={18} />
+        <span>Privileges</span> <ShieldCheck size={18} />
       </Button>
       <Button
         variant='outline'

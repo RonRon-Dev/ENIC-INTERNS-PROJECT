@@ -196,6 +196,42 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
     }
   }
 
+  const [activeTab, setActiveTab] = useState('pages')
+
+  // Sync matrix → bypage when switching to pages tab
+  // Sync bypage → matrix when switching to matrix tab
+  const handleTabChange = (tab: string) => {
+    if (tab === 'pages' && selected) {
+      const matrixVal = matrixForm.getValues(`pageRoles.${selected.url}`)
+      if (matrixVal) form.reset({ allowedRoles: matrixVal })
+    }
+    if (tab === 'matrix') {
+      if (selected && form.formState.isDirty) {
+        matrixForm.setValue(`pageRoles.${selected.url}`, form.getValues('allowedRoles'), { shouldDirty: true })
+      }
+    }
+    setActiveTab(tab)
+  }
+
+  const isDirty = (form.formState.isDirty && !isHome) || isMatrixDirty
+  const isSaving = activeTab === 'pages' ? saving : savingMatrix
+
+  const handleReset = () => {
+    if (selected) {
+      form.reset({ allowedRoles: getPrivilegesForUrl(selected.url) })
+      const map = Object.fromEntries(allPages.map((p) => [p.url, getPrivilegesForUrl(p.url)]))
+      matrixForm.reset({ pageRoles: map })
+    }
+  }
+
+  const handleSave = () => {
+    if (activeTab === 'pages') {
+      form.handleSubmit(onSubmit)()
+    } else {
+      matrixForm.handleSubmit(onMatrixSubmit)()
+    }
+  }
+
   return (
     <Dialog
       open={open}
@@ -221,7 +257,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue='pages' className='flex flex-col min-h-0 flex-1'>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className='flex flex-col min-h-0 flex-1'>
           <div className='p-3 border-b flex justify-end'>
             <TabsList className='h-9 w-[30%]'>
               <TabsTrigger value='pages' className='text-xs w-full'>By Page</TabsTrigger>
@@ -356,23 +392,6 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                         )}
                       />
                     </div>
-
-                    {form.formState.isDirty && !isHome && (
-                      <div className='flex gap-2 p-4 border-t'>
-                        <Button
-                          type='button'
-                          size='sm'
-                          variant='outline'
-                          className='flex-1'
-                          onClick={() => form.reset({ allowedRoles: getPrivilegesForUrl(selected!.url) })}
-                        >
-                          Reset
-                        </Button>
-                        <Button type='submit' size='sm' className='flex-1' disabled={saving}>
-                          {saving ? 'Saving…' : 'Save'}
-                        </Button>
-                      </div>
-                    )}
                   </form>
                 </Form>
               ) : (
@@ -465,31 +484,33 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                     </TableBody>
                   </Table>
                 </div>
-
-                {isMatrixDirty && (
-                  <div className='flex gap-2 p-4 border-t'>
-                    <Button
-                      type='button'
-                      size='sm'
-                      variant='outline'
-                      className='flex-1'
-                      onClick={() => {
-                        const map = Object.fromEntries(allPages.map((p) => [p.url, getPrivilegesForUrl(p.url)]))
-                        matrixForm.reset({ pageRoles: map })
-                      }}
-                    >
-                      Reset
-                    </Button>
-                    <Button type='submit' form='matrix-form' size='sm' className='flex-1' disabled={savingMatrix}>
-                      {savingMatrix ? 'Saving…' : 'Save'}
-                    </Button>
-                  </div>
-                )}
               </form>
             </Form>
           </TabsContent>
-
         </Tabs>
+        {isDirty && (
+          <div className='flex gap-2 px-4 pb-4 pt-3 border-t'>
+            <Button
+              type='button'
+              size='sm'
+              variant='outline'
+              className='flex-1'
+              onClick={handleReset}
+              disabled={isSaving}
+            >
+              Reset
+            </Button>
+            <Button
+              type='button'
+              size='sm'
+              className='flex-1'
+              onClick={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

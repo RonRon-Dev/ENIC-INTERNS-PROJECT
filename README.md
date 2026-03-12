@@ -157,10 +157,10 @@ cd ENIC-INTERNS-PROJECT
 ##### 2. Build and start all containers
 
 ```bash
-docker-compose up -d --build
+docker compose --profile dev up -d --build
 
 # If images are already built:
-docker-compose up -d
+docker-compose --profile dev up -d
 ```
 
 ##### 3. Create Migrations and Update Database

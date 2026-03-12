@@ -3,6 +3,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { useDialog } from "@/components/dialogs/dialog-provider";
 import { Search } from "@/components/search";
 import { SearchProvider } from "@/components/search-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -18,10 +19,9 @@ import {
 } from "@/components/ui/sidebar";
 import { toolsData } from "@/data/tools";
 import NProgress from "@/lib/nprogress";
-import { ChevronLeft, Moon, Sun } from "lucide-react";
-import { useTheme } from 'next-themes';
+import { ChevronLeft } from "lucide-react";
 import React, { useEffect, useMemo, useRef } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 function toTitleCase(segment: string) {
   return segment.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -51,6 +51,7 @@ function buildBreadcrumbMap(): Record<string, string> {
 
 export default function AppLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const pathnames = location.pathname.split("/").filter(Boolean);
   const isHome = location.pathname === "/home";
   const { setOpen } = useDialog();
@@ -61,12 +62,11 @@ export default function AppLayout() {
   const breadcrumbSegments =
     pathnames.length <= 2 ? pathnames : pathnames.slice(-2);
 
-  // open password reset dialog once if forcePasswordChange is true
   useEffect(() => {
     if (!user?.forcePasswordChange) return;
     if (hasOpened.current) return;
     hasOpened.current = true;
-    setOpen('passwordReset');
+    setOpen("passwordReset");
   }, [user?.forcePasswordChange, setOpen]);
 
   useEffect(() => {
@@ -130,7 +130,7 @@ export default function AppLayout() {
                 {!isHome && (
                   <Button
                     variant="outline"
-                    onClick={() => window.history.back()}
+                    onClick={() => navigate(-1)}
                     className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors h-8 shadow-none"
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -151,23 +151,5 @@ export default function AppLayout() {
         </SidebarProvider>
       </SearchProvider>
     </>
-  );
-}
-
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-
-  const next = theme === "dark" ? "light" : "dark";
-  const Icon = theme === "dark" ? Sun : Moon;
-
-  return (
-    <Button
-      variant="outline"
-      size="icon"
-      className="h-8 w-8 shadow-none"
-      onClick={() => setTheme(next)}
-    >
-      <Icon className="h-4 w-4" />
-    </Button>
   );
 }
