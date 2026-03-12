@@ -251,7 +251,7 @@ export function StackSection() {
         <Marquee
           speed={40}
           pauseOnHover
-          loop={1}
+          loop={0}
         >
           {[...TECH_STACK_MARQUEE].map((item, i) => (
             <div
