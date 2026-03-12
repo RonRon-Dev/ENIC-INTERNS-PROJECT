@@ -428,6 +428,40 @@ public class AuthService(
             };
         }
 
+        // Deactivated users cannot request a password reset
+        if (!user.IsActive)
+        {
+            return new ForgotPasswordResponse
+            {
+                Success = false,
+                Message = "Your account has been deactivated. Please contact your administrator.",
+            };
+        }
+
+        // Rejected self-registered users cannot request a password reset
+        if (!user.IsVerified)
+        {
+            var latestRegReq = user.UserRequests?
+                .Where(r => r.RequestType == "Account Registration")
+                .OrderByDescending(r => r.RequestDate)
+                .FirstOrDefault();
+
+            if (latestRegReq?.RequestStatus == "Rejected")
+            {
+                return new ForgotPasswordResponse
+                {
+                    Success = false,
+                    Message = $"Your registration was rejected. Reason: {latestRegReq.DecisionReason ?? "No reason provided"}. You cannot reset your password.",
+                };
+            }
+
+            return new ForgotPasswordResponse
+            {
+                Success = false,
+                Message = "Your account is still pending approval. You cannot reset your password yet.",
+            };
+        }
+
         user.UserRequests ??= new List<UserRequests>();
 
         var now = DateTime.UtcNow;
