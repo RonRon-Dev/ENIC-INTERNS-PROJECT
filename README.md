@@ -185,14 +185,13 @@ docker-compose down
 
 #### Production Setup
 > [!INFO] For production deployment, you just need build the container
-> for `web-prod` it uses nginx to serve the frontend.
-> The backend will be deployed in a windows server using iss and the db
-> will be hosted in a separate sql server instance.
+> for both `web-prod` and `api-prod` it uses nginx to serve the frontend.
+> The database will be hosted in a separate sql server instance.
 
 ##### 1. Build the production frontend container
 
 ```bash
-docker compose up -d --build web-prod
+docker compose --profile prod up -d --build
 ```
 
 ---

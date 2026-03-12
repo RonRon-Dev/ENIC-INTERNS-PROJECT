@@ -17,6 +17,7 @@ services:
     build:
       context: ./backend
       target: development
+    image: enic_mis_api:dev
     profiles: ["dev"]
     container_name: aspnet-api
     depends_on:
@@ -33,6 +34,7 @@ services:
     build:
       context: ./frontend
       target: development
+    image: enic_mis_client:dev
     profiles: ["dev"]
     container_name: react-frontend
     ports:
@@ -50,6 +52,7 @@ services:
     build:
       context: ./backend
       target: production
+    image: enic_mis_api:beta-v0.0.1
     profiles: ["prod"]
     container_name: aspnet-api-prod
     # ports:
@@ -64,6 +67,7 @@ services:
     build:
       context: ./frontend
       target: production
+    image: enic_mis_client:beta-v0.0.1
     profiles: ["prod"]
     container_name: react-frontend-prod
     ports:
