@@ -33,4 +33,15 @@ export interface ExportConfig {
   zipFileName: string;
   /** Per-row only: skip rows where the filename column is null/empty */
   skipNullNames: boolean;
+  /**
+   * XML only: column whose value is already-formatted XML and should be written
+   * directly as the file content instead of generating XML from all columns.
+   * Empty string = generate XML from all visible columns (legacy behaviour).
+   */
+  xmlCol: string;
+  /**
+   * XML only: when xmlCol is set, wrap the raw value in a root element.
+   * Default false — the raw column value is written verbatim.
+   */
+  xmlWrap: boolean;
 }

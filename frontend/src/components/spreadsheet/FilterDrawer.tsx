@@ -4,25 +4,35 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { MAX_FILTER_VALUES } from "@/hooks/useSpreadsheetData";
 import type {
   ActiveFilters,
   ColVisibility,
   DateRangeFilters,
-  Row,
 } from "@/types/spreadsheet";
-import { isDateColumn } from "@/utils/dateUtils";
-import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  ChevronDown,
+  Loader2,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 interface FilterDrawerProps {
   open: boolean;
   columns: string[];
   visibleCols: ColVisibility;
-  rows: Row[];
+  // Full-dataset distinct values per column — from worker GET_FILTER_VALUES
+  // (replaces the old rows prop which only had current-page data)
+  filterValues: Record<string, string[]>;
+  filterValuesLoading: boolean;
+  onOpen: () => void; // called when drawer opens — triggers GET_FILTER_VALUES
   activeFilters: ActiveFilters;
   onFiltersChange: (filters: ActiveFilters) => void;
   dateRangeFilters: DateRangeFilters;
   onDateRangeChange: (filters: DateRangeFilters) => void;
+  onClearAll: () => void;
   onClose: () => void;
 }
 
@@ -30,252 +40,287 @@ export function FilterDrawer({
   open,
   columns,
   visibleCols,
-  rows,
+  filterValues,
+  filterValuesLoading,
+  onOpen,
   activeFilters,
   onFiltersChange,
   dateRangeFilters,
   onDateRangeChange,
+  onClearAll,
   onClose,
 }: FilterDrawerProps) {
   const [expandedCols, setExpandedCols] = useState<Set<string>>(new Set());
   const [colSearch, setColSearch] = useState("");
   const [valueSearch, setValueSearch] = useState<Record<string, string>>({});
 
-  const filterableCols = columns.filter((c) => visibleCols[c] !== false);
-  const displayCols = colSearch.trim()
-    ? filterableCols.filter((c) =>
-        c.toLowerCase().includes(colSearch.toLowerCase())
-      )
-    : filterableCols;
-
-  const distinctValuesMap = useMemo(() => {
-    const map: Record<string, string[]> = {};
-    for (const col of filterableCols) {
-      const seen = new Set<string>();
-      for (const row of rows) {
-        const val = String(row[col] ?? "");
-        seen.add(val);
-        if (seen.size > 500) break;
-      }
-      map[col] = Array.from(seen).sort((a, b) =>
-        a.localeCompare(b, undefined, { numeric: true })
-      );
+  // Request full filter values from worker when drawer opens
+  useEffect(() => {
+    if (open) {
+      onOpen();
     }
-    return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, columns]);
+  }, [open]);
 
+  const filterableCols = useMemo(
+    () => columns.filter((c) => visibleCols[c] !== false),
+    [columns, visibleCols]
+  );
+
+  const displayCols = useMemo(
+    () =>
+      colSearch.trim()
+        ? filterableCols.filter((c) =>
+            c.toLowerCase().includes(colSearch.toLowerCase())
+          )
+        : filterableCols,
+    [filterableCols, colSearch]
+  );
+
+  // Detect date columns from filterValues — a column is a date col if its
+  // values look like dates (we check first non-empty value)
   const dateColSet = useMemo(() => {
+    const DATE_RE = /^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
     const set = new Set<string>();
     for (const col of filterableCols) {
-      if (isDateColumn(col, rows)) set.add(col);
+      const vals = filterValues[col] ?? [];
+      const sample = vals.filter((v) => v && v !== "__CAPPED__").slice(0, 5);
+      if (sample.length > 0 && sample.every((v) => DATE_RE.test(v))) {
+        set.add(col);
+      }
     }
     return set;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, columns]);
+  }, [filterableCols, filterValues]);
 
-  const getDistinctValues = (col: string) => distinctValuesMap[col] ?? [];
+  const getDistinctValues = (
+    col: string
+  ): { values: string[]; capped: boolean } => {
+    const raw = filterValues[col] ?? [];
+    const capped = raw[raw.length - 1] === "__CAPPED__";
+    return {
+      values: capped ? raw.slice(0, -1) : raw,
+      capped,
+    };
+  };
 
   const toggleValue = (col: string, value: string) => {
     const next: ActiveFilters = { ...activeFilters };
     const current = new Set(next[col] ?? []);
-    if (current.has(value)) {
-      current.delete(value);
-    } else {
-      current.add(value);
-    }
-    if (current.size === 0) {
-      delete next[col];
-    } else {
-      next[col] = current;
-    }
+    if (current.has(value)) current.delete(value);
+    else current.add(value);
+    if (current.size === 0) delete next[col];
+    else next[col] = current;
     onFiltersChange(next);
   };
 
-  const clearCol = (col: string) => {
+  const clearColFilter = (col: string) => {
     const next = { ...activeFilters };
     delete next[col];
     onFiltersChange(next);
   };
 
-  const toggleExpand = (col: string) => {
+  const toggleExpanded = (col: string) => {
     setExpandedCols((prev) => {
       const next = new Set(prev);
-      if (next.has(col)) {
-        next.delete(col);
-      } else {
-        next.add(col);
-      }
+      if (next.has(col)) next.delete(col);
+      else next.add(col);
       return next;
     });
   };
 
-  const activeCount =
+  const totalActiveFilters =
     Object.keys(activeFilters).length + Object.keys(dateRangeFilters).length;
 
   return (
-    <Drawer
-      open={open}
-      onOpenChange={(v: boolean) => !v && onClose()}
-      direction="right"
-    >
-      <DrawerContent direction="right" className="flex flex-col w-80 p-0 gap-0">
-        <DrawerHeader className="flex flex-row items-center justify-between px-4 py-3 border-b border-border bg-muted/30 gap-0">
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-            <DrawerTitle className="text-sm font-semibold">Filters</DrawerTitle>
-            {activeCount > 0 && (
-              <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                {activeCount}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {activeCount > 0 && (
+    <Drawer open={open} onOpenChange={(v) => !v && onClose()} direction="right">
+      <DrawerContent className="h-full w-80 ml-auto rounded-none flex flex-col">
+        <DrawerHeader className="border-b border-border px-4 py-3 shrink-0">
+          <div className="flex items-center justify-between">
+            <DrawerTitle className="flex items-center gap-2 text-sm font-semibold">
+              <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+              Filters
+              {totalActiveFilters > 0 && (
+                <span className="ml-1 h-5 min-w-[20px] rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground flex items-center justify-center">
+                  {totalActiveFilters}
+                </span>
+              )}
+            </DrawerTitle>
+            <div className="flex items-center gap-1">
+              {totalActiveFilters > 0 && (
+                <button
+                  onClick={onClearAll}
+                  className="text-[11px] text-muted-foreground hover:text-destructive transition-colors px-2 py-1 rounded hover:bg-destructive/10"
+                >
+                  Clear all
+                </button>
+              )}
               <button
-                className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
-                onClick={() => {
-                  onFiltersChange({});
-                  onDateRangeChange({});
-                }}
+                onClick={onClose}
+                className="rounded-md p-1 hover:bg-muted transition-colors"
               >
-                Clear all
+                <X className="h-4 w-4 text-muted-foreground" />
               </button>
-            )}
-            <button
-              onClick={onClose}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            </div>
           </div>
-        </DrawerHeader>
 
-        <div className="px-4 py-2.5 border-b border-border">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+          {/* Column search */}
+          <div className="relative mt-2">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
-              className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-xs placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
               placeholder="Search columns…"
               value={colSearch}
               onChange={(e) => setColSearch(e.target.value)}
             />
           </div>
-        </div>
+        </DrawerHeader>
 
-        <div className="flex-1 overflow-y-auto">
-          {displayCols.map((col) => {
-            const isExpanded = expandedCols.has(col);
-            const colFilter = activeFilters[col];
-            const hasValueFilter = colFilter && colFilter.size > 0;
-            const dateRange = dateRangeFilters[col];
-            const hasDateFilter = !!(dateRange?.from || dateRange?.to);
-            const hasFilter = hasValueFilter || hasDateFilter;
-            const isDate = isExpanded && dateColSet.has(col);
-            const distinctValues =
-              isExpanded && !isDate ? getDistinctValues(col) : [];
-            const vSearch = valueSearch[col] ?? "";
-            const filteredValues = vSearch.trim()
-              ? distinctValues.filter((v) =>
-                  v.toLowerCase().includes(vSearch.toLowerCase())
-                )
-              : distinctValues;
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+          {filterValuesLoading && (
+            <div className="flex items-center justify-center gap-2 py-8 text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading filter values…
+            </div>
+          )}
 
-            return (
-              <div
-                key={col}
-                className="border-b border-border/50 last:border-0"
-              >
-                <div
-                  className="flex items-center gap-2 px-4 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors select-none"
-                  onClick={() => toggleExpand(col)}
-                >
-                  <span className="text-xs flex-1 truncate font-medium text-foreground/80">
-                    {col}
-                  </span>
-                  {hasFilter && (
-                    <span className="text-[10px] font-semibold text-primary shrink-0">
-                      {hasDateFilter
-                        ? "date range"
-                        : `${colFilter.size} selected`}
-                    </span>
-                  )}
-                  {hasFilter && (
+          {!filterValuesLoading && displayCols.length === 0 && (
+            <p className="py-8 text-center text-xs text-muted-foreground">
+              No columns match "{colSearch}"
+            </p>
+          )}
+
+          {!filterValuesLoading &&
+            displayCols.map((col) => {
+              const isDate = dateColSet.has(col);
+              const isExpanded = expandedCols.has(col);
+              const colActiveFilter = activeFilters[col];
+              const colDateFilter = dateRangeFilters[col];
+              const hasActive =
+                colActiveFilter?.size > 0 ||
+                !!(colDateFilter?.from || colDateFilter?.to);
+
+              if (isDate) {
+                // Date range filter UI
+                const range = dateRangeFilters[col] ?? { from: "", to: "" };
+                return (
+                  <div
+                    key={col}
+                    className="rounded-lg border border-border overflow-hidden"
+                  >
                     <button
-                      className="shrink-0 text-muted-foreground/40 hover:text-destructive transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        clearCol(col);
-                        const next = { ...dateRangeFilters };
-                        delete next[col];
-                        onDateRangeChange(next);
-                      }}
+                      className="flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
+                      onClick={() => toggleExpanded(col)}
                     >
-                      <X className="h-3 w-3" />
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-medium truncate">
+                          {col}
+                        </span>
+                        {hasActive && (
+                          <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform ${
+                          isExpanded ? "rotate-180" : ""
+                        }`}
+                      />
                     </button>
-                  )}
-                  <ChevronDown
-                    className={`h-3.5 w-3.5 shrink-0 text-muted-foreground/40 transition-transform duration-150 ${
-                      isExpanded ? "rotate-180" : ""
-                    }`}
-                  />
-                </div>
-
-                {isExpanded && (
-                  <div className="px-4 pb-3 flex flex-col gap-2 bg-muted/10">
-                    {isDate ? (
-                      <div className="flex flex-col gap-2 pt-1">
-                        <p className="text-[11px] text-muted-foreground">
-                          Filter by date range
-                        </p>
-                        <div className="flex flex-col gap-1.5">
-                          {(["from", "to"] as const).map((bound) => (
-                            <div
-                              key={bound}
-                              className="flex items-center gap-2"
-                            >
-                              <label className="text-[11px] text-muted-foreground w-8 shrink-0 capitalize">
-                                {bound}
-                              </label>
-                              <input
-                                type="date"
-                                className="flex-1 rounded border border-border bg-background px-2 py-1 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                                value={dateRange?.[bound] ?? ""}
-                                onChange={(e) =>
-                                  onDateRangeChange({
-                                    ...dateRangeFilters,
-                                    [col]: {
-                                      from: dateRange?.from ?? "",
-                                      to: dateRange?.to ?? "",
-                                      [bound]: e.target.value,
-                                    },
-                                  })
-                                }
-                              />
-                            </div>
-                          ))}
+                    {isExpanded && (
+                      <div className="border-t border-border px-3 py-2.5 space-y-2 bg-muted/10">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] text-muted-foreground">
+                            From
+                          </label>
+                          <input
+                            type="date"
+                            className="w-full rounded border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                            value={range.from}
+                            onChange={(e) =>
+                              onDateRangeChange({
+                                ...dateRangeFilters,
+                                [col]: { ...range, from: e.target.value },
+                              })
+                            }
+                          />
                         </div>
-                        {hasDateFilter && (
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] text-muted-foreground">
+                            To
+                          </label>
+                          <input
+                            type="date"
+                            className="w-full rounded border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                            value={range.to}
+                            onChange={(e) =>
+                              onDateRangeChange({
+                                ...dateRangeFilters,
+                                [col]: { ...range, to: e.target.value },
+                              })
+                            }
+                          />
+                        </div>
+                        {hasActive && (
                           <button
-                            className="text-[11px] text-muted-foreground hover:underline self-start"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                            className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                            onClick={() => {
                               const next = { ...dateRangeFilters };
                               delete next[col];
                               onDateRangeChange(next);
                             }}
                           >
-                            Clear range
+                            Clear date filter
                           </button>
                         )}
                       </div>
-                    ) : (
-                      <>
-                        {distinctValues.length > 8 && (
+                    )}
+                  </div>
+                );
+              }
+
+              // Value checkbox filter UI
+              const { values: distinctValues, capped } = getDistinctValues(col);
+              const vSearch = valueSearch[col] ?? "";
+              const filteredValues = vSearch.trim()
+                ? distinctValues.filter((v) =>
+                    v.toLowerCase().includes(vSearch.toLowerCase())
+                  )
+                : distinctValues;
+
+              return (
+                <div
+                  key={col}
+                  className="rounded-lg border border-border overflow-hidden"
+                >
+                  <button
+                    className="flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
+                    onClick={() => toggleExpanded(col)}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-medium truncate">
+                        {col}
+                      </span>
+                      {colActiveFilter?.size > 0 && (
+                        <span className="shrink-0 rounded-full bg-primary/10 text-primary px-1.5 py-0 text-[10px] font-medium">
+                          {colActiveFilter.size}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform ${
+                        isExpanded ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {isExpanded && (
+                    <div className="border-t border-border bg-muted/10">
+                      {/* Value search */}
+                      {distinctValues.length > 10 && (
+                        <div className="px-3 pt-2">
                           <div className="relative">
                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                             <input
-                              className="w-full rounded border border-border bg-background pl-7 pr-3 py-1 text-[11px] placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring"
+                              className="w-full rounded border border-border bg-background pl-6 pr-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                               placeholder="Search values…"
                               value={vSearch}
                               onChange={(e) =>
@@ -284,102 +329,73 @@ export function FilterDrawer({
                                   [col]: e.target.value,
                                 }))
                               }
-                              onClick={(e) => e.stopPropagation()}
                             />
                           </div>
-                        )}
-                        <div className="flex flex-col gap-0.5 max-h-52 overflow-y-auto">
-                          {filteredValues.map((val) => {
-                            const isChecked = colFilter?.has(val) ?? false;
+                        </div>
+                      )}
+
+                      {/* Capped notice */}
+                      {capped && (
+                        <div className="px-3 pt-2">
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                            Showing first {MAX_FILTER_VALUES} of many values.
+                            Use search to find specific values.
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="max-h-48 overflow-y-auto px-3 py-2 space-y-0.5">
+                        {filteredValues.length === 0 ? (
+                          <p className="py-2 text-center text-[11px] text-muted-foreground">
+                            No matching values
+                          </p>
+                        ) : (
+                          filteredValues.map((val) => {
+                            const checked = colActiveFilter?.has(val) ?? false;
                             return (
                               <label
                                 key={val}
-                                className="flex items-center gap-2 px-1 py-1 rounded hover:bg-muted/60 cursor-pointer group"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleValue(col, val);
-                                }}
+                                className="flex items-center gap-2 rounded px-1 py-1 cursor-pointer hover:bg-muted/30 transition-colors"
                               >
-                                <div
-                                  className={`h-3.5 w-3.5 shrink-0 rounded-sm border flex items-center justify-center transition-colors ${
-                                    isChecked
-                                      ? "border-primary bg-primary"
-                                      : "border-border group-hover:border-muted-foreground/40"
-                                  }`}
+                                <input
+                                  type="checkbox"
+                                  className="h-3 w-3 shrink-0 accent-primary"
+                                  checked={checked}
+                                  onChange={() => toggleValue(col, val)}
+                                />
+                                <span
+                                  className="text-xs text-foreground/80 truncate"
+                                  title={val}
                                 >
-                                  {isChecked && (
-                                    <svg
-                                      viewBox="0 0 10 8"
-                                      fill="none"
-                                      className="w-2.5 h-2.5"
-                                    >
-                                      <path
-                                        d="M1 4l3 3 5-6"
-                                        stroke="white"
-                                        strokeWidth="1.5"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                      />
-                                    </svg>
-                                  )}
-                                </div>
-                                <span className="text-[11px] truncate flex-1 text-foreground/70">
                                   {val === "" ? (
-                                    <em className="text-muted-foreground/40">
+                                    <span className="italic text-muted-foreground">
                                       empty
-                                    </em>
+                                    </span>
                                   ) : (
                                     val
                                   )}
                                 </span>
                               </label>
                             );
-                          })}
-                          {filteredValues.length === 0 && (
-                            <p className="text-[11px] text-muted-foreground/40 py-3 text-center">
-                              No values found
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex gap-3 text-[11px] pt-1.5 border-t border-border/50">
+                          })
+                        )}
+                      </div>
+
+                      {colActiveFilter?.size > 0 && (
+                        <div className="border-t border-border px-3 py-1.5">
                           <button
-                            className="text-primary hover:underline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onFiltersChange({
-                                ...activeFilters,
-                                [col]: new Set(distinctValues),
-                              });
-                            }}
+                            className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                            onClick={() => clearColFilter(col)}
                           >
-                            Select all
+                            Clear filter
                           </button>
-                          <button
-                            className="text-muted-foreground hover:underline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              clearCol(col);
-                            }}
-                          >
-                            Clear
-                          </button>
-                          <span className="ml-auto text-muted-foreground/40">
-                            {distinctValues.length} value
-                            {distinctValues.length !== 1 ? "s" : ""}
-                          </span>
                         </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {displayCols.length === 0 && (
-            <p className="text-xs text-muted-foreground/40 text-center py-10">
-              No columns found
-            </p>
-          )}
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
         </div>
       </DrawerContent>
     </Drawer>
