@@ -3,10 +3,12 @@ import {
   BotIcon,
   CirclePile,
   ExternalLinkIcon,
+  FileText,
   HandshakeIcon,
   HardHat,
   Home,
   LayoutDashboard,
+  MonitorCog,
   User2Icon,
 } from "lucide-react";
 import type { ComponentType, ElementType } from "react";
@@ -67,6 +69,9 @@ const DataCleaningPage = lazy(
 // const BudgetPlanner = lazy(() => import("@/pages/tools/finance/BudgetPlannerPage"));
 // const Campaigns = lazy(() => import("@/pages/tools/marketing/CampaignsPage"));
 // const Leads = lazy(() => import("@/pages/tools/marketing/LeadsPage"));
+// const DocumentationPage = lazy(() => import("@/pages/tools/documentation/DocumentationPage"));
+// const ITTicketsPage = lazy(() => import("@/pages/tools/it/ITTicketsPage"));
+// const ITAssetsPage = lazy(() => import("@/pages/tools/it/ITAssetsPage"));
 
 export const toolsData: Tool[] = [
   {
@@ -180,6 +185,65 @@ export const toolsData: Tool[] = [
     ],
   },
   {
+    title: "Documentation",
+    icon: FileText,
+    description: "Internal documentation and knowledge base",
+    allowedRoles: ["superadmin", "admin", "operations", "managers", "marketing"],
+    subtools: [
+      {
+        title: "Knowledge Base",
+        url: "/documentation/knowledge-base",
+        description: "Browse and search internal documents",
+        allowedRoles: ["superadmin", "admin", "operations", "managers", "marketing"],
+        // component: DocumentationPage,
+      },
+      {
+        title: "SOPs",
+        url: "/documentation/sops",
+        description: "Standard operating procedures",
+        allowedRoles: ["superadmin", "admin", "operations"],
+        // component: SOPsPage,
+      },
+      {
+        title: "Policies",
+        url: "/documentation/policies",
+        description: "Company policies and guidelines",
+        allowedRoles: ["superadmin", "admin"],
+        // component: PoliciesPage,
+      },
+    ],
+  },
+  {
+    title: "IT",
+    icon: MonitorCog,
+    description: "IT support, infrastructure, and asset management",
+    allowedRoles: ["superadmin", "admin", "it"],
+    subtools: [
+      {
+        title: "Tickets",
+        url: "/it/tickets",
+        description: "Submit and track IT support tickets",
+        allowedRoles: ["superadmin", "admin", "operations", "managers", "marketing"],
+        // component: ITTicketsPage,
+      },
+      {
+        title: "IT Assets",
+        url: "/it/assets",
+        description: "Manage IT hardware and software assets",
+        allowedRoles: ["superadmin", "admin", "it"],
+        // component: ITAssetsPage,
+      },
+      {
+        title: "System Health",
+        url: "/it/system-health",
+        description: "Monitor system uptime and performance",
+        allowedRoles: ["superadmin", "it"],
+        // component: SystemHealthPage,
+      },
+    ],
+  },
+
+  {
     title: "AI Assistant",
     url: "/ai-assistant",
     icon: BotIcon,
@@ -243,3 +307,10 @@ export function hasAccessForUrl(
 //   [ ] BudgetPlannerPage  →  @/pages/tools/finance/BudgetPlannerPage.tsx
 //   [ ] CampaignsPage  →  @/pages/tools/marketing/CampaignsPage.tsx
 //   [ ] LeadsPage  →  @/pages/tools/marketing/LeadsPage.tsx
+//   [ ] DocumentationPage  →  @/pages/tools/documentation/DocumentationPage.tsx
+//   [ ] SOPsPage           →  @/pages/tools/documentation/SOPsPage.tsx
+//   [ ] PoliciesPage       →  @/pages/tools/documentation/PoliciesPage.tsx
+//   [ ] ITTicketsPage      →  @/pages/tools/it/ITTicketsPage.tsx
+//   [ ] ITAssetsPage       →  @/pages/tools/it/ITAssetsPage.tsx
+//   [ ] SystemHealthPage   →  @/pages/tools/it/SystemHealthPage.tsx
+

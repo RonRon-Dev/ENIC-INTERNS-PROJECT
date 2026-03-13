@@ -11,6 +11,7 @@ import {
   Columns3,
   Download,
   FileSpreadsheet,
+  FilterX,
   Loader2,
   RefreshCw,
   Search,
@@ -32,7 +33,6 @@ export default function DataCleaningPage() {
   const { setOpen: setSidebarOpen } = useSidebar();
 
   const {
-    rows,
     columns,
     setColumns,
     colVisibility,
@@ -50,11 +50,15 @@ export default function DataCleaningPage() {
     dateRangeFilters,
     updateDateRangeFilters,
     clearAllFilters,
+    filterValues,
+    filterValuesLoading,
+    requestFilterValues,
     sort,
     handleSort,
     search,
     updateSearch,
     processedCount,
+    totalRows,
     totalPages,
     clampedPage,
     pagedRows,
@@ -93,6 +97,24 @@ export default function DataCleaningPage() {
   const activeFilterCount =
     Object.keys(activeFilters).length + Object.keys(dateRangeFilters).length;
 
+  // Only pass columns that are currently visible to the ExportDialog
+  const visibleColumns = columns.filter((c) => colVisibility[c] !== false);
+
+  // Request full distinct values from worker when FilterDrawer opens
+  const handleFilterDrawerOpen = () => {
+    requestFilterValues(columns.filter((c) => colVisibility[c] !== false));
+  };
+
+  // Pagination range helper — shows at most 5 page buttons
+  const getPaginationRange = () => {
+    const delta = 2;
+    const range: number[] = [];
+    const left = Math.max(1, clampedPage - delta);
+    const right = Math.min(totalPages, clampedPage + delta);
+    for (let p = left; p <= right; p++) range.push(p);
+    return range;
+  };
+
   return (
     <div className="flex w-full flex-col h-full">
       <div className="w-full flex flex-col gap-4 rounded-xl border border-border bg-card p-6 h-full">
@@ -110,12 +132,27 @@ export default function DataCleaningPage() {
 
           {hasData && (
             <div className="flex items-center gap-2">
+              {/* File info badge */}
               <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground">
                 <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" />
-                <span className="font-mono max-w-[100px] truncate">{fileName}</span>
+                <span className="font-mono max-w-[100px] truncate">
+                  {fileName}
+                </span>
                 <span className="text-muted-foreground/40">·</span>
-                <span className="max-w-[140px] truncate">
-                  {rows.length.toLocaleString()} rows
+                <span className="max-w-[180px] truncate">
+                  {processedCount < totalRows ? (
+                    <>
+                      <span className="text-foreground font-medium">
+                        {processedCount.toLocaleString()}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {" "}
+                        of {totalRows.toLocaleString()} rows
+                      </span>
+                    </>
+                  ) : (
+                    <>{totalRows.toLocaleString()} rows</>
+                  )}
                 </span>
               </div>
 
@@ -132,7 +169,7 @@ export default function DataCleaningPage() {
               </Button>
 
               <Button
-                variant={showFilterPanel ? "secondary" : "outline"}
+                variant={showFilterPanel ? "default" : "outline"}
                 size="sm"
                 className="gap-1.5 text-xs h-8 relative"
                 onClick={() => setShowFilterPanel((v) => !v)}
@@ -145,6 +182,19 @@ export default function DataCleaningPage() {
                   </span>
                 )}
               </Button>
+
+              {/* Clear all filters button — visible when any filter is active */}
+              {activeFilterCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 text-xs h-8 text-muted-foreground hover:text-destructive"
+                  onClick={clearAllFilters}
+                >
+                  <FilterX className="h-3.5 w-3.5" />
+                  Clear filters
+                </Button>
+              )}
 
               <Button
                 variant="outline"
@@ -166,7 +216,7 @@ export default function DataCleaningPage() {
                   onClick={() => setShowClearConfirm(true)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  Clear ({selectedCount})
+                  Clear ({selectedCount.toLocaleString()})
                 </Button>
               )}
 
@@ -183,11 +233,36 @@ export default function DataCleaningPage() {
                 )}
                 {isExporting
                   ? "Exporting…"
-                  : `Export${selectedCount > 0 ? ` ${selectedCount}` : ""}`}
+                  : `Export${
+                      selectedCount > 0
+                        ? ` ${selectedCount.toLocaleString()}`
+                        : ""
+                    }`}
               </Button>
             </div>
           )}
         </div>
+
+        {/* ── Search bar (shown when data is loaded) ── */}
+        {hasData && rowsReady && (
+          <div className="relative shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+              placeholder="Search all columns…"
+              value={search}
+              onChange={(e) => updateSearch(e.target.value)}
+            />
+            {search && (
+              <button
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                onClick={() => updateSearch("")}
+              >
+                <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ── Upload ── */}
         {!hasData && (
@@ -213,144 +288,59 @@ export default function DataCleaningPage() {
                 to load the table.
               </p>
             </div>
-            <button
-              className="text-xs text-primary underline underline-offset-2"
-              onClick={() => setShowColDialog(true)}
-            >
-              Open Column Settings
-            </button>
           </div>
         )}
 
-        {/* ── Data view ── */}
+        {/* ── Data table ── */}
         {hasData && rowsReady && (
           <div className="flex flex-col flex-1 min-h-0 gap-3">
-            {/* Search */}
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                <input
-                  className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-xs placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="Search all columns…"
-                  value={search}
-                  onChange={(e) => updateSearch(e.target.value)}
-                />
-                {search && (
-                  <button
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2"
-                    onClick={() => updateSearch("")}
-                  >
-                    <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                  </button>
+            <DataTable
+              rows={pagedRows}
+              columns={columns}
+              visibleCols={colVisibility}
+              selectedIds={selectedIds}
+              onToggleRow={toggleRow}
+              onToggleAll={toggleAll}
+              sort={sort}
+              onSort={handleSort}
+              allFilteredSelected={allFilteredSelected}
+              page={page}
+              pageSize={pageSize}
+            />
+
+            {/* ── Pagination footer ── */}
+            <div className="flex items-center justify-between shrink-0 text-xs text-muted-foreground">
+              <div className="flex items-center gap-3">
+                {/* Selection summary */}
+                {selectedCount > 0 && (
+                  <span className="text-primary font-medium">
+                    {selectedCount.toLocaleString()} selected
+                    {selectedCount !== totalRows && " across all pages"}
+                  </span>
                 )}
-              </div>
-              <span className="text-xs text-muted-foreground ml-auto">
-                {processedCount.toLocaleString()} row
-                {processedCount !== 1 ? "s" : ""}
-                {(search || activeFilterCount > 0) && " (filtered)"}
-              </span>
-            </div>
 
-            {/* Filter chips */}
-            {activeFilterCount > 0 && (
-              <div className="flex flex-wrap gap-1.5 shrink-0">
-                {Object.entries(activeFilters).map(([col, vals]) => (
-                  <div
-                    key={col}
-                    className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 pl-2.5 pr-1.5 py-0.5 text-[11px] text-primary"
+                {/* Page size selector */}
+                <div className="flex items-center gap-1.5">
+                  <span>Rows per page:</span>
+                  <select
+                    className="rounded border border-border bg-background px-1.5 py-0.5 text-xs focus:outline-none"
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
                   >
-                    <span className="font-medium">{col}:</span>
-                    <span className="text-primary/70">
-                      {vals.size === 1
-                        ? Array.from(vals)[0] || "empty"
-                        : `${vals.size} values`}
-                    </span>
-                    <button
-                      className="ml-0.5 hover:text-primary/50"
-                      onClick={() => {
-                        const next = { ...activeFilters };
-                        delete next[col];
-                        updateActiveFilters(next);
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-                {Object.entries(dateRangeFilters).map(([col, range]) => (
-                  <div
-                    key={col}
-                    className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 pl-2.5 pr-1.5 py-0.5 text-[11px] text-primary"
-                  >
-                    <span className="font-medium">{col}:</span>
-                    <span className="text-primary/70">
-                      {range.from && range.to
-                        ? `${range.from} → ${range.to}`
-                        : range.from
-                        ? `from ${range.from}`
-                        : `until ${range.to}`}
-                    </span>
-                    <button
-                      className="ml-0.5 hover:text-primary/50"
-                      onClick={() => {
-                        const next = { ...dateRangeFilters };
-                        delete next[col];
-                        updateDateRangeFilters(next);
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  className="text-[11px] text-muted-foreground hover:text-foreground hover:underline px-1"
-                  onClick={clearAllFilters}
-                >
-                  Clear all
-                </button>
-              </div>
-            )}
-
-            {/* Table */}
-            <div className="flex-1 min-h-0 overflow-auto">
-              <DataTable
-                rows={pagedRows}
-                columns={columns}
-                visibleCols={colVisibility}
-                selectedIds={selectedIds}
-                onToggleRow={toggleRow}
-                onToggleAll={toggleAll}
-                sort={sort}
-                onSort={handleSort}
-                allFilteredSelected={allFilteredSelected}
-                page={page}
-                pageSize={pageSize}
-              />
-            </div>
-
-            {/* Pagination */}
-            <div className="flex items-center justify-between shrink-0 text-xs text-muted-foreground pt-0.5 gap-3">
-              <div className="flex items-center gap-2 shrink-0">
-                <span>
-                  {(clampedPage - 1) * pageSize + 1}–
-                  {Math.min(clampedPage * pageSize, processedCount)} of{" "}
-                  {processedCount.toLocaleString()}
-                </span>
-                <span className="text-muted-foreground/30">·</span>
-                <select
-                  className="rounded border border-border bg-background px-1.5 py-0.5 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
-                  value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value))}
-                >
-                  {PAGE_SIZE_OPTIONS.map((n) => (
-                    <option key={n} value={n}>
-                      {n} / page
-                    </option>
-                  ))}
-                </select>
+                    {PAGE_SIZE_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
+              {/* Page navigation */}
               <div className="flex items-center gap-1">
+                <span className="mr-2 tabular-nums">
+                  Page {clampedPage} of {totalPages.toLocaleString()}
+                </span>
                 <Button
                   variant="outline"
                   size="sm"
@@ -360,24 +350,17 @@ export default function DataCleaningPage() {
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </Button>
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let p: number;
-                  if (totalPages <= 5) p = i + 1;
-                  else if (clampedPage <= 3) p = i + 1;
-                  else if (clampedPage >= totalPages - 2) p = totalPages - 4 + i;
-                  else p = clampedPage - 2 + i;
-                  return (
-                    <Button
-                      key={p}
-                      variant={p === clampedPage ? "default" : "outline"}
-                      size="sm"
-                      className="h-7 w-7 p-0 text-xs"
-                      onClick={() => setPage(p)}
-                    >
-                      {p}
-                    </Button>
-                  );
-                })}
+                {getPaginationRange().map((p) => (
+                  <Button
+                    key={p}
+                    variant={p === clampedPage ? "default" : "outline"}
+                    size="sm"
+                    className="h-7 w-7 p-0 text-xs"
+                    onClick={() => setPage(p)}
+                  >
+                    {p}
+                  </Button>
+                ))}
                 <Button
                   variant="outline"
                   size="sm"
@@ -387,26 +370,6 @@ export default function DataCleaningPage() {
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
-                <span className="text-muted-foreground/30 mx-1">·</span>
-                <span className="text-muted-foreground/60 shrink-0">Go to</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={totalPages}
-                  defaultValue={clampedPage}
-                  key={clampedPage}
-                  className="w-12 rounded border border-border bg-background px-1.5 py-0.5 text-xs text-center focus:outline-none focus:ring-1 focus:ring-ring [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      const v = parseInt((e.target as HTMLInputElement).value);
-                      if (!isNaN(v) && v >= 1 && v <= totalPages) setPage(v);
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const v = parseInt(e.target.value);
-                    if (!isNaN(v) && v >= 1 && v <= totalPages) setPage(v);
-                  }}
-                />
               </div>
             </div>
           </div>
@@ -415,7 +378,6 @@ export default function DataCleaningPage() {
 
       {/* ── Dialogs ── */}
       <HeaderPickerDialog
-        key={rawSheetData.length + (rawSheetData[0]?.join("") ?? "")}
         open={showHeaderPicker}
         rawData={rawSheetData}
         onConfirm={(rowIndex) =>
@@ -432,11 +394,14 @@ export default function DataCleaningPage() {
         open={showFilterPanel}
         columns={columns}
         visibleCols={colVisibility}
-        rows={rows}
+        filterValues={filterValues}
+        filterValuesLoading={filterValuesLoading}
+        onOpen={handleFilterDrawerOpen}
         activeFilters={activeFilters}
         onFiltersChange={updateActiveFilters}
         dateRangeFilters={dateRangeFilters}
         onDateRangeChange={updateDateRangeFilters}
+        onClearAll={clearAllFilters}
         onClose={() => setShowFilterPanel(false)}
       />
 
@@ -459,7 +424,8 @@ export default function DataCleaningPage() {
         open={showExportDialog}
         onClose={() => setShowExportDialog(false)}
         onExport={handleExport}
-        columns={columns}
+        columns={visibleColumns}
+        allColumns={columns}
         selectedCount={selectedCount}
         isExporting={isExporting}
       />
@@ -468,7 +434,7 @@ export default function DataCleaningPage() {
         open={showClearConfirm}
         onOpenChange={(v) => !v && setShowClearConfirm(false)}
         title="Clear selection?"
-        desc={`This will deselect all ${selectedCount} selected rows.`}
+        desc={`This will deselect all ${selectedCount.toLocaleString()} selected rows.`}
         handleConfirm={() => {
           clearSelection();
           setShowClearConfirm(false);

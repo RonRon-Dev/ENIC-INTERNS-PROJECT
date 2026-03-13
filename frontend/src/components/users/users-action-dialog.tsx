@@ -21,13 +21,6 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { type User } from '@/data/schema'
-import { notifToast } from '@/lib/notifToast'
-import NProgress from '@/lib/nprogress'
-import { usersApi } from '@/services/users'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { AlertTriangle, Check, Copy, UserCheck, UserX } from 'lucide-react'
-import { registrationRejectReasons, resetPasswordRejectReasons } from '@/data/requestRejectReasons'
 import {
   Select,
   SelectContent,
@@ -35,6 +28,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { registrationRejectReasons, resetPasswordRejectReasons } from '@/data/requestRejectReasons'
+import { type User } from '@/data/schema'
+import { notifToast } from '@/lib/notifToast'
+import NProgress from '@/lib/nprogress'
+import { usersApi } from '@/services/users'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { AlertTriangle, Check, Copy, UserCheck, UserX } from 'lucide-react'
 import nProgress from 'nprogress'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -42,6 +42,21 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 // import { Textarea } from '../ui/textarea'
 import { useUsers } from './users-provider'
+
+const copyToClipboard = (text: string) => {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text)
+  }
+  const el = document.createElement('textarea')
+  el.value = text
+  el.style.position = 'absolute'
+  el.style.opacity = '0'
+  document.body.appendChild(el)
+  el.select()
+  document.execCommand('copy')
+  document.body.removeChild(el)
+  return Promise.resolve()
+}
 
 const formSchema = z
   .object({
@@ -190,7 +205,7 @@ export function UsersActionDialog({
   const copyUsername = () => {
     const username = form.getValues('username')
     if (!username) return
-    navigator.clipboard.writeText(username)
+    copyToClipboard(username)
     notifToast({ reason: 'Username saved to clipboard' }, 'copy')
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -201,7 +216,7 @@ export function UsersActionDialog({
   const copyCredentials = () => {
     if (!tempPassword) return
     const username = form.getValues('username')
-    navigator.clipboard.writeText(`Username: ${username}\nPassword: ${tempPassword}`)
+    copyToClipboard(`Username: ${username}\nPassword: ${tempPassword}`)
     notifToast({ reason: 'Credentials saved to clipboard' }, 'copy')
     setCopiedCredentials(true)
     setTimeout(() => setCopiedCredentials(false), 2000)
@@ -784,7 +799,7 @@ export function UsersApproveResetDialog({
 
   const handleCopy = () => {
     if (!tempPassword) return
-    navigator.clipboard.writeText(tempPassword)
+    copyToClipboard(tempPassword)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }

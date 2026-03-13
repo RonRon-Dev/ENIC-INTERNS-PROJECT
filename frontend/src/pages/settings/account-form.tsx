@@ -20,6 +20,21 @@ import { Check, Copy, Minus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
+const copyToClipboard = (text: string) => {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text)
+  }
+  const el = document.createElement('textarea')
+  el.value = text
+  el.style.position = 'absolute'
+  el.style.opacity = '0'
+  document.body.appendChild(el)
+  el.select()
+  document.execCommand('copy')
+  document.body.removeChild(el)
+  return Promise.resolve()
+}
+
 export function AccountForm() {
   const [copied, setCopied] = useState(false);
 
@@ -97,14 +112,11 @@ export function AccountForm() {
   const copyUsername = () => {
     const username = form.getValues("username");
     if (!username) return;
-    navigator.clipboard
-      .writeText(username)
-      .then(() => {
-        setCopied(true);
-        notifToast({ reason: "Username saved to clipboard" }, "copy");
-        setTimeout(() => setCopied(false), 2000);
-      })
-      .catch(() => { });
+    copyToClipboard(username).then(() => {
+      setCopied(true);
+      notifToast({ reason: "Username saved to clipboard" }, "copy");
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => { });
   };
 
   return (

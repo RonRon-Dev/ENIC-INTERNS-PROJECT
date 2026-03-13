@@ -7,12 +7,28 @@ interface RequestReceiptFormProps {
   username?: string;
 }
 
+const copyToClipboard = (text: string) => {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text)
+  }
+  const el = document.createElement('textarea')
+  el.value = text
+  el.style.position = 'absolute'
+  el.style.opacity = '0'
+  document.body.appendChild(el)
+  el.select()
+  document.execCommand('copy')
+  document.body.removeChild(el)
+  return Promise.resolve()
+}
+
 export function RequestReceiptForm({ onBack, username }: RequestReceiptFormProps) {
   const [copied, setCopied] = useState(false);
+
   const copyUsername = async () => {
     if (!username) return
     try {
-      await navigator.clipboard.writeText(username)
+      await copyToClipboard(username)
       setCopied(true)
       notifToast({ reason: 'Username saved to clipboard' }, 'copy')
       setTimeout(() => setCopied(false), 2000)
@@ -21,9 +37,8 @@ export function RequestReceiptForm({ onBack, username }: RequestReceiptFormProps
     }
   }
 
-
   const handleBack = () => {
-    if (username) navigator.clipboard.writeText(username).catch(() => { })
+    if (username) copyToClipboard(username).catch(() => { })
     onBack()
   }
 
@@ -74,8 +89,8 @@ export function RequestReceiptForm({ onBack, username }: RequestReceiptFormProps
             Your request is pending review. Once approved, you can log in using your system username and the password you set.
           </p>
         </div>
-
       </div>
+
       <button
         type="button"
         onClick={handleBack}

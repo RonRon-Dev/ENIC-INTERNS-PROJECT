@@ -1,0 +1,95 @@
+name: CD - Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.nix'
+      - '.env.production'
+      - '**.md'
+      - './github/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '24'
+
+      - name: Determine version bump
+        id: bump
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Commit message: $COMMIT_MSG"
+
+          # skip deployment for chore/docs/style/test commits
+          if echo "$COMMIT_MSG" | grep -qE "^(chore|docs|style|test|misc)"; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Skipping deployment for: $COMMIT_MSG"
+            exit 0
+          fi
+
+          if echo "$COMMIT_MSG" | grep -q "BREAKING CHANGE"; then
+            echo "bump=major" >> $GITHUB_OUTPUT
+          elif echo "$COMMIT_MSG" | grep -qE "^feat"; then
+            echo "bump=minor" >> $GITHUB_OUTPUT
+          else
+            echo "bump=patch" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Bump version in package.json
+        if: steps.bump.outputs.skip != 'true'
+        id: version
+        run: |
+          cd frontend
+          npm version ${{ steps.bump.outputs.bump }} --no-git-tag-version
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Bumped to: beta-v$VERSION"
+
+      - name: Commit version bump
+        if: steps.bump.outputs.skip != 'true'
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add frontend/package.json
+          git commit -m "chore: bump version to beta-v${{ steps.version.outputs.version }}"
+          git push origin main
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: true  # stop on first error
+          script: |
+            powershell -Command "
+              Set-Location C:\path\to\your\project
+              git pull origin main
+              'APP_VERSION=beta-v${{ steps.version.outputs.version }}' | Out-File .env.prod -Encoding utf8
+              docker compose --env-file .env.prod --profile prod build
+              docker compose --env-file .env.prod --profile prod up -d
+              docker image prune -f
+              Write-Host 'Successfully deployed beta-v${{ steps.version.outputs.version }}'
+            "
+
+      - name: Notify success
+        if: success() && steps.bump.outputs.skip != 'true'
+        run: |
+          echo "Deployed beta-v${{ steps.version.outputs.version }}"
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "Deployment failed for commit: ${{ github.sha }}"

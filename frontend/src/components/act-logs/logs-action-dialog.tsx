@@ -59,9 +59,11 @@ export function DescViewDialog({
     payload.UserAgent,
   );
 
+  const detailsContainerClass = "col-span-2 grid grid-cols-2 rounded-md bg-muted/50 border px-4 py-3 space-y-2 text-sm"
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg p-0 pb-10">
+      <DialogContent className="sm:max-w-lg p-0 pb-4">
         <DialogHeader className="flex-row items-center p-8 pb-2">
           <Avatar className="h-10 w-10 rounded border bg-muted mr-3 text-muted-foreground p-4">
             <AvatarFallback>
@@ -99,75 +101,25 @@ export function DescViewDialog({
             </div>
           </div>
         </DialogHeader>
-        <div className="px-10 grid grid-cols-2 border-y py-4 mb-4 gap-y-2">
+        <div className="px-10 grid grid-cols-2 border-y py-4 gap-y-2">
           <span className="text-muted-foreground text-sm">Reference ID</span>
           <span className="text-right text-sm">{currentRow.id}</span>
 
           <span className="text-muted-foreground text-sm">Date & Time</span>
           <span className="text-right text-sm">
-            {new Date(
-              currentRow.date + "T" + currentRow.time,
-            ).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "2-digit",
-              day: "2-digit",
+            {new Date(currentRow.date + "T" + currentRow.time).toLocaleDateString("en-US", {
+              year: "numeric", month: "2-digit", day: "2-digit",
             })}{" "}
-            {new Date(
-              currentRow.date + "T" + currentRow.time,
-            ).toLocaleTimeString("en-US", {
-              hour: "numeric",
-              minute: "2-digit",
-              hour12: true,
+            {new Date(currentRow.date + "T" + currentRow.time).toLocaleTimeString("en-US", {
+              hour: "numeric", minute: "2-digit", hour12: true,
             })}
           </span>
 
           <span className="text-muted-foreground text-sm">Activity Type</span>
-          <span className="text-right text-sm capitalize">
-            {currentRow.type}
-          </span>
+          <span className="text-right text-sm capitalize">{currentRow.type}</span>
 
-          <span className="text-muted-foreground text-sm">Action Taken</span>
-          <span className="text-right text-sm">{currentRow.description}</span>
-
-          {user?.roleName === "Superadmin" && (
-            <>
-              <span className="text-muted-foreground text-sm">IP Address</span>
-              <div className="flex items-center justify-end gap-2">
-                <span className="text-sm font-mono">{ipData.cleaned}</span>
-                <Badge variant={ipData.variant} className="text-xs">
-                  {ipData.type}
-                </Badge>
-              </div>
-
-              <span className="text-muted-foreground text-sm">Client Info</span>
-              <div className="text-right space-y-1">
-                <div className="flex items-center justify-end gap-2">
-                  {getDeviceIcon(deviceData.deviceType)}
-                  <span className="text-sm">
-                    {deviceData.browser}
-                    {deviceData.browserVersion &&
-                      ` ${deviceData.browserVersion}`}
-                  </span>
-                </div>
-                <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-                  <span>
-                    {deviceData.os}
-                    {deviceData.osVersion && ` ${deviceData.osVersion}`}
-                  </span>
-                  <span>·</span>
-                  <span>{deviceData.deviceType}</span>
-                  {deviceData.isBot && (
-                    <>
-                      <span>·</span>
-                      <Badge variant="outline" className="text-xs py-0">
-                        Bot
-                      </Badge>
-                    </>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
+          <span className="text-muted-foreground text-sm col-span-1">Action Taken</span>
+          <span className="text-right text-sm break-words min-w-0">{currentRow.description}</span>
 
           <span className="text-muted-foreground text-sm">Result</span>
           <div className="flex justify-end">
@@ -176,25 +128,59 @@ export function DescViewDialog({
               className={`gap-x-1 py-1 ${currentRow.success
                 ? "text-success border-success bg-success/10"
                 : "text-destructive border-destructive bg-destructive/10"
-                }
-              `}
+                }`}
             >
-              {currentRow.success ? (
-                <CircleCheck className="w-4 h-4" />
-              ) : (
-                <CircleX className="w-4 h-4" />
-              )}
+              {currentRow.success ? <CircleCheck className="w-4 h-4" /> : <CircleX className="w-4 h-4" />}
               {currentRow.success ? "Success" : "Failed"}
             </Badge>
           </div>
+
+          {user?.roleName === "Superadmin" && (
+            <>
+              <span className="text-muted-foreground text-sm">IP Address</span>
+              <div className="flex items-center justify-end gap-2">
+                <span className="text-sm font-mono">{ipData.cleaned}</span>
+                <Badge variant={ipData.variant} className="text-xs">{ipData.type}</Badge>
+              </div>
+
+              <span className="text-muted-foreground text-sm">Client Info</span>
+              <div className="text-right space-y-1">
+                <div className="flex items-center justify-end gap-2">
+                  {getDeviceIcon(deviceData.deviceType)}
+                  <span className="text-sm">
+                    {deviceData.browser}{deviceData.browserVersion && ` ${deviceData.browserVersion}`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+                  <span>{deviceData.os}{deviceData.osVersion && ` ${deviceData.osVersion}`}</span>
+                  <span>·</span>
+                  <span>{deviceData.deviceType}</span>
+                  {deviceData.isBot && (
+                    <>
+                      <span>·</span>
+                      <Badge variant="outline" className="text-xs py-0">Bot</Badge>
+                    </>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="mx-5">
           {currentRow.type === "account management" && (
-            <AccMgmtLogDesc currentRow={currentRow} />
+            <div className={detailsContainerClass}>
+              <AccMgmtLogDesc currentRow={currentRow} />
+            </div>
           )}
           {currentRow.type === "settings" && (
-            <SettingLogDesc currentRow={currentRow} />
+            <div className={detailsContainerClass}>
+              <SettingLogDesc currentRow={currentRow} />
+            </div>
           )}
-          {currentRow.type === "privilege" && (
-            <PrivilegeLogDesc currentRow={currentRow} />
+          {currentRow.type === "privilege" && currentRow.description?.startsWith("Role Creation:") && (
+            <div className={detailsContainerClass}>
+              <PrivilegeLogDesc currentRow={currentRow} />
+            </div>
           )}
         </div>
       </DialogContent>

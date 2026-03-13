@@ -1,20 +1,6 @@
 "use client";
 
-import type {
-  ColumnDef,
-  ColumnFiltersState,
-  SortingState,
-} from "@tanstack/react-table";
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-  getFilteredRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  getFacetedUniqueValues,
-  getFacetedRowModel,
-} from "@tanstack/react-table";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -23,18 +9,31 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { userTypes } from "@/data/const";
+import { type Roles, type User } from "@/data/schema";
+import type {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+} from "@tanstack/react-table";
+import {
+  flexRender,
+  getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import * as LucideIcons from "lucide-react";
+import { type LucideIcon } from "lucide-react";
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { DataTableColumnHeader } from "../data-table-components/data-table-header";
 import { DataTablePagination } from "../data-table-components/data-table-pagination";
 import { DataTableToolbar } from "../data-table-components/data-table-toolbar";
-import { DataTableColumnHeader } from "../data-table-components/data-table-header";
 import { DataTableRowActions } from "../users/users-data-table-row-actions";
-import { type User } from "@/data/schema";
 export type { User };
-import { userTypes } from "@/data/const";
-import { type Roles } from "@/data/schema";
-import { type LucideIcon } from "lucide-react";
-import * as LucideIcons from "lucide-react";
 
 function resolveIcon(iconName?: string): LucideIcon | null {
   if (!iconName) return null;
@@ -131,7 +130,7 @@ export function useColumns({ roles }: { roles: Roles[] }) {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  roleOptions: { label: string; value: string; icon?: LucideIcon }[] 
+  roleOptions: { label: string; value: string; icon?: LucideIcon }[]
 }
 
 export function DataTable<TData, TValue>({
@@ -199,10 +198,11 @@ export function DataTable<TData, TValue>({
 
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map((row, i) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className={i % 2 === 0 ? "" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

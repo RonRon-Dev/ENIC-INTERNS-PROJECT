@@ -20,8 +20,8 @@ import { DataTableColumnHeader } from "../data-table-components/data-table-heade
 import { DataTablePagination } from "../data-table-components/data-table-pagination"
 import { DataTableToolbar } from "../data-table-components/data-table-toolbar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from "../ui/dropdown-menu"
-import { useUsers } from "../users/users-provider"
 import type { UserRequest } from "../users/users-provider"
+import { useUsers } from "../users/users-provider"
 import type { User } from "./users-column"
 
 export type { UserRequest }
@@ -114,8 +114,10 @@ export function DataTable({ columns, data }: DataTableProps) {
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+              table.getRowModel().rows.map((row, i) => (
+                <TableRow key={row.id}
+                  className={i % 2 === 0 ? "" : ""}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

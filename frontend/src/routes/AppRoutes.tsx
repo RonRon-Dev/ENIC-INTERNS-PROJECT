@@ -9,8 +9,8 @@ import type { UserRole } from "@/data/schema";
 import type { SubTool, Tool } from "@/data/tools";
 import { toolsData } from "@/data/tools";
 import AppOverviewPage from "@/pages/AppOverviewPage";
-import DevPage from "@/pages/DevPage";
 import EurolinkPage from "@/pages/CompanyProfilePage";
+import DevPage from "@/pages/DevPage";
 import AboutDevPage from "@/pages/general/AboutDevPage";
 import SettingsPage from "@/pages/general/SettingsPage";
 import GeneralHomePage from "@/pages/GeneralHomePage";
@@ -64,17 +64,17 @@ function generateRoutes() {
 
         return (
           <Route key={basePath} path={basePath}>
-            {tool.component && (
+            {tool.component ? (
               <Route
                 index
                 element={
-                  <ProtectedRoute
-                    allowedRoles={tool.allowedRoles as UserRole[]}
-                  >
+                  <ProtectedRoute allowedRoles={tool.allowedRoles as UserRole[]}>
                     <PageComponent tool={tool} />
                   </ProtectedRoute>
                 }
               />
+            ) : (
+              <Route index element={<Navigate to={firstUrl} replace />} />
             )}
             {/* Only generate routes for subtools with internal urls — skip external ones */}
             {tool.subtools
