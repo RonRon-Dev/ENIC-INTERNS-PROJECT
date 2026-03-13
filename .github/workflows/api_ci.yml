@@ -1,0 +1,33 @@
+name: API CI
+
+on:
+  push:
+    branches: "**"
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+          with:
+            dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: cd backend && dotnet restore
+
+      - name: Build
+        run: cd backend && dotnet build --no-restore
+
+      - name: Run tests
+        run: cd backend && dotnet test --no-build --verbosity normal
+
+all-checks-passed:
+  needs: [ test-backend ]
+  runs-on: ubuntu-latest
+  steps:
+    - name: All checks passed
+      run: echo "All tests passed for API successfully!"

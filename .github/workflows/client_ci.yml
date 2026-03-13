@@ -1,0 +1,33 @@
+name: Client CI 
+  push:
+    branches: "**"
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:APP_VERSION=beta-v$NEW_VERSION
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: cd frontend && npm install
+
+      - name: Run tests
+        run: cd frontend && npm test
+
+      - name: Verify build
+        run: cd frontend && npm run build
+
+all-checks-passed:
+  needs: [ test-frontend ]
+  runs-on: ubuntu-latest
+  steps:
+    - name: All checks passed
+      run: echo "All tests passed for frontend successfully!"
