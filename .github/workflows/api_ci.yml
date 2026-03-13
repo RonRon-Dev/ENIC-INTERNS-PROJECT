@@ -25,9 +25,9 @@ jobs:
       - name: Run tests
         run: cd backend && dotnet test --no-build --verbosity normal
 
-all-checks-passed:
-  needs: [ test-backend ]
-  runs-on: ubuntu-latest
-  steps:
-    - name: All checks passed
-      run: echo "All tests passed for API successfully!"
+  all-checks-passed:
+    needs: [ test-backend ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All checks passed
+        run: echo "All tests passed for API successfully!"

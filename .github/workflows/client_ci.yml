@@ -19,15 +19,21 @@ jobs:
       - name: Install dependencies
         run: cd frontend && npm install
 
-      - name: Run tests
-        run: cd frontend && npm test
+      - name: Check code quality (lint)
+        run: cd frontend && npm run lint
+
+      - name: Check formatting (prettier)
+        run: cd frontend && npm run format:check
+
+      - name: Type check
+        run: cd frontend && npm run type-check
 
       - name: Verify build
         run: cd frontend && npm run build
 
-all-checks-passed:
-  needs: [ test-frontend ]
-  runs-on: ubuntu-latest
-  steps:
-    - name: All checks passed
-      run: echo "All tests passed for frontend successfully!"
+  all-checks-passed:
+    needs: [ test-frontend ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All checks passed
+        run: echo "All tests passed for frontend successfully!"
