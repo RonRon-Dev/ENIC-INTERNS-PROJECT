@@ -27,8 +27,11 @@ const ZIP_THRESHOLD = 5;
 interface ExportDialogProps {
   open: boolean;
   onClose: () => void;
-  onExport: (config: ExportConfig, visibleCols: string[]) => void; // FIX: was (config: ExportConfig) => void
+  onExport: (config: ExportConfig, visibleCols: string[]) => void;
+  /** Visible (export) columns — what gets written into the file */
   columns: string[];
+  /** All columns from the file — used for the per-row filename picker only */
+  allColumns: string[];
   selectedCount: number;
   isExporting?: boolean;
 }
@@ -38,6 +41,7 @@ export function ExportDialog({
   onClose,
   onExport,
   columns,
+  allColumns,
   selectedCount,
   isExporting = false,
 }: ExportDialogProps) {
@@ -49,12 +53,25 @@ export function ExportDialog({
     format: "xlsx",
     mode: "single",
     fileName: makeFileName("xlsx", "single"),
-    fileNameCol: columns[0] ?? "",
+    fileNameCol: allColumns[0] ?? "",
     zipFileName: makeFileName("xlsx", "single"),
     skipNullNames: false,
+    xmlCol: "",
+    xmlWrap: false,
   });
 
-  // FIX: Reset config each time the dialog opens so stale values (e.g. a
+  // columnsRef / allColumnsRef always hold the latest prop values so the
+  // open-reset effect can read them without stale closure issues.
+  const columnsRef = React.useRef(columns);
+  React.useEffect(() => {
+    columnsRef.current = columns;
+  }, [columns]);
+  const allColumnsRef = React.useRef(allColumns);
+  React.useEffect(() => {
+    allColumnsRef.current = allColumns;
+  }, [allColumns]);
+
+  // Reset config each time the dialog opens so stale values (e.g. a
   // fileNameCol that no longer exists after hiding columns) don't persist.
   const prevOpenRef = React.useRef(false);
   React.useEffect(() => {
@@ -64,35 +81,22 @@ export function ExportDialog({
         format: "xlsx",
         mode: "single",
         fileName: newName,
-        fileNameCol: columns[0] ?? "",
+        fileNameCol: allColumnsRef.current[0] ?? "",
         zipFileName: newName,
         skipNullNames: false,
+        xmlCol: "",
+        xmlWrap: false,
       });
     }
     prevOpenRef.current = open;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Auto-update fileName and zipFileName when format or mode changes,
-  // but only if the user hasn't manually edited them.
+  // Auto-update fileName and zipFileName when format or mode changes.
+  // Uses refs to detect changes without adding config to the dep array
+  // (which would cause infinite loops via setConfig).
   const prevFormatRef = React.useRef(config.format);
   const prevModeRef = React.useRef(config.mode);
-  React.useEffect(() => {
-    const formatChanged = prevFormatRef.current !== config.format;
-    const modeChanged = prevModeRef.current !== config.mode;
-    if (formatChanged || modeChanged) {
-      const newName = makeFileName(config.format, config.mode);
-      setConfig((prev) => ({
-        ...prev,
-        fileName: newName,
-        zipFileName: newName,
-      }));
-      prevFormatRef.current = config.format;
-      prevModeRef.current = config.mode;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.format, config.mode]);
-  // const prevModeRef = React.useRef(config.mode);
   React.useEffect(() => {
     const formatChanged = prevFormatRef.current !== config.format;
     const modeChanged = prevModeRef.current !== config.mode;
@@ -154,6 +158,7 @@ export function ExportDialog({
   ];
 
   const isPerRow = config.mode === "per-row";
+  const isXml = config.format === "xml";
 
   return (
     <Dialog open={open} onOpenChange={(v: boolean) => !v && onClose()}>
@@ -277,54 +282,105 @@ export function ExportDialog({
             </div>
           )}
 
-          {/* Per-row config */}
-          {isPerRow && (
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-medium text-foreground">
-                Use column as file name
-              </label>
-              <p className="text-[11px] text-muted-foreground -mt-1">
-                Each file will be named after this column's value
-              </p>
+          {/* XML options — shown whenever format is XML */}
+          {isXml && (
+            <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/20 px-3 py-3">
+              <div className="flex flex-col gap-1">
+                <p className="text-xs font-semibold text-foreground">
+                  XML source column
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Select the column that already contains formatted XML. Its
+                  value will be written directly to the file — no additional
+                  wrapping or escaping.
+                </p>
+              </div>
               <select
                 className="rounded-md border border-border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                value={config.fileNameCol}
-                onChange={(e) => set("fileNameCol", e.target.value)}
+                value={config.xmlCol}
+                onChange={(e) => set("xmlCol", e.target.value)}
               >
-                {columns.map((c) => (
+                <option value="">— generate XML from all columns —</option>
+                {allColumns.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
                 ))}
               </select>
-              <p className="text-[11px] text-muted-foreground/60">
-                Files will be saved as:{" "}
-                <span className="font-mono text-foreground/60">
-                  [value].{config.format}
-                </span>{" "}
-                · empty values export as{" "}
-                <span className="font-mono text-foreground/60">
-                  row_#.{config.format}
-                </span>
-              </p>
+
+              {/* Wrap toggle — only relevant when a column is selected */}
+              {config.xmlCol && (
+                <div
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => set("xmlWrap", !config.xmlWrap)}
+                >
+                  <div>
+                    <p className="text-xs font-medium text-foreground">
+                      Wrap in root element
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {config.xmlWrap
+                        ? "Each file will be wrapped in <export>…</export>"
+                        : "Raw column value written verbatim — no wrapper added"}
+                    </p>
+                  </div>
+                  <div
+                    className={`relative shrink-0 h-4 w-7 rounded-full transition-colors duration-200 ${
+                      config.xmlWrap ? "bg-primary" : "bg-border"
+                    }`}
+                  >
+                    <div
+                      className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform duration-200 ${
+                        config.xmlWrap ? "translate-x-3.5" : "translate-x-0.5"
+                      }`}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Per-row options */}
+          {isPerRow && (
+            <div className="flex flex-col gap-3">
+              {/* File name column */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-foreground">
+                  File name column
+                </label>
+                <select
+                  className="rounded-md border border-border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={config.fileNameCol}
+                  onChange={(e) => set("fileNameCol", e.target.value)}
+                >
+                  <option value="">— use row number —</option>
+                  {allColumns.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                      {columns.includes(c) ? "" : " (hidden)"}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-muted-foreground/50">
+                  Each file will be named after the value in this column.
+                </p>
+              </div>
 
               {/* Skip null names toggle */}
               <div
-                className="flex items-center justify-between rounded-md border border-border bg-muted/20 px-3 py-2 cursor-pointer"
+                className="flex items-center justify-between cursor-pointer"
                 onClick={() => set("skipNullNames", !config.skipNullNames)}
               >
                 <div>
                   <p className="text-xs font-medium text-foreground">
-                    Skip rows with no name
+                    Skip empty names
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {config.skipNullNames
-                      ? "Rows where the name column is empty will be excluded"
-                      : "Rows with no name will export as row_#"}
+                    Rows with null or empty file name values are skipped
                   </p>
                 </div>
                 <div
-                  className={`relative shrink-0 h-4 w-7 rounded-full transition-colors duration-200 ${
+                  className={`relative h-4 w-7 rounded-full transition-colors duration-200 ${
                     config.skipNullNames ? "bg-primary" : "bg-border"
                   }`}
                 >
@@ -382,7 +438,7 @@ export function ExportDialog({
             size="sm"
             className="gap-1.5"
             disabled={isExporting}
-            onClick={() => onExport(config, columns)} // FIX: pass columns as visibleCols
+            onClick={() => onExport(config, columns)}
           >
             {isExporting ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

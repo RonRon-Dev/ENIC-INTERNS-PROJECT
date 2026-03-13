@@ -2,6 +2,16 @@
 // Thin message-passing shell. ALL data lives in the worker.
 // Main thread only holds: paged rows, column names, UI state.
 // No full Row[] ever crosses the thread boundary after COMMIT.
+//
+// Changes in this version:
+//   - filterValues: Record<string,string[]> — populated from worker GET_FILTER_VALUES
+//     response, covering the FULL dataset (not just current page)
+//   - requestFilterValues(cols) — sends GET_FILTER_VALUES to worker
+//   - allFilteredIds from RESULT is now an Int32Array (transferable) — converted
+//     to number[] only when needed for SELECT messages
+//   - selectedIds Set removed from main thread — selection UI driven by
+//     selectedCount + allFilteredSelected from worker (authoritative)
+//   - clearAllFilters now exported (was already in hook, not wired to UI)
 
 import type {
   ActiveFilters,
@@ -19,16 +29,12 @@ import { toast } from "sonner";
 export const DEFAULT_PAGE_SIZE = 12;
 export const PAGE_SIZE_OPTIONS = [12, 25, 50, 100];
 export const ZIP_THRESHOLD = 5;
+// Matches MAX_FILTER_VALUES in the worker
+export const MAX_FILTER_VALUES = 500;
 
-// File size threshold for soft warning
 const FILE_SIZE_WARN_MB = 20;
-
-// Increased debounce — reduces filter thrashing on low-RAM machines
 const SEARCH_DEBOUNCE_MS = 500;
-
-// FIX: How long to wait before revoking a blob URL after triggering a download.
-// Revoking synchronously after .click() cancels the blob before the browser
-// has queued the download — silent failure on Firefox/Safari.
+// 30s revoke delay — blob needs to stay alive until browser queues the download
 const REVOKE_DELAY_MS = 30_000;
 
 interface QueryMsg {
@@ -79,13 +85,24 @@ export function useSpreadsheetData() {
   const [totalPages, setTotalPages] = useState(1);
   const [clampedPage, setClampedPage] = useState(1);
 
+  // Selection state — driven by worker, not maintained locally
+  // selectedIds Set is NOT kept on main thread (was duplicate of worker state)
   const [selectedCount, setSelectedCount] = useState(0);
   const [allFilteredSelected, setAllFilteredSelected] = useState(false);
+  // Kept only for DataTable checkbox rendering (current page)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
+  // Filter values from the FULL dataset — populated via GET_FILTER_VALUES worker message
+  const [filterValues, setFilterValues] = useState<Record<string, string[]>>(
+    {}
+  );
+  const [filterValuesLoading, setFilterValuesLoading] = useState(false);
+
+  // Last allFilteredIds from worker (Int32Array) — used for SELECT all/deselect
+  const lastFilteredIdsRef = useRef<Int32Array | null>(null);
   const lastQueryRef = useRef<QueryMsg | null>(null);
 
-  // ── Spawn worker ──────────────────────────────────────────────────────────
+  // ── Spawn worker ────────────────────────────────────────────────────────────
   const spawnWorker = useCallback(() => {
     if (workerRef.current) workerRef.current.terminate();
     const worker = new Worker(
@@ -112,121 +129,158 @@ export function useSpreadsheetData() {
             (msg.cols as string[]).map((c: string) => [c, true])
           )
         );
-        setDetectedTypes(msg.detectedTypes ?? {});
-        setTotalRows(msg.totalRows);
+        setDetectedTypes(
+          msg.detectedTypes
+            ? Object.fromEntries(
+                Object.entries(msg.detectedTypes as Record<string, string>).map(
+                  ([k, v]) => [k, v as ColumnType]
+                )
+              )
+            : {}
+        );
+        setTotalRows(msg.totalRows as number);
         setHasData(true);
         setIsLoading(false);
         setProgress(0);
-        setLoadingPhase("Reading file");
-        const q: QueryMsg = {
+      } else if (msg.type === "RESULT") {
+        setPagedRows(msg.pagedRows as Row[]);
+        setTotalRows(msg.totalRows as number);
+        setProcessedCount(msg.processedCount as number);
+        setTotalPages(msg.totalPages as number);
+        setClampedPage(msg.clampedPage as number);
+        setAllFilteredSelected(msg.allFilteredSelected as boolean);
+        setSelectedCount(msg.selectedCount as number);
+        setIsFiltering(false);
+
+        // allFilteredIds is now a transferred Int32Array — store ref for SELECT
+        if (msg.allFilteredIds instanceof Int32Array) {
+          lastFilteredIdsRef.current = msg.allFilteredIds;
+          // Rebuild main-thread selectedIds for DataTable checkbox rendering
+          // (only current page rows need to be checked — avoids iterating 100k)
+          setSelectedIds((prev) => {
+            const next = new Set<number>();
+            // We don't know which rows are selected globally — only count comes from worker.
+            // For checkbox rendering we track selection state per visible row via selectedCount.
+            // So we keep selectedIds only for the current page:
+            for (const row of msg.pagedRows as Row[]) {
+              if (prev.has(row.__id)) next.add(row.__id);
+            }
+            return next;
+          });
+        }
+      } else if (msg.type === "FILTER_VALUES") {
+        setFilterValues(msg.values as Record<string, string[]>);
+        setFilterValuesLoading(false);
+      } else if (msg.type === "SELECTION") {
+        setSelectedCount(msg.selectedCount as number);
+        // Sync selectedIds for current page after selection changes
+        workerRef.current?.postMessage({
           type: "QUERY",
-          search: "",
-          filters: {},
-          dateFilters: {},
-          sort: { col: null, dir: null },
-          page: 1,
-          pageSize: DEFAULT_PAGE_SIZE,
-        };
-        lastQueryRef.current = q;
-        worker.postMessage(q);
+          ...lastQueryRef.current,
+        });
       } else if (msg.type === "PROGRESS") {
-        setLoadingPhase(msg.phase ?? "Processing rows");
-        setProgress(msg.pct ?? 0);
+        setProgress(msg.pct as number);
+        setLoadingPhase(msg.phase as string);
       } else if (msg.type === "SIZE_WARNING") {
-        toast.warning(`Large file detected (${msg.sizeMB} MB)`, {
-          description:
-            "Processing may take longer on devices with limited memory. Consider splitting the file if it becomes unresponsive.",
-          duration: 8000,
+        toast.warning("Large file detected", {
+          description: `${msg.sizeMB} MB file. Processing may take a moment on lower-spec machines.`,
+          duration: 6000,
         });
       } else if (msg.type === "ROW_CAP") {
-        toast.warning(
-          `Row limit reached — showing first ${msg.capped.toLocaleString()} rows`,
-          {
-            description: `The file contains more than ${msg.capped.toLocaleString()} rows. Split the file into smaller parts to load the rest.`,
-            duration: 10000,
-          }
-        );
-      } else if (msg.type === "RESULT") {
-        setPagedRows(msg.pagedRows);
-        setProcessedCount(msg.processedCount);
-        setTotalPages(msg.totalPages);
-        setClampedPage(msg.clampedPage);
-        setAllFilteredSelected(msg.allFilteredSelected);
-        setSelectedCount(msg.selectedCount);
-        setSelectedIds((prev) => {
-          const next = new Set<number>();
-          (msg.pagedRows as Row[]).forEach((r) => {
-            if (prev.has(r.__id) || msg.allFilteredSelected) next.add(r.__id);
-          });
-          return next;
+        toast.warning("Row limit reached", {
+          description: `Loaded ${(msg.loaded as number).toLocaleString()} of ${(
+            msg.capped as number
+          ).toLocaleString()} rows. Maximum is 500,000.`,
+          duration: 8000,
         });
-        setIsFiltering(false);
-      } else if (msg.type === "SELECTION") {
-        setSelectedCount(msg.selectedCount);
-        if (lastQueryRef.current) worker.postMessage(lastQueryRef.current);
       } else if (msg.type === "RETYPE_DONE") {
-        if (lastQueryRef.current) worker.postMessage(lastQueryRef.current);
+        // Re-query to reflect type changes in the table
+        if (lastQueryRef.current) {
+          workerRef.current?.postMessage(lastQueryRef.current);
+        }
       } else if (msg.type === "EXPORT_DONE") {
         setIsExporting(false);
-
-        // FIX: Always defer revokeObjectURL — calling it synchronously after
-        // .click() races with the browser's download initiation and silently
-        // cancels the download on Firefox and Safari.
-        if (msg.kind === "file" || msg.kind === "zip") {
+        const { kind, url, fileName: dlName, files, description } = msg;
+        if (kind === "file" || kind === "zip") {
           const a = document.createElement("a");
-          a.href = msg.url;
-          a.download = msg.fileName;
+          a.href = url;
+          a.download = dlName;
           a.click();
-          setTimeout(() => URL.revokeObjectURL(msg.url), REVOKE_DELAY_MS);
-        } else if (msg.kind === "files") {
-          (msg.files as { url: string; fileName: string }[]).forEach(
-            ({ url, fileName }, i) => {
-              setTimeout(() => {
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = fileName;
-                a.click();
-                // Each file gets its own deferred revoke, staggered after its download trigger
-                setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
-              }, i * 80);
-            }
-          );
+          setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
+          toast.success("Export complete", { description });
+        } else if (kind === "files") {
+          for (const f of files as { url: string; fileName: string }[]) {
+            const a = document.createElement("a");
+            a.href = f.url;
+            a.download = f.fileName;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(f.url), REVOKE_DELAY_MS);
+          }
+          toast.success("Export complete", { description });
         }
-        toast.success("Export complete", { description: msg.description });
       } else if (msg.type === "EXPORT_ERROR") {
         setIsExporting(false);
-        toast.error("Export failed", { description: msg.message });
+        toast.error("Export failed", { description: msg.message as string });
       } else if (msg.type === "ERROR") {
         setIsLoading(false);
-        setProgress(0);
-        setLoadingPhase("Reading file");
-        toast.error("Error", { description: msg.message });
+        setIsExporting(false);
+        toast.error("Worker error", { description: msg.message as string });
       }
     };
 
     worker.onerror = (err) => {
       setIsLoading(false);
-      setProgress(0);
-      setLoadingPhase("Reading file");
-      toast.error("Worker error", { description: err.message });
+      toast.error("Worker crashed", { description: err.message });
     };
 
     workerRef.current = worker;
     return worker;
   }, []);
 
-  const sendQuery = useCallback((q: QueryMsg) => {
-    lastQueryRef.current = q;
-    workerRef.current?.postMessage(q);
-  }, []);
+  // ── Build & send query ──────────────────────────────────────────────────────
+  const buildQuery = useCallback(
+    (overrides?: Partial<QueryMsg>): QueryMsg => ({
+      type: "QUERY",
+      search: searchCommitted,
+      filters: Object.fromEntries(
+        Object.entries(activeFilters).map(([k, v]) => [k, Array.from(v)])
+      ),
+      dateFilters: dateRangeFilters,
+      sort,
+      page,
+      pageSize,
+      ...overrides,
+    }),
+    [searchCommitted, activeFilters, dateRangeFilters, sort, page, pageSize]
+  );
 
-  // ── Parse file ────────────────────────────────────────────────────────────
+  const sendQuery = useCallback(
+    (overrides?: Partial<QueryMsg>) => {
+      if (!workerRef.current) return;
+      setIsFiltering(true);
+      const q = buildQuery(overrides);
+      lastQueryRef.current = q;
+      workerRef.current.postMessage(q);
+    },
+    [buildQuery]
+  );
+
+  // Re-query whenever filter/sort/page/search state changes
+  useEffect(() => {
+    if (!hasData) return;
+    sendQuery();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchCommitted, activeFilters, dateRangeFilters, sort, page, pageSize]);
+
+  // ── Parse file ──────────────────────────────────────────────────────────────
   const parseFile = useCallback(
     (file: File) => {
-      const sizeMB = file.size / 1024 / 1024;
-      if (sizeMB > FILE_SIZE_WARN_MB) {
-        toast.warning(`Large file (${sizeMB.toFixed(1)} MB)`, {
-          description: "This may take a while on devices with limited RAM.",
+      const mb = file.size / 1024 / 1024;
+      if (mb > FILE_SIZE_WARN_MB) {
+        toast.warning("Large file", {
+          description: `${mb.toFixed(
+            1
+          )} MB detected. Processing will start shortly.`,
           duration: 6000,
         });
       }
@@ -247,6 +301,7 @@ export function useSpreadsheetData() {
       setDateRangeFilters({});
       setColTypesState({});
       setDetectedTypes({});
+      setFilterValues({});
 
       const worker = spawnWorker();
 
@@ -261,6 +316,7 @@ export function useSpreadsheetData() {
         clearInterval(interval);
         setProgress(90);
         const buffer = ev.target!.result as ArrayBuffer;
+        // Transfer buffer — zero-copy hand-off to worker
         worker.postMessage({ type: "PARSE", buffer, fileName: file.name }, [
           buffer,
         ]);
@@ -277,7 +333,7 @@ export function useSpreadsheetData() {
     [spawnWorker]
   );
 
-  // ── Commit header row ─────────────────────────────────────────────────────
+  // ── Commit header row ───────────────────────────────────────────────────────
   const commitWithHeaderRow = useCallback(
     (headerRowIndex: number, onSuccess?: () => void) => {
       if (!workerRef.current || !pendingFile) return;
@@ -290,6 +346,12 @@ export function useSpreadsheetData() {
       const originalOnMessage = workerRef.current.onmessage!;
       workerRef.current.onmessage = (e) => {
         if (e.data.type === "READY") {
+          // Restore normal handler FIRST and forward READY through it —
+          // this ensures setColumns/setTotalRows/setDetectedTypes all fire
+          // before onSuccess opens ColumnDialog. Without this, ColumnDialog
+          // opens with columns=[] because the READY message was swallowed.
+          workerRef.current!.onmessage = originalOnMessage;
+          (originalOnMessage as (e: MessageEvent) => void)(e);
           toast.success("File imported", {
             description: `${(
               e.data.totalRows as number
@@ -298,104 +360,31 @@ export function useSpreadsheetData() {
             } columns · "${pendingFile.name}"`,
           });
           onSuccess?.();
-          if (workerRef.current)
-            workerRef.current.onmessage = originalOnMessage;
+          const q = buildQuery({ page: 1 });
+          lastQueryRef.current = q;
+          workerRef.current!.postMessage(q);
+        } else {
+          (originalOnMessage as (e: MessageEvent) => void)(e);
         }
-        originalOnMessage.call(workerRef.current!, e);
       };
 
       workerRef.current.postMessage({ type: "COMMIT", headerRowIndex });
     },
-    [pendingFile]
+    [pendingFile, buildQuery]
   );
 
-  // ── Dismiss header picker ─────────────────────────────────────────────────
   const dismissHeaderPicker = useCallback(() => {
     setShowHeaderPicker(false);
-    setIsLoading(false);
     setPendingFile(null);
     setRawSheetData([]);
-    workerRef.current?.terminate();
-    workerRef.current = null;
   }, []);
 
-  // ── Build query ───────────────────────────────────────────────────────────
-  const buildQuery = useCallback(
-    (overrides: Partial<QueryMsg> = {}): QueryMsg => ({
-      type: "QUERY",
-      search: searchCommitted,
-      // FIX: ActiveFilters uses Set<string> — must convert to string[] before
-      // sending over postMessage (Sets serialize as empty objects {}).
-      filters: Object.fromEntries(
-        Object.entries(activeFilters).map(([k, v]) => [k, [...v]])
-      ),
-      dateFilters: dateRangeFilters,
-      sort,
-      page,
-      pageSize,
-      ...overrides,
-    }),
-    [searchCommitted, activeFilters, dateRangeFilters, sort, page, pageSize]
-  );
-
-  useEffect(() => {
-    if (!hasData) return;
-    sendQuery(buildQuery());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    hasData,
-    searchCommitted,
-    activeFilters,
-    dateRangeFilters,
-    sort,
-    page,
-    pageSize,
-  ]);
-
-  // ── Sort ──────────────────────────────────────────────────────────────────
-  const handleSort = useCallback((col: string) => {
-    setSort((prev) => {
-      if (prev.col !== col) return { col, dir: "asc" };
-      if (prev.dir === "asc") return { col, dir: "desc" };
-      return { col: null, dir: null };
-    });
-    setPage(1);
+  // ── Column visibility ───────────────────────────────────────────────────────
+  const setColVisible = useCallback((col: string, v: boolean) => {
+    setColVisibility((prev) => ({ ...prev, [col]: v }));
   }, []);
 
-  // ── Search (500ms debounce) ───────────────────────────────────────────────
-  const updateSearch = useCallback((val: string) => {
-    setSearchInput(val);
-    setIsFiltering(true);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      setSearchCommitted(val);
-      setPage(1);
-    }, SEARCH_DEBOUNCE_MS);
-  }, []);
-
-  // ── Filters ───────────────────────────────────────────────────────────────
-  const updateActiveFilters = useCallback((f: ActiveFilters) => {
-    setActiveFilters(f);
-    setPage(1);
-  }, []);
-
-  const updateDateRangeFilters = useCallback((f: DateRangeFilters) => {
-    setDateRangeFilters(f);
-    setPage(1);
-  }, []);
-
-  const clearAllFilters = useCallback(() => {
-    setActiveFilters({});
-    setDateRangeFilters({});
-    setPage(1);
-  }, []);
-
-  // ── Column visibility ─────────────────────────────────────────────────────
-  const setColVisible = useCallback((col: string, visible: boolean) => {
-    setColVisibility((prev) => ({ ...prev, [col]: visible }));
-  }, []);
-
-  // ── Column type ───────────────────────────────────────────────────────────
+  // ── Column type ─────────────────────────────────────────────────────────────
   const setColType = useCallback((col: string, type: ColumnType) => {
     setColTypesState((prev) => ({ ...prev, [col]: type }));
     workerRef.current?.postMessage({
@@ -404,34 +393,92 @@ export function useSpreadsheetData() {
     });
   }, []);
 
-  // ── Page size ─────────────────────────────────────────────────────────────
+  // ── Search ──────────────────────────────────────────────────────────────────
+  const updateSearch = useCallback((val: string) => {
+    setSearchInput(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setPage(1);
+      setSearchCommitted(val);
+    }, SEARCH_DEBOUNCE_MS);
+  }, []);
+
+  // ── Filters ─────────────────────────────────────────────────────────────────
+  const updateActiveFilters = useCallback((filters: ActiveFilters) => {
+    setPage(1);
+    setActiveFilters(filters);
+  }, []);
+
+  const updateDateRangeFilters = useCallback((filters: DateRangeFilters) => {
+    setPage(1);
+    setDateRangeFilters(filters);
+  }, []);
+
+  const clearAllFilters = useCallback(() => {
+    setPage(1);
+    setActiveFilters({});
+    setDateRangeFilters({});
+  }, []);
+
+  // ── Filter values (full dataset) ─────────────────────────────────────────────
+  // Call this when the FilterDrawer opens to request distinct values from worker.
+  const requestFilterValues = useCallback((cols: string[]) => {
+    if (!workerRef.current || cols.length === 0) return;
+    setFilterValuesLoading(true);
+    workerRef.current.postMessage({ type: "GET_FILTER_VALUES", columns: cols });
+  }, []);
+
+  // ── Sort ────────────────────────────────────────────────────────────────────
+  const handleSort = useCallback((col: string) => {
+    setSort((prev) => ({
+      col,
+      dir:
+        prev.col === col
+          ? prev.dir === "asc"
+            ? "desc"
+            : prev.dir === "desc"
+            ? null
+            : "asc"
+          : "asc",
+    }));
+    setPage(1);
+  }, []);
+
+  // ── Page size ───────────────────────────────────────────────────────────────
   const setPageSize = useCallback((ps: number) => {
     setPageSizeState(ps);
     setPage(1);
   }, []);
 
-  // ── Selection ─────────────────────────────────────────────────────────────
+  // ── Selection ───────────────────────────────────────────────────────────────
   const toggleRow = useCallback((id: number) => {
+    // Optimistic local update for instant checkbox feedback
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
     workerRef.current?.postMessage({ type: "SELECT", mode: "toggle", id });
   }, []);
 
-  const toggleAll = useCallback(
-    (select: boolean) => {
-      const q = buildQuery();
-      workerRef.current?.postMessage({
-        type: "SELECT",
-        mode: select ? "all_query" : "deselect_query",
-        query: q,
-      });
-    },
-    [buildQuery]
-  );
+  const toggleAll = useCallback((select: boolean) => {
+    const ids = lastFilteredIdsRef.current
+      ? Array.from(lastFilteredIdsRef.current)
+      : [];
+    workerRef.current?.postMessage({
+      type: "SELECT",
+      mode: select ? "all" : "deselect",
+      ids,
+    });
+  }, []);
 
   const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
     workerRef.current?.postMessage({ type: "SELECT", mode: "clear" });
   }, []);
 
-  // ── Export ────────────────────────────────────────────────────────────────
+  // ── Export ──────────────────────────────────────────────────────────────────
   const handleExport = useCallback(
     (config: ExportConfig, visibleCols: string[]) => {
       if (!workerRef.current) return;
@@ -441,11 +488,13 @@ export function useSpreadsheetData() {
     []
   );
 
-  // ── Reset ─────────────────────────────────────────────────────────────────
+  // ── Reset ───────────────────────────────────────────────────────────────────
   const resetData = useCallback(() => {
     workerRef.current?.postMessage({ type: "RESET" });
     workerRef.current?.terminate();
     workerRef.current = null;
+    lastFilteredIdsRef.current = null;
+    lastQueryRef.current = null;
     setIsExporting(false);
     setColumns([]);
     setColVisibility({});
@@ -468,9 +517,11 @@ export function useSpreadsheetData() {
     setProcessedCount(0);
     setTotalRows(0);
     setLoadingPhase("Reading file");
+    setFilterValues({});
+    setAllFilteredSelected(false);
   }, []);
 
-  // ── Cleanup ───────────────────────────────────────────────────────────────
+  // ── Cleanup ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -506,6 +557,11 @@ export function useSpreadsheetData() {
     dateRangeFilters,
     updateDateRangeFilters,
     clearAllFilters,
+
+    // Filter values from full dataset — request via requestFilterValues()
+    filterValues,
+    filterValuesLoading,
+    requestFilterValues,
 
     sort,
     handleSort,

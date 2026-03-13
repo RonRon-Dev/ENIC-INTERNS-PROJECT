@@ -2,13 +2,14 @@
 // ALL data lives here. The main thread never holds the full row array.
 //
 // STORAGE MODEL: Columnar
-//   Instead of allRows[i] = { col1: val, col2: val, ... }  (1 object per row)
-//   we store   colStore[colIndex][rowIndex] = val           (1 flat string array per column)
-//
-//   For 1M rows × 20 cols this reduces heap from ~400 MB to ~40 MB because:
-//   - No JS object overhead per row (hidden class, property slots, hash table)
-//   - V8 stores flat string arrays far more densely than Record<string,unknown>[]
-//   - rawValues is abolished — colStoreRaw[ci][ri] holds original strings for RETYPE
+//   colStore[ci][ri]      = display value (formatted string)
+//   colStoreRaw[ci][ri]   = original string — ONLY allocated for columns that
+//                           have been user-retyped (lazy). Halves peak memory.
+//   colStoreLower[ci][ri] = pre-lowercased display value — built once at commit,
+//                           used for O(1) global search with no per-query allocs.
+//   colEpoch[ci][ri]      = date column values as epoch-day integers (days since
+//                           Unix epoch). Built at commit for date columns only.
+//                           Date filter comparisons become integer ops (no dayjs).
 //
 // PARSE strategy by file type:
 //   .csv/.tsv  → native TextDecoder chunked + fast CSV parser (no SheetJS)
@@ -18,26 +19,30 @@
 // Row cap: 500 000 rows. Excess rows dropped with ROW_CAP message to main thread.
 //
 // Main → Worker messages:
-//   PARSE    { buffer: ArrayBuffer, fileName: string }
-//   COMMIT   { headerRowIndex: number }
-//   QUERY    { search, filters, dateFilters, sort, page, pageSize }
-//   SELECT   { mode, id?, ids?, query? }
-//   EXPORT   { config, visibleCols }
-//   RETYPE   { colTypes }
+//   PARSE              { buffer: ArrayBuffer, fileName: string }
+//   COMMIT             { headerRowIndex: number }
+//   QUERY              { search, filters, dateFilters, sort, page, pageSize }
+//   SELECT             { mode, id?, ids?, query? }
+//   EXPORT             { config, visibleCols }
+//   RETYPE             { colTypes }
+//   GET_FILTER_VALUES  { columns: string[] }   ← NEW: returns full distinct values
 //   RESET
 //
 // Worker → Main messages:
-//   PREVIEW      { rows: string[][] }
-//   READY        { cols, totalRows, detectedTypes }
-//   PROGRESS     { phase, pct }
-//   SIZE_WARNING { sizeMB }
-//   ROW_CAP      { capped: number, loaded: number }
-//   RESULT       { pagedRows, totalRows, processedCount, totalPages, clampedPage, allFilteredIds, allFilteredSelected, selectedCount }
+//   PREVIEW           { rows: string[][] }
+//   READY             { cols, totalRows, detectedTypes }
+//   PROGRESS          { phase, pct }
+//   SIZE_WARNING      { sizeMB }
+//   ROW_CAP           { capped: number, loaded: number }
+//   RESULT            { pagedRows, totalRows, processedCount, totalPages,
+//                       clampedPage, allFilteredIds: Int32Array (transferable),
+//                       allFilteredSelected, selectedCount }
+//   FILTER_VALUES     { values: Record<string, string[]> }   ← NEW
 //   RETYPE_DONE
-//   EXPORT_DONE  { kind, url?, fileName?, files?, description }
-//   EXPORT_ERROR { message }
-//   SELECTION    { selectedCount }
-//   ERROR        { message }
+//   EXPORT_DONE       { kind, url?, fileName?, files?, description }
+//   EXPORT_ERROR      { message }
+//   SELECTION         { selectedCount }
+//   ERROR             { message }
 
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -48,10 +53,17 @@ dayjs.extend(customParseFormat);
 declare const self: Worker;
 
 // ── State ─────────────────────────────────────────────────────────────────────
-// Columnar: colStore[ci][ri] = display value, colStoreRaw[ci][ri] = original string
 let colStore: string[][] = [];
-let colStoreRaw: string[][] = [];
-let colIndex: Map<string, number> = new Map(); // col name → colStore index (O(1) lookup)
+// colStoreRaw is LAZY — only allocated per-column when the user retypes it.
+// This halves memory vs always keeping a full parallel copy.
+let colStoreRaw: Map<number, string[]> = new Map();
+// Pre-lowercased store for zero-allocation global search
+let colStoreLower: string[][] = [];
+// Epoch-day cache for date columns — Int32Array per column index
+// epoch day = Math.floor(Date.UTC(y,m,d) / 86400000)
+let colEpoch: Map<number, Int32Array> = new Map();
+
+let colIndex: Map<string, number> = new Map();
 let columns: string[] = [];
 let totalRows = 0;
 let selectedIds = new Set<number>();
@@ -67,11 +79,17 @@ let storedLargeCSVBuffer: ArrayBuffer | null = null;
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 50;
 const ZIP_THRESHOLD = 5;
+// Smaller chunk size — yields to event loop more often on low-spec machines
 const CHUNK_SIZE = 2_000;
+// Initial column capacity — smaller than before to avoid over-allocation.
+// Grows geometrically via ensureCapacity.
+const INITIAL_BLOCK = 10_000;
 const FILE_SIZE_WARN_BYTES = 20 * 1024 * 1024; // 20 MB
 const CSV_CHUNK_BYTES = 10 * 1024 * 1024; // 10 MB decode slice
 const LARGE_CSV_THRESHOLD = 50 * 1024 * 1024; // 50 MB → single-pass stream
 const ROW_CAP = 500_000;
+// Maximum distinct values returned per column for filter UI
+const MAX_FILTER_VALUES = 500;
 
 const EXCEL_DATE_MIN = 25569;
 const EXCEL_DATE_MAX = 73050;
@@ -83,7 +101,9 @@ function yieldToEventLoop(): Promise<void> {
 
 function resetState() {
   colStore = [];
-  colStoreRaw = [];
+  colStoreRaw = new Map();
+  colStoreLower = [];
+  colEpoch = new Map();
   colIndex = new Map();
   columns = [];
   totalRows = 0;
@@ -95,17 +115,15 @@ function resetState() {
   fullIndexCache = null;
 }
 
-// Rebuild the column name→index map and full index cache after data is loaded
 function buildIndexStructures() {
   colIndex = new Map(columns.map((c, i) => [c, i]));
-  // fullIndexCache built lazily on first unfiltered query — avoids allocation at load time
   fullIndexCache = null;
 }
 
 function dedupeColumns(header: string[]): string[] {
   const counts: Record<string, number> = {};
   return header.map((h) => {
-    const key = String(h ?? "").trim() || "Column";
+    const key = String(h ? h.trim() : "").trim() || "Column";
     counts[key] = (counts[key] ?? 0) + 1;
     return counts[key] > 1 ? `${key}_${counts[key]}` : key;
   });
@@ -137,10 +155,27 @@ function parseDate(val: string): Date | null {
   return null;
 }
 
+/** Convert a display date string to epoch-day integer (days since Unix epoch).
+ *  Returns -1 if unparseable — used in colEpoch arrays (Int32Array default 0
+ *  would collide with Jan 1 1970, so we use -1 as sentinel). */
+function toEpochDay(val: string): number {
+  const d = parseDate(val);
+  if (!d) return -1;
+  return Math.floor(d.getTime() / 86_400_000);
+}
+
+/** Convert a YYYY-MM-DD input string to epoch-day integer. */
+function inputToEpochDay(s: string): number {
+  if (!s) return -1;
+  const d = new Date(s + "T00:00:00");
+  if (isNaN(d.getTime())) return -1;
+  return Math.floor(d.getTime() / 86_400_000);
+}
+
 function inputToDate(s: string): Date | null {
   if (!s) return null;
-  const p = dayjs(s, "YYYY-MM-DD", true);
-  return p.isValid() ? p.toDate() : null;
+  const d = new Date(s + "T00:00:00");
+  return isNaN(d.getTime()) ? null : d;
 }
 
 function formatDate(d: Date): string {
@@ -184,12 +219,60 @@ function detectDateCols(sample: string[][], numCols: number): Set<number> {
   return result;
 }
 
+// ── Build epoch cache for date columns ────────────────────────────────────────
+// Called after colStore is fully populated. Converts date columns to Int32Array
+// of epoch-day integers for O(1) date range comparisons during queries.
+function buildEpochCache() {
+  colEpoch = new Map();
+  for (const ci of detectedColIndices) {
+    const arr = new Int32Array(totalRows);
+    const col = colStore[ci];
+    for (let ri = 0; ri < totalRows; ri++) {
+      arr[ri] = toEpochDay(col[ri] ?? "");
+    }
+    colEpoch.set(ci, arr);
+  }
+}
+
 // ── Columnar row materialiser (on-demand, for paging / export only) ───────────
 function getRow(ri: number): Record<string, string> {
   const obj: Record<string, string> = {};
   for (let ci = 0; ci < columns.length; ci++)
     obj[columns[ci]] = colStore[ci][ri] ?? "";
   return obj;
+}
+
+// ── GET_FILTER_VALUES handler ─────────────────────────────────────────────────
+// Scans the FULL columnar store (not paged rows) for distinct values.
+// Caps at MAX_FILTER_VALUES per column to avoid sending huge arrays.
+// This is the fix for FilterDrawer only seeing paged data.
+function getFilterValues(requestedCols: string[]): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  for (const col of requestedCols) {
+    const ci = colIndex.get(col) ?? -1;
+    if (ci < 0) {
+      result[col] = [];
+      continue;
+    }
+    const colArr = colStore[ci];
+    const seen = new Set<string>();
+    let capped = false;
+    for (let ri = 0; ri < totalRows; ri++) {
+      const val = colArr[ri] ?? "";
+      seen.add(val);
+      if (seen.size >= MAX_FILTER_VALUES) {
+        capped = true;
+        break;
+      }
+    }
+    const sorted = Array.from(seen).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true })
+    );
+    // Append a sentinel so the UI can show "Showing first 500 values" hint
+    if (capped) sorted.push("__CAPPED__");
+    result[col] = sorted;
+  }
+  return result;
 }
 
 // ── CSV parser (small files → string[][]) ────────────────────────────────────
@@ -261,14 +344,19 @@ async function streamCSVToColStore(
   const SAMPLE_SIZE = 50;
   let dateDetected = false;
 
-  const BLOCK = 100_000;
-  let capacity = 0;
+  // Geometric growth: start small, grow by 50% each time
+  let capacity = INITIAL_BLOCK;
 
   const ensureCapacity = () => {
     if (ri >= capacity) {
-      capacity += BLOCK;
+      const next = Math.min(
+        capacity + Math.max(INITIAL_BLOCK, Math.floor(capacity * 0.5)),
+        ROW_CAP
+      );
+      capacity = next;
       for (let ci = 0; ci < csvCols.length; ci++) {
         colStore[ci].length = capacity;
+        colStoreLower[ci].length = capacity;
       }
     }
   };
@@ -281,9 +369,8 @@ async function streamCSVToColStore(
       }
       csvCols = dedupeColumns(row);
       columns = csvCols;
-      colStore = csvCols.map(() => new Array<string>(BLOCK));
-      colStoreRaw = csvCols.map(() => []);
-      capacity = BLOCK;
+      colStore = csvCols.map(() => new Array<string>(capacity));
+      colStoreLower = csvCols.map(() => new Array<string>(capacity));
       headerDone = true;
       return;
     }
@@ -297,10 +384,15 @@ async function streamCSVToColStore(
       } else {
         detectedColIndices = detectDateCols(sample, csvCols.length);
         dateDetected = true;
+        // Back-apply date formatting to already-stored rows
         for (let pRi = 0; pRi < ri; pRi++) {
           for (const ci of detectedColIndices) {
             const d = parseDate(colStore[ci][pRi] ?? "");
-            if (d) colStore[ci][pRi] = formatDate(d);
+            if (d) {
+              const formatted = formatDate(d);
+              colStore[ci][pRi] = formatted;
+              colStoreLower[ci][pRi] = formatted.toLowerCase();
+            }
           }
         }
       }
@@ -308,10 +400,12 @@ async function streamCSVToColStore(
 
     for (let ci = 0; ci < csvCols.length; ci++) {
       const raw = row[ci] ?? "";
-      colStore[ci][ri] =
+      const display =
         dateDetected && detectedColIndices.has(ci)
           ? applyColType(raw, "date", ci)
           : raw;
+      colStore[ci][ri] = display;
+      colStoreLower[ci][ri] = display.toLowerCase();
     }
     ri++;
   };
@@ -357,11 +451,14 @@ async function streamCSVToColStore(
     flushRow(curRow);
   }
 
+  // Trim to exact size
   for (let ci = 0; ci < csvCols.length; ci++) {
     colStore[ci].length = ri;
+    colStoreLower[ci].length = ri;
   }
   totalRows = ri;
 
+  // Final date detection pass if we never hit SAMPLE_SIZE
   if (!dateDetected && sample.length > 0) {
     detectedColIndices = detectDateCols(sample, csvCols.length);
     if (detectedColIndices.size > 0) {
@@ -370,7 +467,11 @@ async function streamCSVToColStore(
         for (let pRi = start; pRi < end; pRi++) {
           for (const ci of detectedColIndices) {
             const d = parseDate(colStore[ci][pRi] ?? "");
-            if (d) colStore[ci][pRi] = formatDate(d);
+            if (d) {
+              const formatted = formatDate(d);
+              colStore[ci][pRi] = formatted;
+              colStoreLower[ci][pRi] = formatted.toLowerCase();
+            }
           }
         }
         await yieldToEventLoop();
@@ -381,16 +482,20 @@ async function streamCSVToColStore(
   if (ri >= ROW_CAP)
     self.postMessage({ type: "ROW_CAP", capped: ROW_CAP, loaded: ri });
 
+  buildEpochCache();
+  buildIndexStructures();
+
   const detectedTypes: Record<string, string> = {};
   detectedColIndices.forEach((ci) => {
     if (csvCols[ci]) detectedTypes[csvCols[ci]] = "date";
   });
 
-  buildIndexStructures();
   return { cols: csvCols, detectedTypes, totalRows: ri };
 }
 
 // ── Commit string[][] → columnar store (small/xlsx/xls files) ────────────────
+// Processes rawRows in-place (index offsets) to avoid the memory cost of
+// slicing a full dataRows sub-array.
 async function commitToColStore(
   rawRows: string[][],
   headerRowIndex: number
@@ -400,16 +505,17 @@ async function commitToColStore(
   totalRows: number;
 }> {
   const headerRow = rawRows[headerRowIndex] ?? [];
-  const dataEnd = Math.min(rawRows.length, headerRowIndex + 1 + ROW_CAP);
-  const dataRows = rawRows.slice(headerRowIndex + 1, dataEnd);
-  const capped = rawRows.length - headerRowIndex - 1 > ROW_CAP;
-
   columns = dedupeColumns(headerRow as string[]);
   const numCols = columns.length;
-  const numRows = dataRows.length;
 
-  const sample = dataRows
-    .slice(0, 50)
+  // Compute row range without slicing the array
+  const dataStart = headerRowIndex + 1;
+  const dataEnd = Math.min(rawRows.length, dataStart + ROW_CAP);
+  const numRows = dataEnd - dataStart;
+  const capped = rawRows.length - dataStart > ROW_CAP;
+
+  const sample = rawRows
+    .slice(dataStart, Math.min(dataStart + 50, dataEnd))
     .map((r) => r.slice(0, numCols) as string[]);
   detectedColIndices = detectDateCols(sample, numCols);
 
@@ -419,21 +525,30 @@ async function commitToColStore(
   });
 
   colStore = columns.map(() => new Array<string>(numRows));
-  colStoreRaw = columns.map(() => new Array<string>(numRows));
+  colStoreLower = columns.map(() => new Array<string>(numRows));
+  // colStoreRaw starts empty — allocated lazily per-column only on RETYPE
+  colStoreRaw = new Map();
   totalRows = numRows;
 
   for (let start = 0; start < numRows; start += CHUNK_SIZE) {
     const end = Math.min(start + CHUNK_SIZE, numRows);
     for (let ri = start; ri < end; ri++) {
-      const srcRow = dataRows[ri];
+      const srcRow = rawRows[dataStart + ri]; // in-place indexing — no slice
       for (let ci = 0; ci < numCols; ci++) {
-        const raw = String(srcRow[ci] ?? "");
-        colStoreRaw[ci][ri] = raw;
-        colStore[ci][ri] = applyColType(
-          raw,
-          colTypes[columns[ci]] ?? "auto",
-          ci
-        );
+        const raw = String(srcRow?.[ci] ?? "");
+        const display = applyColType(raw, colTypes[columns[ci]] ?? "auto", ci);
+        colStore[ci][ri] = display;
+        colStoreLower[ci][ri] = display.toLowerCase();
+        // colStoreRaw: only save if this column has a user-set type (RETYPE needed)
+        // Otherwise skip — saves ~50% memory for typical use.
+        if (colTypes[columns[ci]]) {
+          let rawCol = colStoreRaw.get(ci);
+          if (!rawCol) {
+            rawCol = new Array<string>(numRows);
+            colStoreRaw.set(ci, rawCol);
+          }
+          rawCol[ri] = raw;
+        }
       }
     }
     self.postMessage({
@@ -447,6 +562,7 @@ async function commitToColStore(
   if (capped)
     self.postMessage({ type: "ROW_CAP", capped: ROW_CAP, loaded: numRows });
 
+  buildEpochCache();
   buildIndexStructures();
   return { cols: columns, detectedTypes, totalRows: numRows };
 }
@@ -469,44 +585,38 @@ function parseSharedStrings(xml: string): string[] {
   const strings: string[] = [];
   const siRe = /<si>([\s\S]*?)<\/si>/g;
   const tRe = /<t(?:\s[^>]*)?>([^<]*)<\/t>/g;
-  let siMatch: RegExpExecArray | null;
-  while ((siMatch = siRe.exec(xml)) !== null) {
+  let m: RegExpExecArray | null;
+  while ((m = siRe.exec(xml)) !== null) {
+    const inner = m[1];
     let text = "";
-    let tMatch: RegExpExecArray | null;
+    let tm: RegExpExecArray | null;
     tRe.lastIndex = 0;
-    while ((tMatch = tRe.exec(siMatch[1])) !== null) text += tMatch[1];
-    strings.push(decodeXmlEntities(text));
+    while ((tm = tRe.exec(inner)) !== null) text += decodeXmlEntities(tm[1]);
+    strings.push(text);
   }
   return strings;
 }
 
-function parseDateStyleIndices(stylesXml: string): Set<number> {
-  const builtIn = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 45, 46, 47]);
-  const dateNumFmtIds = new Set<number>();
-  const numFmtRe = /<numFmt\b([^>]*)\/>/g;
+function parseDateStyleIndices(xml: string): Set<number> {
+  const dateNumFmtIds = new Set([
+    14, 15, 16, 17, 18, 19, 20, 21, 22, 45, 46, 47,
+  ]);
+  const customDateRe = /[yYmMdDhHsS]/;
+  const numFmts = new Map<number, boolean>();
+  const nfRe = /<numFmt\s[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"/g;
   let m: RegExpExecArray | null;
-  while ((m = numFmtRe.exec(stylesXml)) !== null) {
-    const idM = /numFmtId="(\d+)"/.exec(m[1]);
-    const codeM = /formatCode="([^"]*)"/.exec(m[1]);
-    if (idM && codeM && /[ymd]/i.test(codeM[1]) && !/\[/.test(codeM[1]))
-      dateNumFmtIds.add(parseInt(idM[1], 10));
+  while ((m = nfRe.exec(xml)) !== null) {
+    numFmts.set(parseInt(m[1], 10), customDateRe.test(m[2]));
   }
-  const indices = new Set<number>();
-  const xfsMatch = /<cellXfs>([\s\S]*?)<\/cellXfs>/.exec(stylesXml);
-  if (xfsMatch) {
-    const xfRe = /<xf\b([^>]*)(?:\/>|>[\s\S]*?<\/xf>)/g;
-    let xi = 0;
-    let xfM: RegExpExecArray | null;
-    while ((xfM = xfRe.exec(xfsMatch[1])) !== null) {
-      const idM = /numFmtId="(\d+)"/.exec(xfM[1]);
-      if (idM) {
-        const id = parseInt(idM[1], 10);
-        if (builtIn.has(id) || dateNumFmtIds.has(id)) indices.add(xi);
-      }
-      xi++;
-    }
+  const result = new Set<number>();
+  const xfRe = /<xf\b[^>]*numFmtId="(\d+)"[^>]*\/>/g;
+  let idx = 0;
+  while ((m = xfRe.exec(xml)) !== null) {
+    const id = parseInt(m[1], 10);
+    if (dateNumFmtIds.has(id) || numFmts.get(id)) result.add(idx);
+    idx++;
   }
-  return indices;
+  return result;
 }
 
 function parseSheetXml(
@@ -517,27 +627,22 @@ function parseSheetXml(
   const rows: string[][] = [];
   const rowRe = /<row\b[^>]*>([\s\S]*?)<\/row>/g;
   const cellRe = /<c\b([^>]*)>([\s\S]*?)<\/c>/g;
+  const tRe = /\bt="([^"]*)"/;
+  const sRe = /\bs="(\d+)"/;
   const vRe = /<v>([^<]*)<\/v>/;
-  const isRe = /<is>[\s\S]*?<t>([^<]*)<\/t>[\s\S]*?<\/is>/;
-  let rowMatch: RegExpExecArray | null;
-  while ((rowMatch = rowRe.exec(xml)) !== null) {
+  const isRe = /<is>[\s\S]*?<t[^>]*>([^<]*)<\/t>/;
+  let rm: RegExpExecArray | null;
+  while ((rm = rowRe.exec(xml)) !== null) {
+    const rowXml = rm[1];
     const cells: string[] = [];
+    let cm: RegExpExecArray | null;
     cellRe.lastIndex = 0;
-    let cellMatch: RegExpExecArray | null;
-    while ((cellMatch = cellRe.exec(rowMatch[1])) !== null) {
-      const attrs = cellMatch[1],
-        inner = cellMatch[2];
-      const refM = /\br="([A-Z]+)\d+"/.exec(attrs);
-      if (refM) {
-        let colIdx = 0;
-        for (const ch of refM[1])
-          colIdx = colIdx * 26 + (ch.charCodeAt(0) - 64);
-        colIdx--;
-        while (cells.length < colIdx) cells.push("");
-      }
-      const typeM = /\bt="([^"]*)"/.exec(attrs);
-      const sM = /\bs="(\d+)"/.exec(attrs);
+    while ((cm = cellRe.exec(rowXml)) !== null) {
+      const attrs = cm[1],
+        inner = cm[2];
+      const typeM = tRe.exec(attrs);
       const cellType = typeM ? typeM[1] : "";
+      const sM = sRe.exec(attrs);
       const styleIdx = sM ? parseInt(sM[1], 10) : -1;
       let value = "";
       if (cellType === "s") {
@@ -703,7 +808,7 @@ async function handleCommit(headerRowIndex: number) {
       return;
     }
     const rows = storedRawRows;
-    storedRawRows = null;
+    storedRawRows = null; // Free pre-commit memory before processing
     const result = await commitToColStore(rows, headerRowIndex);
     selectedIds = new Set();
     self.postMessage({ type: "READY", ...result });
@@ -727,9 +832,9 @@ function runQuery(msg: {
   const hasSearch = msg.search.trim().length > 0;
   const hasSort = !!(msg.sort.col && msg.sort.dir);
 
+  // Fast path: no filtering needed at all
   if (!hasFilters && !hasDateFilter && !hasSearch && !hasSort) {
-    const processedCount = totalRows;
-    const totalPages = Math.max(1, Math.ceil(processedCount / ps));
+    const totalPages = Math.max(1, Math.ceil(totalRows / ps));
     const clampedPage = Math.min(msg.page, totalPages);
     const start = (clampedPage - 1) * ps;
     const pagedRows = [];
@@ -739,18 +844,21 @@ function runQuery(msg: {
       fullIndexCache = new Int32Array(totalRows);
       for (let i = 0; i < totalRows; i++) fullIndexCache[i] = i;
     }
+    // Transfer fullIndexCache as a copy (slice) — keep original intact
+    const transferable = fullIndexCache.slice();
     return {
       pagedRows,
       totalRows,
-      processedCount,
+      processedCount: totalRows,
       totalPages,
       clampedPage,
-      allFilteredIds: Array.from(fullIndexCache),
+      allFilteredIds: transferable,
       allFilteredSelected: selectedIds.size === totalRows && totalRows > 0,
       selectedCount: selectedIds.size,
     };
   }
 
+  // Filter pass using Uint8Array bitmap — avoids JS object overhead
   const pass = new Uint8Array(totalRows).fill(1);
 
   if (hasFilters) {
@@ -769,43 +877,72 @@ function runQuery(msg: {
     for (const [col, range] of Object.entries(msg.dateFilters)) {
       const ci = colIndex.get(col) ?? -1;
       if (ci < 0) continue;
-      const col_arr = colStore[ci];
-      const from = inputToDate(range.from),
-        to = inputToDate(range.to);
-      for (let ri = 0; ri < totalRows; ri++) {
-        if (!pass[ri]) continue;
-        const cellDate = parseDate(col_arr[ri] ?? "");
-        if (!cellDate) {
-          pass[ri] = 0;
-          continue;
+      // Use epoch cache for integer comparisons — no dayjs per cell
+      const epochArr = colEpoch.get(ci);
+      const fromEpoch = inputToEpochDay(range.from);
+      const toEpoch = inputToEpochDay(range.to);
+      if (epochArr) {
+        for (let ri = 0; ri < totalRows; ri++) {
+          if (!pass[ri]) continue;
+          const ep = epochArr[ri];
+          if (ep === -1) {
+            pass[ri] = 0;
+            continue;
+          } // unparseable date
+          if (fromEpoch !== -1 && ep < fromEpoch) {
+            pass[ri] = 0;
+            continue;
+          }
+          if (toEpoch !== -1 && ep > toEpoch) {
+            pass[ri] = 0;
+          }
         }
-        if (from && cellDate < from) {
-          pass[ri] = 0;
-          continue;
-        }
-        if (to && cellDate > to) {
-          pass[ri] = 0;
+      } else {
+        // Fallback for non-date columns used as date filters
+        const col_arr = colStore[ci];
+        for (let ri = 0; ri < totalRows; ri++) {
+          if (!pass[ri]) continue;
+          const cellDate = parseDate(col_arr[ri] ?? "");
+          if (!cellDate) {
+            pass[ri] = 0;
+            continue;
+          }
+          const from = inputToDate(range.from),
+            to = inputToDate(range.to);
+          if (from && cellDate < from) {
+            pass[ri] = 0;
+            continue;
+          }
+          if (to && cellDate > to) {
+            pass[ri] = 0;
+          }
         }
       }
     }
   }
 
   if (hasSearch) {
+    // Use pre-lowercased store — zero allocations per cell
     const q = msg.search.toLowerCase();
     const numCols = columns.length;
     for (let ri = 0; ri < totalRows; ri++) {
       if (!pass[ri]) continue;
       let found = false;
       for (let ci = 0; ci < numCols && !found; ci++) {
-        if ((colStore[ci][ri] ?? "").toLowerCase().includes(q)) found = true;
+        if ((colStoreLower[ci]?.[ri] ?? "").includes(q)) found = true;
       }
       if (!found) pass[ri] = 0;
     }
   }
 
-  const indices: number[] = [];
+  // Count matches first to preallocate exact-size Int32Array — no push resizes
+  let matchCount = 0;
+  for (let ri = 0; ri < totalRows; ri++) if (pass[ri]) matchCount++;
+
+  const indices = new Int32Array(matchCount);
+  let idx = 0;
   for (let ri = 0; ri < totalRows; ri++) {
-    if (pass[ri]) indices.push(ri);
+    if (pass[ri]) indices[idx++] = ri;
   }
 
   if (hasSort) {
@@ -813,7 +950,9 @@ function runQuery(msg: {
     const dir = msg.sort.dir === "asc" ? 1 : -1;
     if (sortCi >= 0) {
       const sortCol = colStore[sortCi];
-      indices.sort((a, b) => {
+      // Convert to regular array for sorting (Int32Array.sort doesn't take comparator in all envs)
+      const indicesArr = Array.from(indices);
+      indicesArr.sort((a, b) => {
         const av = sortCol[a] ?? "",
           bv = sortCol[b] ?? "";
         const an = parseFloat(av),
@@ -821,26 +960,32 @@ function runQuery(msg: {
         if (!isNaN(an) && !isNaN(bn)) return (an - bn) * dir;
         return av.localeCompare(bv) * dir;
       });
+      indices.set(indicesArr);
     }
   }
 
   const processedCount = indices.length;
   const totalPages = Math.max(1, Math.ceil(processedCount / ps));
   const clampedPage = Math.min(msg.page, totalPages);
-  const pageIndices = indices.slice((clampedPage - 1) * ps, clampedPage * ps);
-  const pagedRows = pageIndices.map((ri) => ({ ...getRow(ri), __id: ri }));
+  const pageStart = (clampedPage - 1) * ps;
+  const pageEnd = Math.min(pageStart + ps, processedCount);
+  const pagedRows = [];
+  for (let i = pageStart; i < pageEnd; i++)
+    pagedRows.push({ ...getRow(indices[i]), __id: indices[i] });
+
   const selCount = indices.reduce(
     (acc, id) => acc + (selectedIds.has(id) ? 1 : 0),
     0
   );
 
+  // Transfer indices as a copy so we retain ownership in the worker
   return {
     pagedRows,
     totalRows,
     processedCount,
     totalPages,
     clampedPage,
-    allFilteredIds: indices,
+    allFilteredIds: indices.slice(), // transferable Int32Array
     allFilteredSelected: indices.length > 0 && selCount === indices.length,
     selectedCount: selectedIds.size,
   };
@@ -848,80 +993,50 @@ function runQuery(msg: {
 
 // ── Export helpers ────────────────────────────────────────────────────────────
 
-/**
- * Build raw file bytes for the given data + format.
- *
- * FIX 1 — `map` on undefined:
- *   Added `Array.isArray` guard so an accidental non-array never throws.
- *   Also switched xml path from Object.values to Object.entries with null-guard.
- *
- * FIX 2 — `slice` of undefined (xlsx path):
- *   XLSX.write with type:"array" can return a plain number[] in some SheetJS
- *   versions, meaning .buffer/.byteOffset/.byteLength are all undefined.
- *   Fix: always wrap with `new Uint8Array(raw)` instead of relying on .buffer.
- */
 function buildFileBytes(
   data: Record<string, unknown>[],
   format: string
 ): Uint8Array | string {
   const safeData = Array.isArray(data) ? data : [];
-
   if (format === "xml") {
-    // Produce a proper XML document: one <row> per record, one child element
-    // per column. Column names are sanitised so they are valid XML tag names
-    // (leading digits prefixed with "_", spaces/special chars replaced with "_").
-    const toTag = (s: string) =>
-      s.replace(/[^a-zA-Z0-9_.-]/g, "_").replace(/^([^a-zA-Z_])/, "_$1") || "_col";
-    const escape = (s: string) =>
-      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    const lines = ['<?xml version="1.0" encoding="UTF-8"?>', "<rows>"];
+    // XML export: data rows already contain only the xmlCol value under key "__xml"
+    // (projected by the EXPORT handler). Each row's value is written verbatim.
+    // If xmlWrap is set, each value is wrapped in <export>...</export>.
+    // This is handled upstream — buildFileBytes just joins the values.
+    const lines: string[] = [];
     for (const r of safeData) {
-      lines.push("  <row>");
-      for (const [k, v] of Object.entries(r ?? {})) {
-        const tag = toTag(k);
-        lines.push(`    <${tag}>${escape(String(v ?? ""))}</${tag}>`);
-      }
-      lines.push("  </row>");
+      const val = String(r["__xml"] ?? "").trim();
+      if (val) lines.push(val);
     }
-    lines.push("</rows>");
     return lines.join("\n");
   }
-
   const ws = XLSX.utils.json_to_sheet(safeData, {
     raw: true,
   } as XLSX.JSON2SheetOpts);
-
   if (format === "xlsx") {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Export");
-    // XLSX.write may return number[] or Uint8Array — re-wrap to guarantee Uint8Array
-    const raw = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayLike<number>;
+    const raw = XLSX.write(wb, {
+      bookType: "xlsx",
+      type: "array",
+    }) as ArrayLike<number>;
     return new Uint8Array(raw);
   }
-
   return XLSX.utils.sheet_to_csv(ws, { FS: format === "tsv" ? "\t" : "," });
 }
 
-/**
- * Build a correctly typed Blob for any export format.
- *
- * FIX 3 — corrupted CSV/TSV blob in per-row small-batch path:
- *   The old code hardcast buildFileBytes output as Uint8Array even for CSV/TSV
- *   which returns a string — producing a garbled file. This helper picks the
- *   right Blob constructor based on format.
- */
 function buildBlob(data: Record<string, unknown>[], format: string): Blob {
   const bytes = buildFileBytes(data, format);
   if (format === "xlsx") {
-    // FIX: Uint8Array<ArrayBufferLike> is not a valid BlobPart in strict TS.
-    // Copy into a guaranteed plain ArrayBuffer via slice() to satisfy the type.
     const u8 = bytes as Uint8Array;
-    const plain = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer;
+    const plain = u8.buffer.slice(
+      u8.byteOffset,
+      u8.byteOffset + u8.byteLength
+    ) as ArrayBuffer;
     return new Blob([plain], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
   }
-  // csv, tsv, xml → plain text
   return new Blob([bytes as string], { type: "text/plain" });
 }
 
@@ -947,7 +1062,14 @@ self.onmessage = async (e: MessageEvent) => {
   } else if (msg.type === "COMMIT") {
     await handleCommit(msg.headerRowIndex as number);
   } else if (msg.type === "QUERY") {
-    self.postMessage({ type: "RESULT", ...runQuery(msg) });
+    const result = runQuery(msg);
+    // Transfer allFilteredIds as a transferable ArrayBuffer to avoid structured-clone overhead
+    const transferBuf = result.allFilteredIds.buffer;
+    self.postMessage({ type: "RESULT", ...result }, [transferBuf]);
+  } else if (msg.type === "GET_FILTER_VALUES") {
+    // Returns full distinct values from the entire dataset — not just current page
+    const values = getFilterValues(msg.columns as string[]);
+    self.postMessage({ type: "FILTER_VALUES", values });
   } else if (msg.type === "SELECT") {
     if (msg.mode === "toggle" && msg.id !== undefined) {
       if (selectedIds.has(msg.id)) selectedIds.delete(msg.id);
@@ -972,17 +1094,35 @@ self.onmessage = async (e: MessageEvent) => {
     for (const [col, type] of Object.entries(newTypes)) {
       const ci = colIndex.get(col) ?? -1;
       if (ci < 0) continue;
-      const hasRaw = colStoreRaw[ci]?.length > 0;
+      // Lazily allocate raw storage for this column if not already present
+      if (!colStoreRaw.has(ci)) {
+        const rawCol = new Array<string>(totalRows);
+        for (let ri = 0; ri < totalRows; ri++)
+          rawCol[ri] = colStore[ci][ri] ?? "";
+        colStoreRaw.set(ci, rawCol);
+      }
+      const rawCol = colStoreRaw.get(ci)!;
       for (let ri = 0; ri < totalRows; ri++) {
-        const raw = hasRaw ? colStoreRaw[ci][ri] ?? "" : colStore[ci][ri] ?? "";
-        colStore[ci][ri] = applyColType(raw, type, ci);
+        const raw = rawCol[ri] ?? "";
+        const display = applyColType(raw, type, ci);
+        colStore[ci][ri] = display;
+        colStoreLower[ci][ri] = display.toLowerCase();
+      }
+      // Rebuild epoch cache for this column if it's now/was a date type
+      if (type === "date" || detectedColIndices.has(ci)) {
+        const arr = new Int32Array(totalRows);
+        for (let ri = 0; ri < totalRows; ri++)
+          arr[ri] = toEpochDay(colStore[ci][ri] ?? "");
+        colEpoch.set(ci, arr);
       }
     }
     self.postMessage({ type: "RETYPE_DONE" });
   } else if (msg.type === "EXPORT") {
     try {
       const config = msg.config;
-      const visCols: string[] = Array.isArray(msg.visibleCols) ? msg.visibleCols : [];
+      const visCols: string[] = Array.isArray(msg.visibleCols)
+        ? msg.visibleCols
+        : [];
 
       const exportIndices: number[] = [];
       for (let ri = 0; ri < totalRows; ri++) {
@@ -1000,13 +1140,23 @@ self.onmessage = async (e: MessageEvent) => {
         finalIndices = exportIndices.filter((ri) => !isNullName(getRow(ri)));
       const skippedCount = exportIndices.length - finalIndices.length;
 
-      const project = (ri: number) => {
+      // For XML exports with xmlCol set, project only that column under the
+      // reserved key "__xml" so buildFileBytes can write it verbatim.
+      // For all other formats (and XML without xmlCol) project visible columns normally.
+      const isXmlColMode = config.format === "xml" && !!config.xmlCol;
+
+      const project = (ri: number): Record<string, unknown> => {
         const row = getRow(ri);
+        if (isXmlColMode) {
+          const raw = (row[config.xmlCol] ?? "").trim();
+          // Apply optional wrap — user can toggle a root element around the value
+          const val = config.xmlWrap ? `<export>\n${raw}\n</export>` : raw;
+          return { __xml: val };
+        }
         return Object.fromEntries(visCols.map((c) => [c, row[c] ?? ""]));
       };
 
       if (config.mode === "single") {
-        // FIX 2 applied via buildBlob — correct Blob type for all formats
         const blob = buildBlob(finalIndices.map(project), config.format);
         self.postMessage({
           type: "EXPORT_DONE",
@@ -1030,7 +1180,6 @@ self.onmessage = async (e: MessageEvent) => {
           ).replace(/[/:*?"<>|]/g, "_");
           const cnt = usedNames.get(safe) ?? 0;
           usedNames.set(safe, cnt + 1);
-          // JSZip accepts both Uint8Array and string — buildFileBytes is fine here
           zip.file(
             `${cnt === 0 ? safe : `${safe}_${cnt + 1}`}.${config.format}`,
             buildFileBytes([project(finalIndices[i])], config.format)
@@ -1047,7 +1196,6 @@ self.onmessage = async (e: MessageEvent) => {
           }`,
         });
       } else {
-        // FIX 3 — was hardcasting string result as Uint8Array for CSV/TSV
         const files: { url: string; fileName: string }[] = [];
         const usedNames = new Map<string, number>();
         for (let i = 0; i < finalIndices.length; i++) {
@@ -1063,7 +1211,9 @@ self.onmessage = async (e: MessageEvent) => {
             url: URL.createObjectURL(
               buildBlob([project(finalIndices[i])], config.format)
             ),
-            fileName: `${cnt === 0 ? safe : `${safe}_${cnt + 1}`}.${config.format}`,
+            fileName: `${cnt === 0 ? safe : `${safe}_${cnt + 1}`}.${
+              config.format
+            }`,
           });
         }
         self.postMessage({

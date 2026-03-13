@@ -16,7 +16,7 @@ import { notifToast } from '@/lib/notifToast'
 import { cn } from '@/lib/utils'
 import { pagePrivilegesApi } from '@/services/pagePrivileges'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Check, ChevronDown, ChevronRight, Code, Cpu, FileText, LayoutGrid, List, Megaphone, Minus, Settings, Shield, ShieldCheck, User, UserCheck, Users } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Code, Cpu, FileText, HardHat, LayoutGrid, List, Megaphone, Minus, Settings, Shield, ShieldCheck, User, UserCheck, Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -87,6 +87,7 @@ function getRoleIcon(iconName?: string) {
 
 const formSchema = z.object({
   allowedRoles: z.array(z.string()),
+  maintenance: z.boolean().default(false),
 })
 
 type PrivilegeForm = z.infer<typeof formSchema>
@@ -144,6 +145,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
   useEffect(() => {
     if (selected) {
       form.reset({ allowedRoles: getPrivilegesForUrl(selected.url) })
+      // maintenance: getMaintenanceForUrl(selected.url),
     }
   }, [selected, getPrivilegesForUrl])
 
@@ -166,7 +168,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
     const roleIds = toRoleIds(toSave)
     try {
       setSaving(true)
-      await pagePrivilegesApi.update(selected.url, roleIds)
+      await pagePrivilegesApi.update(selected.url, roleIds, data.maintenance)
       form.reset({ allowedRoles: data.allowedRoles })
       await refresh()
       notifToast({ name: selected.title }, 'updateprivileges')
@@ -325,17 +327,60 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                 <Form {...form}>
                   <form
                     id='privileges-form'
-                    onSubmit={form.handleSubmit(onSubmit)}
+                    // onSubmit={form.handleSubmit(onSubmit)}
                     className='flex flex-col h-full'
                   >
                     <div className='p-6 flex-1 space-y-4 overflow-auto'>
                       <div>
                         <p className='font-semibold text-sm'>{selected.title}</p>
                         <p className='text-xs text-muted-foreground font-mono'>{selected.url}</p>
-                        {isHome && (
-                          <p className='text-xs text-muted-foreground mt-1'>All roles have access to this page.</p>
-                        )}
                       </div>
+
+                      {/* ── Maintenance toggle ── */}
+                      <FormField
+                        control={form.control}
+                        name='maintenance'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className='text-xs font-medium text-muted-foreground uppercase tracking-wide'>
+                              Page Status
+                            </FormLabel>
+                            <FormControl>
+                              <div
+                                className={cn(
+                                  'flex items-center gap-2.5 text-sm mt-1',
+                                  isHome ? 'cursor-not-allowed' : 'cursor-pointer'
+                                )}
+                                onClick={() => {
+                                  if (isHome) return
+                                  field.onChange(!field.value)
+                                }}
+                              >
+                                <div className={cn(
+                                  'size-4 rounded-sm border flex items-center justify-center shrink-0 transition-colors',
+                                  field.value && !isHome
+                                    ? 'bg-primary border-primary'
+                                    : field.value && isHome
+                                      ? 'bg-warning/40 border-warning/40'
+                                      : 'border-muted-foreground/30'
+                                )}>
+                                  {field.value && <Check className='size-3 text-primary-foreground' />}
+                                </div>
+                                <HardHat className={cn(
+                                  'size-3.5',
+                                  field.value && !isHome ? 'text-warning' : 'text-muted-foreground/40'
+                                )} />
+                                <span className={cn(
+                                  field.value && !isHome ? 'text-warning' : 'text-muted-foreground/40'
+                                )}>
+                                  Under Maintenance
+                                </span>
+                              </div>
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
                       <FormField
                         control={form.control}
                         name='allowedRoles'
@@ -398,89 +443,92 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
           </TabsContent>
 
           {/* ── Matrix tab ── */}
-          <TabsContent value='matrix' className='overflow-hidden mt-0 flex flex-col h-full'>
-            <Form {...matrixForm}>
-              <form
-                id='matrix-form'
-                onSubmit={matrixForm.handleSubmit(onMatrixSubmit)}
-                className='flex flex-col h-full overflow-hidden'
-              >
-                <div className='overflow-auto flex-1 p-4'>
-                  <Table>
-                    <TableHeader>
-                      <TableRow className='bg-background'>
-                        <TableHead className='sticky top-0 bg-background z-10 text-xs font-medium uppercase tracking-wide min-w-[160px]'>
-                          Page
-                        </TableHead>
-                        {displayRoles.map((role) => {
-                          const Icon = getRoleIcon(role.icon)
-                          return (
-                            <TableHead key={role.name.toLowerCase()} className='sticky top-0 bg-background z-10 text-center p-2 max-w-[80px]'>
-                              <div className='flex flex-col items-center gap-1'>
-                                <Icon className='size-3.5 text-muted-foreground' />
-                                <span className='text-xs font-medium text-muted-foreground capitalize truncate w-full text-center'>{role.name}</span>
-                              </div>
-                            </TableHead>
-                          )
-                        })}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {allPages.map((page) => (
-                        <FormField
-                          key={page.url}
-                          control={matrixForm.control}
-                          name={`pageRoles.${page.url}`}
-                          render={({ field }) => (
-                            <TableRow>
-                              <TableCell className='py-2.5 pr-4'>
-                                <div className='flex flex-col'>
-                                  {page.parent && (
-                                    <span className='text-xs text-muted-foreground'>{page.parent}</span>
-                                  )}
-                                  <span className={cn('font-medium', page.parent ? 'text-xs' : 'text-sm')}>
-                                    {page.title}
-                                  </span>
+          <TabsContent value='matrix' className='overflow-hidden mt-0 flex flex-col max-h-[600px]'>
+            <ScrollArea className='flex-1 overflow-auto'>
+              <Form {...matrixForm}>
+                <form
+                  id='matrix-form'
+                  onSubmit={matrixForm.handleSubmit(onMatrixSubmit)}
+                  className='flex flex-col h-full overflow-hidden'
+                >
+                  <div className='overflow-auto flex-1 p-4'>
+                    <Table>
+                      <TableHeader>
+                        <TableRow className='bg-background'>
+                          <TableHead className='sticky top-0 bg-background z-10 text-xs font-medium uppercase tracking-wide min-w-[160px]'>
+                            Page
+                          </TableHead>
+                          {displayRoles.map((role) => {
+                            const Icon = getRoleIcon(role.icon)
+                            return (
+                              <TableHead key={role.name.toLowerCase()} className='sticky top-0 bg-background z-10 text-center p-2 max-w-[80px]'>
+                                <div className='flex flex-col items-center gap-1'>
+                                  <Icon className='size-3.5 text-muted-foreground' />
+                                  <span className='text-xs font-medium text-muted-foreground capitalize truncate w-full text-center'>{role.name}</span>
                                 </div>
-                              </TableCell>
-                              {displayRoles.map((role) => {
-                                const value = role.name.toLowerCase()
-                                const checked = (field.value ?? []).includes(value)
-                                const locked = isHomeUrl(page.url)
-                                return (
-                                  <TableCell key={value} className='py-2.5 px-2 text-center'>
-                                    <div
-                                      className={cn(
-                                        'size-4 flex items-center justify-center mx-auto transition-colors',
-                                        locked ? 'cursor-not-allowed' : 'cursor-pointer',
-                                      )}
-                                      onClick={() => {
-                                        if (locked) return
-                                        const current = field.value ?? []
-                                        field.onChange(
-                                          current.includes(value)
-                                            ? current.filter((r) => r !== value)
-                                            : [...current, value]
-                                        )
-                                      }}
-                                    >
-                                      {checked
-                                        ? <Check className={cn('size-3.5', locked ? 'text-success/40' : 'text-success')} />
-                                        : <Minus className='size-3.5 text-muted-foreground/20 hover:text-muted-foreground/50' />
-                                      }
-                                    </div>
-                                  </TableCell>
-                                )
-                              })}
-                            </TableRow>
-                          )}
-                        />
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </form>
-            </Form>
+                              </TableHead>
+                            )
+                          })}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {allPages.map((page) => (
+                          <FormField
+                            key={page.url}
+                            control={matrixForm.control}
+                            name={`pageRoles.${page.url}`}
+                            render={({ field }) => (
+                              <TableRow>
+                                <TableCell className='py-2.5 pr-4'>
+                                  <div className='flex flex-col'>
+                                    {page.parent && (
+                                      <span className='text-xs text-muted-foreground'>{page.parent}</span>
+                                    )}
+                                    <span className={cn('font-medium', page.parent ? 'text-xs' : 'text-sm')}>
+                                      {page.title}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                {displayRoles.map((role) => {
+                                  const value = role.name.toLowerCase()
+                                  const checked = (field.value ?? []).includes(value)
+                                  const locked = isHomeUrl(page.url)
+                                  return (
+                                    <TableCell key={value} className='py-2.5 px-2 text-center'>
+                                      <div
+                                        className={cn(
+                                          'size-4 flex items-center justify-center mx-auto transition-colors',
+                                          locked ? 'cursor-not-allowed' : 'cursor-pointer',
+                                        )}
+                                        onClick={() => {
+                                          if (locked) return
+                                          const current = field.value ?? []
+                                          field.onChange(
+                                            current.includes(value)
+                                              ? current.filter((r) => r !== value)
+                                              : [...current, value]
+                                          )
+                                        }}
+                                      >
+                                        {checked
+                                          ? <Check className={cn('size-3.5', locked ? 'text-success/40' : 'text-success')} />
+                                          : <Minus className='size-3.5 text-muted-foreground/20 hover:text-muted-foreground/50' />
+                                        }
+                                      </div>
+                                    </TableCell>
+                                  )
+                                })}
+                              </TableRow>
+                            )}
+                          />
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </form>
+              </Form>
+            </ScrollArea>
+
           </TabsContent>
         </Tabs>
         <div className='flex items-center justify-between px-4 pb-4 pt-3 border-t'>
