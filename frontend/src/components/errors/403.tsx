@@ -1,12 +1,15 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import NProgress from "@/lib/nprogress";
 import { ArrowLeft, Home, ShieldOff } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 export function UnauthorisedError() {
   const navigate = useNavigate();
   const location = useLocation();
+  NProgress.done();
+
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
