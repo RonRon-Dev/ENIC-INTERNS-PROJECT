@@ -74,6 +74,7 @@ export default function DataCleaningPage() {
     allFilteredSelected,
     parseFile,
     isExporting,
+    exportError,
     handleExport,
     resetData,
     rowsReady,
@@ -428,8 +429,8 @@ export default function DataCleaningPage() {
         allColumns={columns}
         selectedCount={selectedCount}
         isExporting={isExporting}
+        exportError={exportError} // ← add this
       />
-
       <ConfirmDialog
         open={showClearConfirm}
         onOpenChange={(v) => !v && setShowClearConfirm(false)}
