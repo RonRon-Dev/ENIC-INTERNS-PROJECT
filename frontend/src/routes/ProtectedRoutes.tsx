@@ -1,7 +1,7 @@
 import { useAuth } from "@/auth-context";
-import { UnauthorisedError } from "@/components/errors/401";
-import { usePagePrivileges } from "@/hooks/use-page-privileges";
+import { UnauthorisedError } from "@/components/errors/403";
 import type { UserRole } from "@/data/schema";
+import { usePagePrivileges } from "@/hooks/use-page-privileges";
 import { Atom } from "lucide-react";
 import { Navigate, useLocation } from "react-router-dom";
 

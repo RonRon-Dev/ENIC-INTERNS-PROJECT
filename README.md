@@ -296,7 +296,7 @@ The frontend uses a **single source of truth** pattern — all routing, sidebar 
 | `src/components/app-sidebar.tsx`                   | Sidebar — calls `buildNavGroups(userRole)` at render time, no hardcoded nav                       |
 | `src/components/command-menu.tsx`                  | Command palette — role-filtered, uses `buildNavGroups()`                                          |
 | `src/pages/tools/subtools/DevelopmentToolPage.tsx` | Fallback for unbuilt routes — shows title, description, and component status                      |
-| `src/components/errors/401.tsx`                    | Unauthorized error page — shows restricted route path                                             |
+| `src/components/errors/403.tsx`                    | Unauthorized error page — shows restricted route path                                             |
 | `src/auth-context.tsx`                             | Auth provider — exposes `user`, `isAuthenticated`, `loading`                                      |
 
 ### How RBAC Works

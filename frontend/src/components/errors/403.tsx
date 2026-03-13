@@ -18,13 +18,13 @@ export function UnauthorisedError() {
             <ShieldOff className="h-9 w-9 text-muted-foreground" />
           </div>
           <div className="absolute -bottom-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-destructive/10 border border-destructive/30">
-            <span className="text-[10px] font-bold text-destructive">401</span>
+            <span className="text-[10px] font-bold text-destructive">403</span>
           </div>
         </div>
 
         {/* Badge */}
         <Badge className="text-xs font-normal bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/10 shadow-none">
-          Unauthorized Access
+          Forbidden
         </Badge>
 
         {/* Title + description */}
