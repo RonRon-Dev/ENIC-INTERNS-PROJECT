@@ -359,12 +359,12 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                                 <div className={cn(
                                   'size-4 rounded-sm border flex items-center justify-center shrink-0 transition-colors',
                                   field.value && !isHome
-                                    ? 'bg-warning border-warning'
+                                    ? 'bg-primary border-primary'
                                     : field.value && isHome
                                       ? 'bg-warning/40 border-warning/40'
                                       : 'border-muted-foreground/30'
                                 )}>
-                                  {field.value && <Check className='size-3 text-warning-foreground' />}
+                                  {field.value && <Check className='size-3 text-primary-foreground' />}
                                 </div>
                                 <HardHat className={cn(
                                   'size-3.5',
