@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using backend.Services.ActivityLogger;
 using BCrypt.Net;
+using backend.Extensions;
 
 namespace backend.Services.Auth;
 
@@ -328,12 +329,14 @@ public class AuthService(
 
         await context.SaveChangesAsync();
 
+        var newRefreshToken = await GenerateAndSaveRefreshTokenAsync(user);
+
         return new AuthResponse
         {
             Success = true,
             Message = "Login successful",
-            AccessToken = GenerateToken(user),
-            RefreshToken = await GenerateAndSaveRefreshTokenAsync(user),
+            RefreshToken = newRefreshToken,
+            AccessToken = GenerateToken(user, newRefreshToken),
             ForcePasswordChange = user.ForcePasswordChange
         };
     }
@@ -387,12 +390,14 @@ public class AuthService(
         if (user is null)
             return null;
 
+        var newRefreshToken = await GenerateAndSaveRefreshTokenAsync(user);
+
         return new AuthResponse
         {
             Success = true,
             Message = "Token refreshed",
-            AccessToken = GenerateToken(user),
-            RefreshToken = await GenerateAndSaveRefreshTokenAsync(user),
+            AccessToken = GenerateToken(user, newRefreshToken),
+            RefreshToken = newRefreshToken,
             ForcePasswordChange = user.ForcePasswordChange
         };
     }
@@ -568,7 +573,7 @@ public class AuthService(
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private string GenerateToken(Users user)
+    private string GenerateToken(Users user, string refreshToken)
     {
         var issuer = configuration["AppSettings:Issuer"];
         var audience = configuration["AppSettings:Audience"];
@@ -586,7 +591,8 @@ public class AuthService(
             new Claim(ClaimTypes.Name, user.UserName),
             new Claim(ClaimTypes.GivenName, user.Name),
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim("ForcePasswordChange", user.ForcePasswordChange.ToString())
+            new Claim("ForcePasswordChange", user.ForcePasswordChange.ToString()),
+            new Claim("rtv", TokenHashExtensions.ComputeTokenHash(refreshToken))
         };
 
         if (user.Role != null && !string.IsNullOrWhiteSpace(user.Role.Name))

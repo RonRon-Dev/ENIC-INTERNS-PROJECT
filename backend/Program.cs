@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text;
 using backend.Data;
+using backend.Extensions;
 using backend.Services.ActivityLogger;
 using backend.Services.Auth;
 using backend.Services.Dashboard;
@@ -122,6 +123,21 @@ builder
                     context.Fail("Pending approval.");
                     return;
                 }
+
+                // single-session enforcement: access token must match current refresh token fingerprint
+                var tokenVersion = context.Principal?.FindFirst("rtv")?.Value;
+                if (string.IsNullOrWhiteSpace(tokenVersion) || string.IsNullOrWhiteSpace(user.RefreshToken))
+                {
+                    context.Fail("Session invalidated.");
+                    return;
+                }
+
+                var currentVersion = TokenHashExtensions.ComputeTokenHash(user.RefreshToken);
+                if (!string.Equals(tokenVersion, currentVersion, StringComparison.Ordinal))
+                {
+                    context.Fail("SESSION_REPLACED");
+                    return;
+                }
             },
 
             OnAuthenticationFailed = context =>
@@ -135,6 +151,21 @@ builder
                 Console.WriteLine(
                     "JWT CHALLENGE: " + context.Error + " | " + context.ErrorDescription
                 );
+
+                if (!context.Response.HasStarted)
+                {
+                    context.HandleResponse();
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    context.Response.ContentType = "application/json";
+
+                    var rawMessage = context.AuthenticateFailure?.Message ?? "Unauthorized";
+                    var message = rawMessage == "SESSION_REPLACED"
+                        ? "Your account was signed in on another device. This session has been logged out."
+                        : "Your session is no longer valid. Please sign in again.";
+
+                    return context.Response.WriteAsync($"{{\"message\":\"{message}\"}}");
+                }
+
                 return Task.CompletedTask;
             },
         };
