@@ -198,8 +198,13 @@ function UserManagementContent() {
           </div>
           <Drawer direction="right">
             <DrawerTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="relative">
                 Requests <UserCog className="size-4" />
+                {requests.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+                    {requests.length > 99 ? '99+' : requests.length}
+                  </span>
+                )}
               </Button>
             </DrawerTrigger>
             <DrawerContent direction="right">

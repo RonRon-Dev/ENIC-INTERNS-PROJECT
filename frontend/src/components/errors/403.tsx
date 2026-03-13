@@ -1,12 +1,15 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import NProgress from "@/lib/nprogress";
 import { ArrowLeft, Home, ShieldOff } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 export function UnauthorisedError() {
   const navigate = useNavigate();
   const location = useLocation();
+  NProgress.done();
+
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
@@ -18,13 +21,13 @@ export function UnauthorisedError() {
             <ShieldOff className="h-9 w-9 text-muted-foreground" />
           </div>
           <div className="absolute -bottom-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-destructive/10 border border-destructive/30">
-            <span className="text-[10px] font-bold text-destructive">401</span>
+            <span className="text-[10px] font-bold text-destructive">403</span>
           </div>
         </div>
 
         {/* Badge */}
         <Badge className="text-xs font-normal bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/10 shadow-none">
-          Unauthorized Access
+          Forbidden
         </Badge>
 
         {/* Title + description */}
