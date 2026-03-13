@@ -217,7 +217,7 @@ export const toolsData: Tool[] = [
     title: "IT",
     icon: MonitorCog,
     description: "IT support, infrastructure, and asset management",
-    allowedRoles: ["superadmin", "admin"],
+    allowedRoles: ["superadmin", "admin", "it"],
     subtools: [
       {
         title: "Tickets",
@@ -230,14 +230,14 @@ export const toolsData: Tool[] = [
         title: "IT Assets",
         url: "/it/assets",
         description: "Manage IT hardware and software assets",
-        allowedRoles: ["superadmin", "admin"],
+        allowedRoles: ["superadmin", "admin", "it"],
         // component: ITAssetsPage,
       },
       {
         title: "System Health",
         url: "/it/system-health",
         description: "Monitor system uptime and performance",
-        allowedRoles: ["superadmin"],
+        allowedRoles: ["superadmin", "it"],
         // component: SystemHealthPage,
       },
     ],
