@@ -168,7 +168,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
       setSaving(true)
       await pagePrivilegesApi.update(selected.url, roleIds)
       form.reset({ allowedRoles: data.allowedRoles })
-      await refresh()
+      await refresh({ silent: true })
       notifToast({ name: selected.title }, 'updateprivileges')
     } catch {
       notifToast({ reason: 'Failed to update privileges. Please try again.' }, 'error')
@@ -187,7 +187,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
         })
       )
       matrixForm.reset(data)
-      await refresh()
+      await refresh({ silent: true })
       notifToast({ name: 'Page Matrix' }, 'updateprivileges')
     } catch {
       notifToast({ reason: 'Failed to update privileges. Please try again.' }, 'error')

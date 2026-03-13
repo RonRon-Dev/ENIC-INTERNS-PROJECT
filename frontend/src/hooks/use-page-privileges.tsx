@@ -5,7 +5,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 type PagePrivilegesContextType = {
   // url → lowercase role names. Empty array = all roles allowed.
   privileges: Record<string, string[]>
-  refresh: () => Promise<void>
+  refresh: (options?: { silent?: boolean }) => Promise<void>
   loading: boolean
 }
 
@@ -16,9 +16,10 @@ export function PagePrivilegesProvider({ children }: { children: React.ReactNode
   const [privileges, setPrivileges] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(false)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { silent?: boolean }) => {
     if (!isAuthenticated) return
-    setLoading(true)
+    const silent = options?.silent ?? false
+    if (!silent) setLoading(true)
     try {
       const data: PagePrivilege[] = await pagePrivilegesApi.getAll()
       const map: Record<string, string[]> = {}
@@ -29,7 +30,7 @@ export function PagePrivilegesProvider({ children }: { children: React.ReactNode
     } catch {
       // silently fail — ProtectedRoute falls back to toolsData.allowedRoles
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [isAuthenticated])
 
