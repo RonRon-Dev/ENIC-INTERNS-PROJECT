@@ -183,11 +183,18 @@ function formatDate(d: Date): string {
 }
 
 function isExcelSerial(n: number): boolean {
-  return Number.isInteger(n) && n >= EXCEL_DATE_MIN && n <= EXCEL_DATE_MAX;
+  // Accept both integer serials (date-only) and fractional serials (datetime).
+  // Excel stores datetimes as serial + time fraction e.g. 46026.604 = date + time.
+  // Serial 0 and 1 are Excel epoch artifacts (Jan 0/1 1900) — treat as invalid.
+  const intPart = Math.floor(n);
+  return intPart >= EXCEL_DATE_MIN && intPart <= EXCEL_DATE_MAX;
 }
 
 function excelSerialToDate(n: number): string {
-  return formatDate(new Date(Math.round((n - 25569) * 86400 * 1000)));
+  // Strip the time fraction — we only display the date part.
+  // Excel serial days since 1899-12-30 (not 1900-01-01 — Excel has a leap year bug).
+  const intPart = Math.floor(n);
+  return formatDate(new Date(Math.round((intPart - 25569) * 86400 * 1000)));
 }
 
 // ── Column type ───────────────────────────────────────────────────────────────
@@ -598,25 +605,62 @@ function parseSharedStrings(xml: string): string[] {
 }
 
 function parseDateStyleIndices(xml: string): Set<number> {
+  // Built-in Excel date format IDs (14–22 = date/time, 45–47 = time)
   const dateNumFmtIds = new Set([
     14, 15, 16, 17, 18, 19, 20, 21, 22, 45, 46, 47,
   ]);
-  const customDateRe = /[yYmMdDhHsS]/;
+
+  // Custom numFmt → is date? Detect by format code containing unescaped
+  // date tokens (y, d, h) or m only when adjacent to y/d/h (not "mm:ss").
+  // We use a conservative pattern that avoids false positives on "m" alone.
+  const isDateFormatCode = (code: string): boolean => {
+    // strip escaped chars and string literals first
+    const stripped = code.replace(/"[^"]*"/g, "").replace(/\[[^\]]*\]/g, "");
+    return (
+      /[yY]/.test(stripped) ||
+      /[dD]/.test(stripped) ||
+      (/[hH]/.test(stripped) && !/^[^hH]*[mM][^hH]*$/.test(stripped))
+    );
+  };
+
   const numFmts = new Map<number, boolean>();
-  const nfRe = /<numFmt\s[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"/g;
+  const nfRe =
+    /<numFmt(?=[\s>])[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"/g;
   let m: RegExpExecArray | null;
   while ((m = nfRe.exec(xml)) !== null) {
-    numFmts.set(parseInt(m[1], 10), customDateRe.test(m[2]));
+    numFmts.set(parseInt(m[1], 10), isDateFormatCode(m[2]));
   }
+
+  // Extract ONLY the <cellXfs> block — cell s= attributes index into this,
+  // NOT <cellStyleXfs>. Counting from the wrong block causes off-by-N errors.
+  const cellXfsMatch = /<cellXfs(?=[\s>])[^>]*>([\s\S]*?)<\/cellXfs>/.exec(xml);
+  const cellXfsXml = cellXfsMatch ? cellXfsMatch[1] : xml;
+
   const result = new Set<number>();
-  const xfRe = /<xf\b[^>]*numFmtId="(\d+)"[^>]*\/>/g;
+  // Match both self-closing <xf .../> AND open <xf ...> (real xlsx files use
+  // non-self-closing xf elements when they contain child nodes like <alignment>)
+  const xfRe = /<xf(?=[\s>/])([^>]*?)(?:\/>|>)/g;
   let idx = 0;
-  while ((m = xfRe.exec(xml)) !== null) {
-    const id = parseInt(m[1], 10);
-    if (dateNumFmtIds.has(id) || numFmts.get(id)) result.add(idx);
+  xfRe.lastIndex = 0;
+  while ((m = xfRe.exec(cellXfsXml)) !== null) {
+    const attrs = m[1];
+    const idM = /numFmtId="(\d+)"/.exec(attrs);
+    if (idM) {
+      const id = parseInt(idM[1], 10);
+      if (dateNumFmtIds.has(id) || numFmts.get(id)) result.add(idx);
+    }
     idx++;
   }
   return result;
+}
+
+// Convert Excel column letters (A, B, ..., Z, AA, AB, ...) to zero-based index.
+// Used to place sparse cells at the correct position in the row array.
+function colLetterToIndex(col: string): number {
+  let idx = 0;
+  for (let i = 0; i < col.length; i++)
+    idx = idx * 26 + (col.charCodeAt(i) - 64); // A=1, B=2 ...
+  return idx - 1; // zero-based
 }
 
 function parseSheetXml(
@@ -625,21 +669,34 @@ function parseSheetXml(
   dateStyleIndices: Set<number>
 ): string[][] {
   const rows: string[][] = [];
-  const rowRe = /<row\b[^>]*>([\s\S]*?)<\/row>/g;
-  const cellRe = /<c\b([^>]*)>([\s\S]*?)<\/c>/g;
-  const tRe = /\bt="([^"]*)"/;
-  const sRe = /\bs="(\d+)"/;
+  const rowRe = /<row(?=[\s>])[^>]*>([\s\S]*?)<\/row>/g;
+  const cellRe = /<c(?=[\s>])([^>]*)>([\s\S]*?)<\/c>/g;
+  // r= attribute gives the cell address e.g. r="AC4" — col letters + row number
+  const rRe = /(?:^|\s)r="([A-Z]+)\d+"/;
+  const tRe = /(?:^|\s)t="([^"]*)"/;
+  const sRe = /(?:^|\s)s="(\d+)"/;
   const vRe = /<v>([^<]*)<\/v>/;
   const isRe = /<is>[\s\S]*?<t[^>]*>([^<]*)<\/t>/;
   let rm: RegExpExecArray | null;
   while ((rm = rowRe.exec(xml)) !== null) {
     const rowXml = rm[1];
-    const cells: string[] = [];
+    // Use a sparse object keyed by column index — filled gaps become "".
+    // This is critical: Excel omits empty cells from the XML entirely.
+    // Without r=-based placement, every skipped cell shifts all subsequent
+    // columns left, putting data under the wrong header.
+    const sparse: Record<number, string> = {};
+    let maxColIdx = -1;
     let cm: RegExpExecArray | null;
     cellRe.lastIndex = 0;
     while ((cm = cellRe.exec(rowXml)) !== null) {
       const attrs = cm[1],
         inner = cm[2];
+
+      // Determine target column index from r= attribute
+      const rM = rRe.exec(attrs);
+      const colIdx = rM ? colLetterToIndex(rM[1]) : -1;
+      if (colIdx < 0) continue; // skip cells with no parseable reference
+
       const typeM = tRe.exec(attrs);
       const cellType = typeM ? typeM[1] : "";
       const sM = sRe.exec(attrs);
@@ -662,6 +719,10 @@ function parseSheetXml(
         if (vM) {
           const num = parseFloat(vM[1]);
           value =
+            // Only convert to date if the cell has an explicit date-formatted
+            // style. This is the only safe signal — numeric columns like IDs,
+            // amounts, and codes share the same integer range as date serials
+            // and cannot be distinguished by value alone.
             styleIdx >= 0 &&
             dateStyleIndices.has(styleIdx) &&
             isExcelSerial(num)
@@ -669,9 +730,15 @@ function parseSheetXml(
               : vM[1];
         }
       }
-      cells.push(value);
+      sparse[colIdx] = value;
+      if (colIdx > maxColIdx) maxColIdx = colIdx;
     }
-    if (cells.length > 0) rows.push(cells);
+    if (maxColIdx >= 0) {
+      // Materialise sparse object into a dense array, filling gaps with ""
+      const cells: string[] = new Array(maxColIdx + 1).fill("");
+      for (const [idx, val] of Object.entries(sparse)) cells[Number(idx)] = val;
+      rows.push(cells);
+    }
   }
   return rows;
 }
@@ -689,7 +756,7 @@ async function parseXlsxManual(buffer: ArrayBuffer): Promise<string[][]> {
   const wbFile = zip.file("xl/workbook.xml");
   if (wbFile) {
     const wbXml = await wbFile.async("string");
-    const sheetM = /<sheet\b[^>]*r:id="([^"]*)"/.exec(wbXml);
+    const sheetM = /<sheet(?=[\s>])[^>]*r:id="([^"]*)"/.exec(wbXml);
     if (sheetM) {
       const relsFile = zip.file("xl/_rels/workbook.xml.rels");
       if (relsFile) {
