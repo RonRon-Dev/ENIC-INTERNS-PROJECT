@@ -33,7 +33,7 @@ jobs:
           echo "Commit message: $COMMIT_MSG"
 
           # skip deployment for chore/docs/style/test commits
-          if echo "$COMMIT_MSG" | grep -qE "^(chore|docs|style|test)"; then
+          if echo "$COMMIT_MSG" | grep -qE "^(chore|docs|style|test|misc)"; then
             echo "skip=true" >> $GITHUB_OUTPUT
             echo "Skipping deployment for: $COMMIT_MSG"
             exit 0
@@ -67,33 +67,22 @@ jobs:
           git push origin main
 
       - name: Deploy to server
-        if: steps.bump.outputs.skip != 'true'
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: true  # stop on first error
           script: |
-            echo "Starting deployment..."
-
-            cd /path/to/your/project
-
-            echo "Pulling latest code..."
-            git pull origin main
-
-            echo "Generating .env.prod..."
-            echo "APP_VERSION=beta-v${{ steps.version.outputs.version }}" > .env.prod
-
-            echo "Building new images..."
-            docker compose --env-file .env.prod --profile prod build
-
-            echo "Switching to new containers..."
-            docker compose --env-file .env.prod --profile prod up -d
-
-            echo "Cleaning up old images..."
-            docker image prune -f
-
-            echo "Successfully deployed beta-v${{ steps.version.outputs.version }}"
+            powershell -Command "
+              Set-Location C:\path\to\your\project
+              git pull origin main
+              'APP_VERSION=beta-v${{ steps.version.outputs.version }}' | Out-File .env.prod -Encoding utf8
+              docker compose --env-file .env.prod --profile prod build
+              docker compose --env-file .env.prod --profile prod up -d
+              docker image prune -f
+              Write-Host 'Successfully deployed beta-v${{ steps.version.outputs.version }}'
+            "
 
       - name: Notify success
         if: success() && steps.bump.outputs.skip != 'true'
