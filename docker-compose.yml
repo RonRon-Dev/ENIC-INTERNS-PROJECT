@@ -43,6 +43,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
+      - VITE_APP_VERSION=dev
       - CHOKIDAR_USEPOLLING=true
       - VITE_API_URL=http://api:8080
     stdin_open: true
@@ -55,11 +56,10 @@ services:
     image: enic_mis_api:beta-v0.0.1
     profiles: ["prod"]
     container_name: aspnet-api-prod
-    # ports:
-    #   - "5029:8080"
     volumes:
       - dataprotection-keys:/root/.aspnet/DataProtection-Keys
     environment:
+      APP_VERSION: beta-v0.0.1
       ASPNETCORE_URLS: "http://+:8080"
       ASPNETCORE_ENVIRONMENT: Production
 
@@ -72,8 +72,6 @@ services:
     container_name: react-frontend-prod
     ports:
       - "8000:80"
-    # environment:
-    #   - VITE_API_URL=http://api-prod:8080
     stdin_open: true
     tty: true
 

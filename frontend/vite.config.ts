@@ -24,6 +24,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      sourcemap: false,
       outDir: "build",
       emptyOutDir: true,
     },

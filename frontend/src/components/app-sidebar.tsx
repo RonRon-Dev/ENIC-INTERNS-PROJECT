@@ -18,6 +18,7 @@ import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const version = import.meta.env.VITE_APP_VERSION;
   const { user } = useAuth();
   const { privileges } = usePagePrivileges();
   const [pendingCount, setPendingCount] = useState(0);
@@ -57,7 +58,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">ENIC Systems</span>
-                <span className="truncate text-xs">version 1.0.0</span>
+                <span className="truncate text-xs">{version}</span>
               </div>
             </a>
           </SidebarMenuItem>
