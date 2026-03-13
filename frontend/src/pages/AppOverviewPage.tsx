@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom";
 const NAV_LINKS = [
   { label: 'Features', href: '#features' },
   { label: 'Stack', href: '#stack' },
-  { label: 'About', href: '/overview/developers' },
+  // { label: 'About', href: '/overview/developers' },
 ]
 
 const TECH_STACK_MARQUEE = [
