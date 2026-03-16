@@ -27,13 +27,13 @@ import type {
   ExportConfig,
   Row,
   SortState,
+  XmlValidationResult,
 } from "@/types/spreadsheet";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 export const DEFAULT_PAGE_SIZE = 12;
 export const PAGE_SIZE_OPTIONS = [12, 25, 50, 100];
-export const ZIP_THRESHOLD = 5;
 // Matches MAX_FILTER_VALUES in the worker
 export const MAX_FILTER_VALUES = 500;
 
@@ -41,9 +41,6 @@ const FILE_SIZE_WARN_MB = 20;
 const SEARCH_DEBOUNCE_MS = 500;
 // 30s revoke delay — blob needs to stay alive until browser queues the download
 const REVOKE_DELAY_MS = 30_000;
-// Stagger delay between individual file downloads (per-row mode, ≤ ZIP_THRESHOLD)
-// Browsers block simultaneous programmatic clicks; 200ms gap is enough.
-const MULTI_DOWNLOAD_STAGGER_MS = 200;
 
 interface QueryMsg {
   type: "QUERY";
@@ -89,6 +86,9 @@ export function useSpreadsheetData() {
   // BUG FIX 5: track whether the last export ended in an error so ExportDialog
   // can distinguish success (auto-close) from failure (stay open for the toast).
   const [exportError, setExportError] = useState(false);
+  const [xmlValidation, setXmlValidation] =
+    useState<XmlValidationResult | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
 
   const [pagedRows, setPagedRows] = useState<Row[]>([]);
   const [processedCount, setProcessedCount] = useState(0);
@@ -187,6 +187,21 @@ export function useSpreadsheetData() {
             return next;
           });
         }
+      } else if (msg.type === "XML_VALIDATION") {
+        setIsValidating(false);
+        if (msg.columnNotFound) {
+          toast.error("Column not found", {
+            description:
+              "Could not locate the XML column in the data store. Try re-importing the file.",
+          });
+          return;
+        }
+        setXmlValidation({
+          invalidCount: msg.invalidCount as number,
+          totalScanned: msg.totalScanned as number,
+          sampleRows: msg.sampleRows as number[],
+          columnNotFound: false,
+        });
       } else if (msg.type === "FILTER_VALUES") {
         setFilterValues(msg.values as Record<string, string[]>);
         setFilterValuesLoading(false);
@@ -220,43 +235,21 @@ export function useSpreadsheetData() {
       } else if (msg.type === "EXPORT_DONE") {
         setIsExporting(false);
         setExportError(false); // BUG FIX 5: clear error flag on success
-        const { kind, url, fileName: dlName, files, description } = msg;
-        if (kind === "file" || kind === "zip") {
-          // BUG FIX 3: register blob URL for potential early cleanup
-          pendingBlobsRef.current.push(url as string);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = dlName;
-          a.click();
-          setTimeout(() => {
-            URL.revokeObjectURL(url);
-            pendingBlobsRef.current = pendingBlobsRef.current.filter(
-              (u) => u !== url
-            );
-          }, REVOKE_DELAY_MS);
-          toast.success("Export complete", { description });
-        } else if (kind === "files") {
-          // BUG FIX 2: stagger individual file downloads so browsers don't
-          // block all but the first simultaneous programmatic click.
-          // BUG FIX 3: register each blob URL for potential early cleanup.
-          const fileList = files as { url: string; fileName: string }[];
-          fileList.forEach((f) => pendingBlobsRef.current.push(f.url));
-          fileList.forEach((f, i) => {
-            setTimeout(() => {
-              const a = document.createElement("a");
-              a.href = f.url;
-              a.download = f.fileName;
-              a.click();
-              setTimeout(() => {
-                URL.revokeObjectURL(f.url);
-                pendingBlobsRef.current = pendingBlobsRef.current.filter(
-                  (u) => u !== f.url
-                );
-              }, REVOKE_DELAY_MS);
-            }, i * MULTI_DOWNLOAD_STAGGER_MS);
-          });
-          toast.success("Export complete", { description });
-        }
+        const { url, fileName: dlName, description } = msg;
+        // Per-row always produces a zip; single always produces a file.
+        // Both are handled identically on the main thread.
+        pendingBlobsRef.current.push(url as string);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = dlName;
+        a.click();
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+          pendingBlobsRef.current = pendingBlobsRef.current.filter(
+            (u) => u !== url
+          );
+        }, REVOKE_DELAY_MS);
+        toast.success("Export complete", { description });
       } else if (msg.type === "EXPORT_ERROR") {
         setIsExporting(false);
         setExportError(true); // BUG FIX 5: mark error so dialog stays open
@@ -535,6 +528,16 @@ export function useSpreadsheetData() {
     []
   );
 
+  // ── XML validation ──────────────────────────────────────────────────────────
+  // Sends a VALIDATE_XML message to the worker which heuristically scans all
+  // selected rows of the given column. Result arrives via XML_VALIDATION message.
+  const validateExport = useCallback((visibleCol: string) => {
+    if (!workerRef.current) return;
+    setIsValidating(true);
+    setXmlValidation(null);
+    workerRef.current.postMessage({ type: "VALIDATE_XML", visibleCol });
+  }, []);
+
   // ── Reset ───────────────────────────────────────────────────────────────────
   const resetData = useCallback(() => {
     workerRef.current?.postMessage({ type: "RESET" });
@@ -662,8 +665,11 @@ export function useSpreadsheetData() {
     setRowsReady,
     parseFile,
     isExporting,
-    exportError, // BUG FIX 5: exposed so ExportDialog can gate auto-close on success only
+    exportError,
     handleExport,
+    validateExport,
+    xmlValidation,
+    isValidating,
     resetData,
   };
 }
