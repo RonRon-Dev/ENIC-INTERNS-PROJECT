@@ -27,13 +27,12 @@ const FIXTURE_XLSX = path.join(__dirname, "fixtures", "[T5] ttdh.xlsx");
 /** Log in and navigate to the Data Cleaning page */
 async function goToDataCleaning(page: Page) {
   await page.goto("/");
-  // Use placeholder to target specifically the login form's username input
-  // (the signup form is also on the page with a different "System Username" label)
-  await page.getByPlaceholder("eg. j.luna").fill("enic.mis@superadmin");
-  await page.getByPlaceholder("e.g., S3cur3P@ssw0rd").fill("Superadmin@123");
+  await page.getByPlaceholder("eg. j.luna").fill("your_username");
+  await page.getByPlaceholder("e.g., S3cur3P@ssw0rd").fill("your_password");
   await page.getByRole("button", { name: /^login$/i }).click();
   await page.waitForURL("**/home");
-  await page.getByRole("link", { name: /data cleaning/i }).click();
+  // Navigate directly — no need to click through the sidebar collapsible
+  await page.goto("/operations/automation");
   await page.waitForURL("**/operations/automation");
 }
 
