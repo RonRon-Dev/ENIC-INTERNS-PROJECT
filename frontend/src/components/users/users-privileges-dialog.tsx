@@ -87,13 +87,13 @@ function getRoleIcon(iconName?: string) {
 
 const formSchema = z.object({
   allowedRoles: z.array(z.string()),
-  maintenance: z.boolean().default(false),
+  maintenance: z.boolean(),
 })
 
 type PrivilegeForm = z.infer<typeof formSchema>
 
 export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
-  const { privileges, refresh } = usePagePrivileges()
+  const { privileges, maintenance, refresh } = usePagePrivileges()
   const { apiRoles } = useUsers()
 
   const [selected, setSelected] = useState<PageEntry | null>(null)
@@ -117,6 +117,10 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
     return fallback.length === 0 ? apiRoles.map((r) => r.name.toLowerCase()) : fallback
   }, [privileges, apiRoles])
 
+  const getMaintenanceForUrl = useCallback((url: string): boolean => {
+    return maintenance[url] ?? false
+  }, [maintenance])
+
   // Maps role display values (lowercase) to API role IDs
   const toRoleIds = useCallback((values: string[]): number[] => {
     return values
@@ -126,7 +130,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
 
   const form = useForm<PrivilegeForm>({
     resolver: zodResolver(formSchema),
-    defaultValues: { allowedRoles: [] },
+    defaultValues: { allowedRoles: [], maintenance: false },
   })
 
   const matrixForm = useForm<{ pageRoles: Record<string, string[]> }>({
@@ -144,10 +148,12 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
   // Sync By-Page form when selected page changes
   useEffect(() => {
     if (selected) {
-      form.reset({ allowedRoles: getPrivilegesForUrl(selected.url) })
-      // maintenance: getMaintenanceForUrl(selected.url),
+      form.reset({
+        allowedRoles: getPrivilegesForUrl(selected.url),
+        maintenance: getMaintenanceForUrl(selected.url),
+      })
     }
-  }, [selected, getPrivilegesForUrl])
+  }, [selected, getPrivilegesForUrl, getMaintenanceForUrl])
 
   // Select home on dialog open
   useEffect(() => {
@@ -169,7 +175,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
     try {
       setSaving(true)
       await pagePrivilegesApi.update(selected.url, roleIds, data.maintenance)
-      form.reset({ allowedRoles: data.allowedRoles })
+      form.reset({ allowedRoles: data.allowedRoles, maintenance: data.maintenance })
       await refresh({ silent: true })
       notifToast({ name: selected.title }, 'updateprivileges')
     } catch {
@@ -185,7 +191,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
       await Promise.all(
         Object.entries(data.pageRoles).map(([url, vals]) => {
           const toSave = apiRoles.length > 0 && vals.length === apiRoles.length ? [] : vals
-          return pagePrivilegesApi.update(url, toRoleIds(toSave))
+          return pagePrivilegesApi.update(url, toRoleIds(toSave), getMaintenanceForUrl(url))
         })
       )
       matrixForm.reset(data)
@@ -205,7 +211,12 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
   const handleTabChange = (tab: string) => {
     if (tab === 'pages' && selected) {
       const matrixVal = matrixForm.getValues(`pageRoles.${selected.url}`)
-      if (matrixVal) form.reset({ allowedRoles: matrixVal })
+      if (matrixVal) {
+        form.reset({
+          allowedRoles: matrixVal,
+          maintenance: getMaintenanceForUrl(selected.url),
+        })
+      }
     }
     if (tab === 'matrix') {
       if (selected && form.formState.isDirty) {
@@ -222,7 +233,10 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
 
   const handleReset = () => {
     if (selected) {
-      form.reset({ allowedRoles: getPrivilegesForUrl(selected.url) })
+      form.reset({
+        allowedRoles: getPrivilegesForUrl(selected.url),
+        maintenance: getMaintenanceForUrl(selected.url),
+      })
       const map = Object.fromEntries(allPages.map((p) => [p.url, getPrivilegesForUrl(p.url)]))
       matrixForm.reset({ pageRoles: map })
     }
@@ -244,7 +258,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
         if (!s) {
           setSelected(null)
           setExpanded({})
-          form.reset()
+          form.reset({ allowedRoles: [], maintenance: false })
           const map = Object.fromEntries(allPages.map((p) => [p.url, getPrivilegesForUrl(p.url)]))
           matrixForm.reset({ pageRoles: map })
         }

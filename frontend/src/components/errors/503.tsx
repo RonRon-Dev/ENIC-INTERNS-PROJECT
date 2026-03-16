@@ -30,11 +30,11 @@ export function MaintenanceError() {
         {/* Title + description */}
         <div className="space-y-2">
           <h3 className="text-xl font-semibold tracking-tight text-foreground">
-            This page is under maintenance
+            This page is temporarily under maintenance
           </h3>
           <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-            We're currently working on this page. It will be back up shortly.
-            Please check back later or contact your administrator.
+            We&apos;re fixing things on this page right now. Please check back
+            soon, or contact your administrator if you need help.
           </p>
         </div>
 

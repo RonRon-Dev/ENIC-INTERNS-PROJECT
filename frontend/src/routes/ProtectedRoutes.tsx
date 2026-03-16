@@ -1,5 +1,6 @@
 import { useAuth } from "@/auth-context";
 import { UnauthorisedError } from "@/components/errors/403";
+import { MaintenanceError } from "@/components/errors/503";
 import type { UserRole } from "@/data/schema";
 import { usePagePrivileges } from "@/hooks/use-page-privileges";
 import { Atom } from "lucide-react";
@@ -43,7 +44,7 @@ export function ProtectedRoute({
   allowedRoles,
 }: ProtectedRouteProps) {
   const { isAuthenticated, loading, user, sessionExpired } = useAuth();
-  const { privileges, loading: privilegesLoading } = usePagePrivileges();
+  const { privileges, maintenance, loading: privilegesLoading } = usePagePrivileges();
   const { pathname } = useLocation();
 
   if (loading || privilegesLoading) return <LoadingScreen />;
@@ -66,6 +67,10 @@ export function ProtectedRoute({
     if (effectiveRoles.length > 0 && (!userRole || !effectiveRoles.includes(userRole))) {
       return <UnauthorisedError />;
     }
+  }
+
+  if (maintenance[pathname]) {
+    return <MaintenanceError />;
   }
 
   return <>{children}</>;

@@ -4,11 +4,13 @@ export type PagePrivilege = {
   url: string
   title: string
   allowedRoles: string[] // lowercase role names
+  maintenance: boolean
 }
 
 export type UpdatePagePrivilegePayload = {
   url: string
   roleIds: number[]
+  maintenance: boolean
 }
 
 export const pagePrivilegesApi = {
@@ -17,7 +19,7 @@ export const pagePrivilegesApi = {
     return res.data
   },
 
-  update: async (url: string, roleIds: number[]): Promise<void> => {
-    await api.put('/page-privileges', { url, roleIds })
+  update: async (url: string, roleIds: number[], maintenance: boolean): Promise<void> => {
+    await api.put('/page-privileges', { url, roleIds, maintenance })
   },
 }

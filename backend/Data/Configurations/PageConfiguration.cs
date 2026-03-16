@@ -12,5 +12,6 @@ public class PageConfiguration : IEntityTypeConfiguration<Pages>
         builder.HasIndex(p => p.Url).IsUnique();
 
         builder.Property(p => p.Title).IsRequired().HasMaxLength(200);
+        builder.Property(p => p.IsUnderMaintenance).HasDefaultValue(false);
     }
 }
