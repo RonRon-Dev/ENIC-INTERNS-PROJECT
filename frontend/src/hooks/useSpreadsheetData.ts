@@ -173,13 +173,16 @@ export function useSpreadsheetData() {
           lastFilteredIdsRef.current = msg.allFilteredIds;
           // Rebuild main-thread selectedIds for DataTable checkbox rendering
           // (only current page rows need to be checked — avoids iterating 100k)
+          const allSelected = msg.allFilteredSelected as boolean;
           setSelectedIds((prev) => {
             const next = new Set<number>();
-            // We don't know which rows are selected globally — only count comes from worker.
-            // For checkbox rendering we track selection state per visible row via selectedCount.
-            // So we keep selectedIds only for the current page:
             for (const row of msg.pagedRows as Row[]) {
-              if (prev.has(row.__id)) next.add(row.__id);
+              // If all filtered rows are selected (e.g. after toggleAll),
+              // every visible page row is selected — don't rely on stale prev.
+              // Otherwise fall back to prev for individual toggle tracking.
+              if (allSelected || prev.has(row.__id)) {
+                next.add(row.__id);
+              }
             }
             return next;
           });
@@ -269,7 +272,7 @@ export function useSpreadsheetData() {
     worker.onerror = (err) => {
       setIsLoading(false);
       setIsExporting(false); // BUG FIX 4: reset export spinner on worker crash
-      setExportError(true);  // BUG FIX 5
+      setExportError(true); // BUG FIX 5
       toast.error("Worker crashed", { description: err.message });
     };
 
@@ -506,6 +509,9 @@ export function useSpreadsheetData() {
     const ids = lastFilteredIdsRef.current
       ? Array.from(lastFilteredIdsRef.current)
       : [];
+    // Optimistic local update — mirror worker state immediately so checkboxes
+    // reflect the new selection before the SELECTION → RESULT round-trip completes.
+    setSelectedIds(select ? new Set(ids) : new Set());
     workerRef.current?.postMessage({
       type: "SELECT",
       mode: select ? "all" : "deselect",
@@ -543,7 +549,9 @@ export function useSpreadsheetData() {
     for (const u of pendingBlobsRef.current) {
       try {
         URL.revokeObjectURL(u);
-      } catch { /* empty */ }
+      } catch {
+        /* empty */
+      }
     }
     pendingBlobsRef.current = [];
 
@@ -583,7 +591,9 @@ export function useSpreadsheetData() {
       for (const u of pendingBlobsRef.current) {
         try {
           URL.revokeObjectURL(u);
-        } catch { /* empty */ }
+        } catch {
+          /* empty */
+        }
       }
       pendingBlobsRef.current = [];
     };
