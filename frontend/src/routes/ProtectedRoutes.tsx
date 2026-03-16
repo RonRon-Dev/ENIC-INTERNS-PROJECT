@@ -3,7 +3,7 @@ import type { UserRole } from "@/data/schema";
 import { usePagePrivileges } from "@/hooks/use-page-privileges";
 import { notifToast } from "@/lib/notifToast";
 import { Atom } from "lucide-react";
-import { useRef } from "react";
+import { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
 type ProtectedRouteProps = {
@@ -39,40 +39,72 @@ export function LoadingScreen() {
   );
 }
 
-export function ProtectedRoute({
-  children,
-  allowedRoles,
-}: ProtectedRouteProps) {
+// export function ProtectedRoute({
+//   children,
+//   allowedRoles,
+// }: ProtectedRouteProps) {
+//   const { isAuthenticated, loading, user, sessionExpired } = useAuth();
+//   const { privileges, loading: privilegesLoading } = usePagePrivileges();
+//   const { pathname } = useLocation();
+//   const toastFired = useRef(false)
+
+//   if (loading || privilegesLoading) return <LoadingScreen />;
+
+//   if (sessionExpired) return null;
+
+//   if (!isAuthenticated) return <Navigate to="/login" replace />;
+
+//   // Role check — DB privileges take precedence over toolsData.allowedRoles
+//   const userRole = user?.roleName?.toLowerCase() as UserRole | undefined;
+//   const dbRoles = privileges[pathname]; // undefined if page not in DB yet
+
+//   // Only enforce roles when either DB has an entry or toolsData specified allowedRoles
+//   if (dbRoles !== undefined || (allowedRoles && allowedRoles.length > 0)) {
+//     const effectiveRoles =
+//       dbRoles !== undefined
+//         ? (dbRoles as UserRole[]) // already lowercase from backend
+//         : allowedRoles!.map((r) => r.toLowerCase() as UserRole);
+
+//     if (effectiveRoles.length > 0 && (!userRole || !effectiveRoles.includes(userRole))) {
+//       if (!toastFired.current) {
+//         notifToast({ reason: "403 Unauthorized role" }, "error");
+//         toastFired.current = true
+//       }
+//       return <Navigate to="/home" replace />
+//     }
+//   }
+
+//   return <>{children}</>;
+// }
+
+export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { isAuthenticated, loading, user, sessionExpired } = useAuth();
   const { privileges, loading: privilegesLoading } = usePagePrivileges();
   const { pathname } = useLocation();
 
-  if (loading || privilegesLoading) return <LoadingScreen />;
-
-  if (sessionExpired) return null;
-
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-
-  // Role check — DB privileges take precedence over toolsData.allowedRoles
   const userRole = user?.roleName?.toLowerCase() as UserRole | undefined;
-  const dbRoles = privileges[pathname]; // undefined if page not in DB yet
-  const toastFired = useRef(false)
+  const dbRoles = privileges[pathname];
 
-  // Only enforce roles when either DB has an entry or toolsData specified allowedRoles
-  if (dbRoles !== undefined || (allowedRoles && allowedRoles.length > 0)) {
-    const effectiveRoles =
-      dbRoles !== undefined
-        ? (dbRoles as UserRole[]) // already lowercase from backend
-        : allowedRoles!.map((r) => r.toLowerCase() as UserRole);
+  const effectiveRoles =
+    dbRoles !== undefined
+      ? (dbRoles as UserRole[])
+      : allowedRoles?.map((r) => r.toLowerCase() as UserRole) ?? [];
 
-    if (effectiveRoles.length > 0 && (!userRole || !effectiveRoles.includes(userRole))) {
-      if (!toastFired.current) {
-        notifToast({ reason: "403 Unauthorized role" }, "error");
-        toastFired.current = true
-      }
-      return <Navigate to="/home" replace />
+  const isUnauthorized =
+    (dbRoles !== undefined || (allowedRoles && allowedRoles.length > 0)) &&
+    effectiveRoles.length > 0 &&
+    (!userRole || !effectiveRoles.includes(userRole));
+
+  useEffect(() => {
+    if (isUnauthorized) {
+      notifToast({ reason: "403 Unauthorized role" }, "error");
     }
-  }
+  }, [isUnauthorized]);
+
+  if (loading || privilegesLoading) return <LoadingScreen />;
+  if (sessionExpired) return null;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (isUnauthorized) return <Navigate to="/home" replace />;
 
   return <>{children}</>;
 }

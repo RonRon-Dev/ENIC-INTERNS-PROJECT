@@ -130,7 +130,7 @@ export function AccountForm() {
             <FormItem>
               <FormLabel>Full Name</FormLabel>
               <FormControl>
-                <Input placeholder="eg. Juan Luna" {...field} />
+                <Input placeholder="eg. Juan Luna" className="capitalize" {...field} />
               </FormControl>
               <FormDescription>
                 Your real name as it appears in the system.
