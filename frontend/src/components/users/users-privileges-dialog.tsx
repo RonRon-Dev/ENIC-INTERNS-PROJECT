@@ -152,6 +152,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
   const [savingMatrix, setSavingMatrix] = useState(false);
 
   const isHome = selected?.url === "/home";
+  const isUsers = selected?.url === "/users";
   const homeEntry = categories.find((c) => c.url === "/home");
 
   // Returns lowercase role values for a URL — DB wins, falls back to toolsData
@@ -467,22 +468,20 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                               <div
                                 className={cn(
                                   "flex items-center gap-2.5 text-sm mt-1",
-                                  isHome
-                                    ? "cursor-not-allowed"
-                                    : "cursor-pointer"
+                                  isHome || isUsers ? "cursor-not-allowed" : "cursor-pointer"
                                 )}
                                 onClick={() => {
-                                  if (isHome) return;
+                                  if (isHome || isUsers) return;
                                   field.onChange(!field.value);
                                 }}
                               >
                                 <div
                                   className={cn(
                                     "size-4 rounded-sm border flex items-center justify-center shrink-0 transition-colors",
-                                    field.value && !isHome
+                                    field.value && !(isHome || isUsers)
                                       ? "bg-primary border-primary"
-                                      : field.value && isHome
-                                        ? "bg-warning/40 border-warning/40"
+                                      : field.value && (isHome || isUsers)
+                                        ? "bg-muted/40 border-muted-foreground/20"
                                         : "border-muted-foreground/30"
                                   )}
                                 >
@@ -493,14 +492,14 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                                 <HardHat
                                   className={cn(
                                     "size-3.5",
-                                    field.value && !isHome
+                                    field.value && !(isHome || isUsers)
                                       ? "text-warning"
                                       : "text-muted-foreground/40"
                                   )}
                                 />
                                 <span
                                   className={cn(
-                                    field.value && !isHome
+                                    field.value && !(isHome || isUsers)
                                       ? "text-warning"
                                       : "text-muted-foreground/40"
                                   )}
