@@ -21,7 +21,7 @@ export type ActiveFilters = Record<string, Set<string>>;
 export type DateRangeFilters = Record<string, { from: string; to: string }>;
 
 export type ExportFormat = "xlsx" | "csv" | "tsv" | "xml";
-export type ExportMode = "single" | "per-row" | "folder";
+export type ExportMode = "single" | "per-row";
 export type ColumnType = "auto" | "date" | "text" | "number";
 export type ColTypes = Record<string, ColumnType>;
 
@@ -29,19 +29,20 @@ export interface ExportConfig {
   format: ExportFormat;
   mode: ExportMode;
   fileName: string;
+  /** Per-row only: column whose value drives the output filename */
   fileNameCol: string;
+  /** Per-row only: name of the zip archive */
   zipFileName: string;
   /** Per-row only: skip rows where the filename column is null/empty */
   skipNullNames: boolean;
-  /**
-   * XML only: column whose value is already-formatted XML and should be written
-   * directly as the file content instead of generating XML from all columns.
-   * Empty string = generate XML from all visible columns (legacy behaviour).
-   */
-  xmlCol: string;
-  /**
-   * XML only: when xmlCol is set, wrap the raw value in a root element.
-   * Default false — the raw column value is written verbatim.
-   */
-  xmlWrap: boolean;
+}
+
+/** Result of a pre-export XML heuristic validation scan */
+export interface XmlValidationResult {
+  invalidCount: number;
+  totalScanned: number;
+  /** Up to 3 sample row numbers (1-based) that failed */
+  sampleRows: number[];
+  /** True if the column name could not be found in the worker's index */
+  columnNotFound?: boolean;
 }

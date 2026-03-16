@@ -26,6 +26,7 @@
 //   EXPORT             { config, visibleCols }
 //   RETYPE             { colTypes }
 //   GET_FILTER_VALUES  { columns: string[] }   ← NEW: returns full distinct values
+//   VALIDATE_XML       { visibleCol: string }   ← heuristic XML scan on selected rows
 //   RESET
 //
 // Worker → Main messages:
@@ -38,6 +39,7 @@
 //                       clampedPage, allFilteredIds: Int32Array (transferable),
 //                       allFilteredSelected, selectedCount }
 //   FILTER_VALUES     { values: Record<string, string[]> }   ← NEW
+//   XML_VALIDATION    { invalidCount, totalScanned, sampleRows }
 //   RETYPE_DONE
 //   EXPORT_DONE       { kind, url?, fileName?, files?, description }
 //   EXPORT_ERROR      { message }
@@ -78,7 +80,6 @@ let storedLargeCSVBuffer: ArrayBuffer | null = null;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 50;
-const ZIP_THRESHOLD = 5;
 // Smaller chunk size — yields to event loop more often on low-spec machines
 const CHUNK_SIZE = 2_000;
 // Initial column capacity — smaller than before to avoid over-allocation.
@@ -1066,10 +1067,8 @@ function buildFileBytes(
 ): Uint8Array | string {
   const safeData = Array.isArray(data) ? data : [];
   if (format === "xml") {
-    // XML export: data rows already contain only the xmlCol value under key "__xml"
-    // (projected by the EXPORT handler). Each row's value is written verbatim.
-    // If xmlWrap is set, each value is wrapped in <export>...</export>.
-    // This is handled upstream — buildFileBytes just joins the values.
+    // XML export: each row contains only the single visible column's value
+    // under key "__xml", projected verbatim by the EXPORT handler.
     const lines: string[] = [];
     for (const r of safeData) {
       const val = String(r["__xml"] ?? "").trim();
@@ -1105,6 +1104,29 @@ function buildBlob(data: Record<string, unknown>[], format: string): Blob {
     });
   }
   return new Blob([bytes as string], { type: "text/plain" });
+}
+
+// ── XML heuristic validator ───────────────────────────────────────────────────
+// Lightweight well-formedness check — no DOM allocation, no per-call GC pressure.
+// Catches the most common issues: missing root tag, unescaped &, mismatched tags.
+// Returns true if the value looks like valid XML, false otherwise.
+function looksLikeValidXml(val: string): boolean {
+  const v = val.trim();
+  if (!v) return false;
+  // Must start with < and end with >
+  if (!v.startsWith("<") || !v.endsWith(">")) return false;
+  // Unescaped & not followed by valid entity reference is illegal XML —
+  // check this before the self-closing shortcut so it applies everywhere.
+  if (/&(?![a-zA-Z#][a-zA-Z0-9#]*;)/.test(v)) return false;
+  // Self-closing root: <foo/> or <foo attr="x"/>
+  if (/^<[^>]+\/>$/.test(v)) return true;
+  // Extract root tag name (namespace prefix allowed)
+  const openMatch = /^<([A-Za-z_][\w:.-]*)[\s>]/.exec(v);
+  if (!openMatch) return false;
+  const rootTag = openMatch[1];
+  // Must end with </rootTag>
+  if (!v.endsWith(`</${rootTag}>`)) return false;
+  return true;
 }
 
 function resolveName(
@@ -1184,6 +1206,60 @@ self.onmessage = async (e: MessageEvent) => {
       }
     }
     self.postMessage({ type: "RETYPE_DONE" });
+  } else if (msg.type === "VALIDATE_XML") {
+    // Heuristic scan of all selected rows against the single visible XML column.
+    // Runs entirely in the worker — zero main-thread cost, no DOM allocation.
+    const visibleCol: string = (msg.visibleCol ?? "").trim();
+
+    // Primary lookup — exact match (fast path)
+    let ci = colIndex.get(visibleCol) ?? -1;
+
+    // Fallback — case-insensitive + trimmed match in case the column name
+    // has encoding differences between the UI and the worker's colIndex.
+    if (ci < 0) {
+      const lower = visibleCol.toLowerCase();
+      for (const [name, idx] of colIndex.entries()) {
+        if (name.trim().toLowerCase() === lower) {
+          ci = idx;
+          break;
+        }
+      }
+    }
+
+    // If column still not found, report as a lookup error rather than
+    // silently flagging every row as invalid.
+    if (ci < 0) {
+      self.postMessage({
+        type: "XML_VALIDATION",
+        invalidCount: 0,
+        totalScanned: 0,
+        sampleRows: [],
+        columnNotFound: true,
+      });
+      return;
+    }
+
+    const selectedArr: number[] = [];
+    for (let ri = 0; ri < totalRows; ri++) {
+      if (selectedIds.has(ri)) selectedArr.push(ri);
+    }
+    let invalidCount = 0;
+    const sampleRows: number[] = [];
+    for (let i = 0; i < selectedArr.length; i++) {
+      const ri = selectedArr[i];
+      const val = colStore[ci][ri] ?? "";
+      if (!looksLikeValidXml(val)) {
+        invalidCount++;
+        if (sampleRows.length < 3) sampleRows.push(ri + 1); // 1-based for display
+      }
+    }
+    self.postMessage({
+      type: "XML_VALIDATION",
+      invalidCount,
+      totalScanned: selectedArr.length,
+      sampleRows,
+      columnNotFound: false,
+    });
   } else if (msg.type === "EXPORT") {
     try {
       const config = msg.config;
@@ -1191,34 +1267,31 @@ self.onmessage = async (e: MessageEvent) => {
         ? msg.visibleCols
         : [];
 
+      // Collect selected row indices in storage order
       const exportIndices: number[] = [];
       for (let ri = 0; ri < totalRows; ri++) {
         if (selectedIds.has(ri)) exportIndices.push(ri);
       }
 
+      // Per-row: optionally skip rows where the filename column is blank/null
       const isNullName = (row: Record<string, string>) => {
         if (!config.fileNameCol) return false;
         const val = (row[config.fileNameCol] ?? "").trim();
         return !val || /^(null|undefined|n\/a|-)$/i.test(val);
       };
-
       let finalIndices = exportIndices;
       if (config.mode === "per-row" && config.skipNullNames)
         finalIndices = exportIndices.filter((ri) => !isNullName(getRow(ri)));
       const skippedCount = exportIndices.length - finalIndices.length;
 
-      // For XML exports with xmlCol set, project only that column under the
-      // reserved key "__xml" so buildFileBytes can write it verbatim.
-      // For all other formats (and XML without xmlCol) project visible columns normally.
-      const isXmlColMode = config.format === "xml" && !!config.xmlCol;
+      // XML format with a single visible column → write that column's value verbatim.
+      // All other formats (and XML with multiple columns) project visible columns normally.
+      const isXmlMode = config.format === "xml";
 
       const project = (ri: number): Record<string, unknown> => {
         const row = getRow(ri);
-        if (isXmlColMode) {
-          const raw = (row[config.xmlCol] ?? "").trim();
-          // Apply optional wrap — user can toggle a root element around the value
-          const val = config.xmlWrap ? `<export>\n${raw}\n</export>` : raw;
-          return { __xml: val };
+        if (isXmlMode && visCols.length === 1) {
+          return { __xml: (row[visCols[0]] ?? "").trim() };
         }
         return Object.fromEntries(visCols.map((c) => [c, row[c] ?? ""]));
       };
@@ -1232,10 +1305,8 @@ self.onmessage = async (e: MessageEvent) => {
           fileName: `${config.fileName || "export"}.${config.format}`,
           description: `${finalIndices.length} rows saved`,
         });
-      } else if (
-        config.mode === "per-row" &&
-        finalIndices.length > ZIP_THRESHOLD
-      ) {
+      } else {
+        // Per-row mode — always zip regardless of count (no individual-file path)
         const zip = new JSZip();
         const usedNames = new Map<string, number>();
         for (let i = 0; i < finalIndices.length; i++) {
@@ -1244,7 +1315,7 @@ self.onmessage = async (e: MessageEvent) => {
             row,
             config.fileNameCol,
             `row_${i + 1}`
-          ).replace(/[/:*?"<>|]/g, "_");
+          ).replace(/[/:*?"<>|\\]/g, "_");
           const cnt = usedNames.get(safe) ?? 0;
           usedNames.set(safe, cnt + 1);
           zip.file(
@@ -1258,38 +1329,9 @@ self.onmessage = async (e: MessageEvent) => {
           kind: "zip",
           url: URL.createObjectURL(zipBlob),
           fileName: `${config.zipFileName || "export"}.zip`,
-          description: `${finalIndices.length} files zipped${
-            skippedCount > 0 ? ` · ${skippedCount} skipped` : ""
-          }`,
-        });
-      } else {
-        const files: { url: string; fileName: string }[] = [];
-        const usedNames = new Map<string, number>();
-        for (let i = 0; i < finalIndices.length; i++) {
-          const row = getRow(finalIndices[i]);
-          const safe = resolveName(
-            row,
-            config.fileNameCol,
-            `row_${i + 1}`
-          ).replace(/[/:*?"<>|]/g, "_");
-          const cnt = usedNames.get(safe) ?? 0;
-          usedNames.set(safe, cnt + 1);
-          files.push({
-            url: URL.createObjectURL(
-              buildBlob([project(finalIndices[i])], config.format)
-            ),
-            fileName: `${cnt === 0 ? safe : `${safe}_${cnt + 1}`}.${
-              config.format
-            }`,
-          });
-        }
-        self.postMessage({
-          type: "EXPORT_DONE",
-          kind: "files",
-          files,
-          description: `${files.length} files downloading${
-            skippedCount > 0 ? ` · ${skippedCount} skipped` : ""
-          }`,
+          description: `${finalIndices.length} file${
+            finalIndices.length !== 1 ? "s" : ""
+          } zipped${skippedCount > 0 ? ` · ${skippedCount} skipped` : ""}`,
         });
       }
     } catch (err) {
