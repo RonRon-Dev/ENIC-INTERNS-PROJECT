@@ -14,7 +14,12 @@ dist
 dist-ssr
 *.local
 build/*
-src/tests/results/
+
+# Test generated output — keep source files, ignore results only
+src/tests/unit/results/
+src/tests/e2e/results/
+src/tests/e2e/test-results/
+src/tests/node_modules/
 
 # Editor directories and files
 .vscode/*
