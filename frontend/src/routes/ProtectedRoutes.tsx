@@ -1,8 +1,9 @@
 import { useAuth } from "@/auth-context";
-import { UnauthorisedError } from "@/components/errors/403";
 import type { UserRole } from "@/data/schema";
 import { usePagePrivileges } from "@/hooks/use-page-privileges";
+import { notifToast } from "@/lib/notifToast";
 import { Atom } from "lucide-react";
+import { useRef } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
 type ProtectedRouteProps = {
@@ -55,6 +56,7 @@ export function ProtectedRoute({
   // Role check — DB privileges take precedence over toolsData.allowedRoles
   const userRole = user?.roleName?.toLowerCase() as UserRole | undefined;
   const dbRoles = privileges[pathname]; // undefined if page not in DB yet
+  const toastFired = useRef(false)
 
   // Only enforce roles when either DB has an entry or toolsData specified allowedRoles
   if (dbRoles !== undefined || (allowedRoles && allowedRoles.length > 0)) {
@@ -64,7 +66,11 @@ export function ProtectedRoute({
         : allowedRoles!.map((r) => r.toLowerCase() as UserRole);
 
     if (effectiveRoles.length > 0 && (!userRole || !effectiveRoles.includes(userRole))) {
-      return <UnauthorisedError />;
+      if (!toastFired.current) {
+        notifToast({ reason: "403 Unauthorized role" }, "error");
+        toastFired.current = true
+      }
+      return <Navigate to="/home" replace />
     }
   }
 
