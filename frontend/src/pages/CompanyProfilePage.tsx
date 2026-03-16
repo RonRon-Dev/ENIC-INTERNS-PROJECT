@@ -1,12 +1,24 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowRight, ExternalLink, Mail, MapPin, Phone } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
+const formSchema = z.object({
+  firstName: z.string().min(1, 'First name is required.'),
+  lastName: z.string().min(1, 'Last name is required.'),
+  email: z.string().min(1, 'Email is required.').email('Enter a valid email.'),
+  message: z.string().min(10, 'Message must be at least 10 characters.'),
+})
+
+type ContactFormValues = z.infer<typeof formSchema>
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type ContactInfo = { icon: React.ElementType; label: string; value: string }
@@ -250,7 +262,7 @@ function NavBar() {
       if (!el) return
       const obs = new IntersectionObserver(
         ([entry]) => { if (entry.isIntersecting) setActive(id) },
-        { threshold: 0.3 }
+        { threshold: 0.6 }
       )
       obs.observe(el)
       observers.push(obs)
@@ -396,7 +408,7 @@ function HeroSection() {
 
 function ServicesSection() {
   return (
-    <Section id="services" className="bg-muted/10">
+    <Section id="services">
       <div className="flex justify-between items-end mb-14 gap-10 flex-wrap">
         <div>
           <Reveal><Eyebrow>Our Services</Eyebrow></Reveal>
@@ -412,9 +424,9 @@ function ServicesSection() {
       <div className="grid grid-cols-1 md:grid-cols-3 border border-border divide-x divide-border">
         {SERVICES.map((s, i) => (
           <Reveal key={s.num} delay={i * 100}>
-            <div className="group relative p-10 md:p-12 overflow-hidden hover:bg-muted/20 transition-colors duration-300 h-full">
+            <div className="group relative p-10 md:p-12 overflow-hidden hover:bg-muted/20 transition-colors duration-300 h-full bg-white">
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#0e4888] scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
-              <div className="font-serif text-5xl font-bold text-[#0e4888]/10 group-hover:text-[#0e4888]/20 transition-colors leading-none mb-6">
+              <div className="font-serif text-5xl font-bold text-[#0e4888] group-hover:text-[#0e4888]/60 transition-colors leading-none mb-6">
                 {s.num}
               </div>
               <div className="text-[11px] font-medium tracking-[0.15em] uppercase text-black mb-3">{s.name}</div>
@@ -576,36 +588,102 @@ function AboutSection() {
 }
 
 function ContactForm() {
+  const form = useForm<ContactFormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: { firstName: '', lastName: '', email: '', message: '' },
+  })
+
+  const onSubmit = (values: ContactFormValues) => {
+    console.log(values)
+    // TODO: wire up to API / email service
+  }
+
   return (
     <div className="bg-muted/10 border p-10">
       <div className="font-serif text-xl font-semibold text-black mb-7">Send a Message</div>
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] font-medium tracking-[0.12em] uppercase text-black">First Name</label>
-          <Input placeholder="Juan" className="bg-white border-border text-sm font-light rounded-sm h-10" />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] font-medium tracking-[0.12em] uppercase text-black">Last Name</label>
-          <Input placeholder="dela Cruz" className="bg-white border-border text-sm font-light rounded-sm h-10" />
-        </div>
-      </div>
-      <div className="flex flex-col gap-1.5 mb-4">
-        <label className="text-[10px] font-medium tracking-[0.12em] uppercase text-black">Email</label>
-        <Input placeholder="you@company.com" className="bg-white border-border text-sm font-light rounded-sm h-10" />
-      </div>
-      <div className="flex flex-col gap-1.5 mb-6">
-        <label className="text-[10px] font-medium tracking-[0.12em] uppercase text-black">Message</label>
-        <Textarea
-          placeholder="Tell us about your project or inquiry..."
-          className="bg-white border-border text-sm font-light rounded-sm min-h-[110px] resize-none"
-        />
-      </div>
-      <Button className="w-full bg-[#0e4888] hover:bg-[#1a5fa0] text-white text-[11px] font-medium tracking-[0.1em] uppercase rounded-sm h-11">
-        Send Message
-      </Button>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="firstName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-[10px] font-medium tracking-[0.12em] uppercase text-black">
+                    First Name
+                  </FormLabel>
+                  <FormControl>
+                    <Input placeholder="Juan" className="rounded-sm h-10 text-black bg-white" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="lastName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-[10px] font-medium tracking-[0.12em] uppercase text-black">
+                    Last Name
+                  </FormLabel>
+                  <FormControl>
+                    <Input placeholder="dela Cruz" className="rounded-sm h-10 text-black bg-white" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-[10px] font-medium tracking-[0.12em] uppercase text-black">
+                  Email
+                </FormLabel>
+                <FormControl>
+                  <Input placeholder="you@company.com" className="rounded-sm h-10 text-black bg-white" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="message"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-[10px] font-medium tracking-[0.12em] uppercase text-black">
+                  Message
+                </FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Tell us about your project or inquiry..."
+                    className="rounded-sm min-h-[110px] resize-none text-black bg-white"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <Button
+            type="submit"
+            className="w-full bg-[#0e4888] hover:bg-[#1a5fa0] text-white text-[11px] font-medium tracking-[0.1em] uppercase rounded-sm h-11"
+          >
+            Send Message
+          </Button>
+        </form>
+      </Form>
     </div>
   )
 }
+
 
 function ContactSection() {
   return (
@@ -637,7 +715,7 @@ function ContactSection() {
 
 function FooterSection() {
   return (
-    <footer className="px-16 py-8 border-t border-border flex flex-col items-center justify-between flex-wrap bg-muted/5">
+    <footer className="px-16 py-8 flex flex-col items-center gap-2 justify-between flex-wrap bg-[#0e4888]">
       {/* <div className="font-serif text-sm font-medium text-black">
         Eurolink <span className="text-[#0e4888]">Network</span> International Corporation
       </div> */}
@@ -646,13 +724,13 @@ function FooterSection() {
           <a
             key={l}
             href="#"
-            className="text-[10px] tracking-[0.1em] uppercase text-black/40 hover:text-black/70 transition-colors"
+            className="text-xs tracking-[0.1em] uppercase text-white hover:text-white/80 transition-colors"
           >
             {l}
           </a>
         ))}
       </div>
-      <div className="text-[11px] text-black/30">
+      <div className="text-[10px] text-white/80">
         © 2026 Eurolink Network International Corporation
       </div>
     </footer>
@@ -664,6 +742,7 @@ function FooterSection() {
 export default function EurolinkPage() {
   return (
     <div className="bg-white">
+      <title>Eurolink Network International Corporation</title>
       <div >
         <NavBar />
         <HeroSection />
