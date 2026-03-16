@@ -12,6 +12,11 @@
 //   - selectedIds Set removed from main thread — selection UI driven by
 //     selectedCount + allFilteredSelected from worker (authoritative)
 //   - clearAllFilters now exported (was already in hook, not wired to UI)
+//   - BUG FIX 3: track pending blob URLs and flush them in resetData
+//   - BUG FIX 4: worker.onerror now resets isExporting
+//   - BUG FIX 5: exportError state exposed so ExportDialog can avoid
+//                auto-closing on failure
+//   - BUG FIX 2: per-row multi-file downloads staggered to avoid browser blocking
 
 import type {
   ActiveFilters,
@@ -36,6 +41,9 @@ const FILE_SIZE_WARN_MB = 20;
 const SEARCH_DEBOUNCE_MS = 500;
 // 30s revoke delay — blob needs to stay alive until browser queues the download
 const REVOKE_DELAY_MS = 30_000;
+// Stagger delay between individual file downloads (per-row mode, ≤ ZIP_THRESHOLD)
+// Browsers block simultaneous programmatic clicks; 200ms gap is enough.
+const MULTI_DOWNLOAD_STAGGER_MS = 200;
 
 interface QueryMsg {
   type: "QUERY";
@@ -78,6 +86,9 @@ export function useSpreadsheetData() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isFiltering, setIsFiltering] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  // BUG FIX 5: track whether the last export ended in an error so ExportDialog
+  // can distinguish success (auto-close) from failure (stay open for the toast).
+  const [exportError, setExportError] = useState(false);
 
   const [pagedRows, setPagedRows] = useState<Row[]>([]);
   const [processedCount, setProcessedCount] = useState(0);
@@ -101,6 +112,11 @@ export function useSpreadsheetData() {
   // Last allFilteredIds from worker (Int32Array) — used for SELECT all/deselect
   const lastFilteredIdsRef = useRef<Int32Array | null>(null);
   const lastQueryRef = useRef<QueryMsg | null>(null);
+
+  // BUG FIX 3: track all blob URLs created by EXPORT_DONE so they can be
+  // revoked eagerly in resetData, preventing session-long memory leaks when
+  // the user clears data before the 30s revoke timers fire.
+  const pendingBlobsRef = useRef<string[]>([]);
 
   // ── Spawn worker ────────────────────────────────────────────────────────────
   const spawnWorker = useCallback(() => {
@@ -200,36 +216,60 @@ export function useSpreadsheetData() {
         }
       } else if (msg.type === "EXPORT_DONE") {
         setIsExporting(false);
+        setExportError(false); // BUG FIX 5: clear error flag on success
         const { kind, url, fileName: dlName, files, description } = msg;
         if (kind === "file" || kind === "zip") {
+          // BUG FIX 3: register blob URL for potential early cleanup
+          pendingBlobsRef.current.push(url as string);
           const a = document.createElement("a");
           a.href = url;
           a.download = dlName;
           a.click();
-          setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
+          setTimeout(() => {
+            URL.revokeObjectURL(url);
+            pendingBlobsRef.current = pendingBlobsRef.current.filter(
+              (u) => u !== url
+            );
+          }, REVOKE_DELAY_MS);
           toast.success("Export complete", { description });
         } else if (kind === "files") {
-          for (const f of files as { url: string; fileName: string }[]) {
-            const a = document.createElement("a");
-            a.href = f.url;
-            a.download = f.fileName;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(f.url), REVOKE_DELAY_MS);
-          }
+          // BUG FIX 2: stagger individual file downloads so browsers don't
+          // block all but the first simultaneous programmatic click.
+          // BUG FIX 3: register each blob URL for potential early cleanup.
+          const fileList = files as { url: string; fileName: string }[];
+          fileList.forEach((f) => pendingBlobsRef.current.push(f.url));
+          fileList.forEach((f, i) => {
+            setTimeout(() => {
+              const a = document.createElement("a");
+              a.href = f.url;
+              a.download = f.fileName;
+              a.click();
+              setTimeout(() => {
+                URL.revokeObjectURL(f.url);
+                pendingBlobsRef.current = pendingBlobsRef.current.filter(
+                  (u) => u !== f.url
+                );
+              }, REVOKE_DELAY_MS);
+            }, i * MULTI_DOWNLOAD_STAGGER_MS);
+          });
           toast.success("Export complete", { description });
         }
       } else if (msg.type === "EXPORT_ERROR") {
         setIsExporting(false);
+        setExportError(true); // BUG FIX 5: mark error so dialog stays open
         toast.error("Export failed", { description: msg.message as string });
       } else if (msg.type === "ERROR") {
         setIsLoading(false);
         setIsExporting(false);
+        setExportError(true); // BUG FIX 5
         toast.error("Worker error", { description: msg.message as string });
       }
     };
 
     worker.onerror = (err) => {
       setIsLoading(false);
+      setIsExporting(false); // BUG FIX 4: reset export spinner on worker crash
+      setExportError(true);  // BUG FIX 5
       toast.error("Worker crashed", { description: err.message });
     };
 
@@ -483,6 +523,7 @@ export function useSpreadsheetData() {
     (config: ExportConfig, visibleCols: string[]) => {
       if (!workerRef.current) return;
       setIsExporting(true);
+      setExportError(false); // clear any previous error before starting
       workerRef.current.postMessage({ type: "EXPORT", config, visibleCols });
     },
     []
@@ -495,7 +536,19 @@ export function useSpreadsheetData() {
     workerRef.current = null;
     lastFilteredIdsRef.current = null;
     lastQueryRef.current = null;
+
+    // BUG FIX 3: revoke any blob URLs that haven't been cleaned up yet,
+    // preventing session-long memory leaks when resetData is called before
+    // the 30s revoke timers fire (e.g. user uploads a new file immediately).
+    for (const u of pendingBlobsRef.current) {
+      try {
+        URL.revokeObjectURL(u);
+      } catch { /* empty */ }
+    }
+    pendingBlobsRef.current = [];
+
     setIsExporting(false);
+    setExportError(false);
     setColumns([]);
     setColVisibility({});
     setColTypesState({});
@@ -526,6 +579,13 @@ export function useSpreadsheetData() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       workerRef.current?.terminate();
+      // BUG FIX 3: also revoke blobs on unmount
+      for (const u of pendingBlobsRef.current) {
+        try {
+          URL.revokeObjectURL(u);
+        } catch { /* empty */ }
+      }
+      pendingBlobsRef.current = [];
     };
   }, []);
 
@@ -592,6 +652,7 @@ export function useSpreadsheetData() {
     setRowsReady,
     parseFile,
     isExporting,
+    exportError, // BUG FIX 5: exposed so ExportDialog can gate auto-close on success only
     handleExport,
     resetData,
   };

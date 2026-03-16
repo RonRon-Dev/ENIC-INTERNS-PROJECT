@@ -22,7 +22,9 @@ import {
 } from "lucide-react";
 import React, { useState } from "react";
 
-const ZIP_THRESHOLD = 5;
+// BUG FIX 1: Import ZIP_THRESHOLD from the hook so it stays in sync with the
+// worker threshold. Previously a local const ZIP_THRESHOLD = 5 could desync.
+import { ZIP_THRESHOLD } from "@/hooks/useSpreadsheetData";
 
 interface ExportDialogProps {
   open: boolean;
@@ -34,6 +36,9 @@ interface ExportDialogProps {
   allColumns: string[];
   selectedCount: number;
   isExporting?: boolean;
+  /** BUG FIX 5: Signal whether the last export ended in an error, so we
+   *  don't auto-close the dialog on failure (only close on success). */
+  exportError?: boolean;
 }
 
 export function ExportDialog({
@@ -44,10 +49,14 @@ export function ExportDialog({
   allColumns,
   selectedCount,
   isExporting = false,
+  exportError = false,
 }: ExportDialogProps) {
-  const today = new Date().toISOString().slice(0, 10);
-  const makeFileName = (format: ExportFormat, mode: ExportMode) =>
-    `exported-${format}-${mode}_${today}`;
+  // BUG FIX 8: Compute today lazily inside makeFileName so it doesn't capture
+  // a stale date if the dialog is left open past midnight.
+  const makeFileName = (format: ExportFormat, mode: ExportMode) => {
+    const today = new Date().toISOString().slice(0, 10);
+    return `exported-${format}-${mode}_${today}`;
+  };
 
   const [config, setConfig] = useState<ExportConfig>({
     format: "xlsx",
@@ -84,12 +93,13 @@ export function ExportDialog({
         fileNameCol: allColumnsRef.current[0] ?? "",
         zipFileName: newName,
         skipNullNames: false,
+        // BUG FIX 6: Always clear xmlCol on open so switching away from XML
+        // format and back doesn't leave a stale column reference active.
         xmlCol: "",
         xmlWrap: false,
       });
     }
     prevOpenRef.current = open;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Auto-update fileName and zipFileName when format or mode changes.
@@ -106,21 +116,26 @@ export function ExportDialog({
         ...prev,
         fileName: newName,
         zipFileName: newName,
+        // BUG FIX 6: Clear xmlCol when switching away from XML format so a
+        // stale column selection doesn't persist and confuse the worker.
+        xmlCol: config.format !== "xml" ? "" : prev.xmlCol,
+        xmlWrap: config.format !== "xml" ? false : prev.xmlWrap,
       }));
       prevFormatRef.current = config.format;
       prevModeRef.current = config.mode;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.format, config.mode]);
 
-  // Close dialog automatically when export finishes
+  // BUG FIX 5: Only auto-close the dialog when export completes successfully.
+  // Previously this effect fired on EXPORT_ERROR too (isExporting flips to
+  // false in both cases), closing the dialog before the user saw the toast.
   const prevExportingRef = React.useRef(false);
   React.useEffect(() => {
-    if (prevExportingRef.current && !isExporting) {
+    if (prevExportingRef.current && !isExporting && !exportError) {
       onClose();
     }
     prevExportingRef.current = isExporting;
-  }, [isExporting, onClose]);
+  }, [isExporting, exportError, onClose]);
 
   const set = <K extends keyof ExportConfig>(key: K, val: ExportConfig[K]) =>
     setConfig((prev) => ({ ...prev, [key]: val }));
@@ -159,6 +174,12 @@ export function ExportDialog({
 
   const isPerRow = config.mode === "per-row";
   const isXml = config.format === "xml";
+
+  // BUG FIX 2: Warn in the UI when per-row mode with ≤ ZIP_THRESHOLD rows
+  // will trigger individual file downloads (which browsers may block after
+  // the first). We surface a note so users know to expect this.
+  const willTriggerMultiDownload =
+    isPerRow && selectedCount > 1 && selectedCount <= ZIP_THRESHOLD;
 
   return (
     <Dialog open={open} onOpenChange={(v: boolean) => !v && onClose()}>
@@ -219,7 +240,9 @@ export function ExportDialog({
                     ? "All rows in one file"
                     : selectedCount > ZIP_THRESHOLD
                     ? "Bundled as .zip"
-                    : `${selectedCount} individual files`;
+                    : `${selectedCount} individual file${
+                        selectedCount !== 1 ? "s" : ""
+                      }`;
                 return (
                   <button
                     key={value}
@@ -257,6 +280,16 @@ export function ExportDialog({
                 );
               })}
             </div>
+
+            {/* BUG FIX 2: Warn user that ≤ ZIP_THRESHOLD files are downloaded
+                individually — some browsers may block simultaneous downloads. */}
+            {willTriggerMultiDownload && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                {selectedCount} files will download individually. If your
+                browser blocks them, allow multiple downloads for this site or
+                select more than {ZIP_THRESHOLD} rows to get a zip instead.
+              </p>
+            )}
           </div>
 
           {/* Single file name */}
@@ -282,7 +315,7 @@ export function ExportDialog({
             </div>
           )}
 
-          {/* XML options — shown whenever format is XML */}
+          {/* XML options — shown only when format is XML */}
           {isXml && (
             <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/20 px-3 py-3">
               <div className="flex flex-col gap-1">
@@ -361,9 +394,6 @@ export function ExportDialog({
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-muted-foreground/50">
-                  Each file will be named after the value in this column.
-                </p>
               </div>
 
               {/* Skip null names toggle */}
@@ -373,14 +403,16 @@ export function ExportDialog({
               >
                 <div>
                   <p className="text-xs font-medium text-foreground">
-                    Skip empty names
+                    Skip rows with empty name
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    Rows with null or empty file name values are skipped
+                    {config.skipNullNames
+                      ? "Rows where the filename column is blank or null will be skipped"
+                      : "All rows exported — blank names fall back to row number"}
                   </p>
                 </div>
                 <div
-                  className={`relative h-4 w-7 rounded-full transition-colors duration-200 ${
+                  className={`relative shrink-0 h-4 w-7 rounded-full transition-colors duration-200 ${
                     config.skipNullNames ? "bg-primary" : "bg-border"
                   }`}
                 >

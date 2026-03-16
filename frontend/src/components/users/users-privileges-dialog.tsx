@@ -373,7 +373,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
           {/* ── By Page tab ── */}
           <TabsContent
             value="pages"
-            className="flex flex-1 overflow-hidden mt-0"
+            className="flex flex-1 overflow-hidden mt-0 max-h-[600px]"
           >
             <ScrollArea className="w-2/5 border-r">
               <div className="p-2 space-y-0.5">
@@ -382,10 +382,10 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                   const hasChildren = cat.children.length > 0;
                   const catEntry: PageEntry | null = cat.url
                     ? {
-                        title: cat.title,
-                        url: cat.url,
-                        allowedRoles: cat.allowedRoles,
-                      }
+                      title: cat.title,
+                      url: cat.url,
+                      allowedRoles: cat.allowedRoles,
+                    }
                     : null;
 
                   return (
@@ -482,8 +482,8 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                                     field.value && !isHome
                                       ? "bg-primary border-primary"
                                       : field.value && isHome
-                                      ? "bg-warning/40 border-warning/40"
-                                      : "border-muted-foreground/30"
+                                        ? "bg-warning/40 border-warning/40"
+                                        : "border-muted-foreground/30"
                                   )}
                                 >
                                   {field.value && (
@@ -541,8 +541,8 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                                         field.onChange(
                                           checked
                                             ? field.value.filter(
-                                                (r) => r !== value
-                                              )
+                                              (r) => r !== value
+                                            )
                                             : [...field.value, value]
                                         );
                                       }}
@@ -553,8 +553,8 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                                           checked && !isHome
                                             ? "bg-primary border-primary"
                                             : checked && isHome
-                                            ? "bg-primary/40 border-primary/40"
-                                            : "border-muted-foreground/30"
+                                              ? "bg-primary/40 border-primary/40"
+                                              : "border-muted-foreground/30"
                                         )}
                                       >
                                         {checked && (
@@ -684,8 +684,8 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                                           field.onChange(
                                             current.includes(value)
                                               ? current.filter(
-                                                  (r) => r !== value
-                                                )
+                                                (r) => r !== value
+                                              )
                                               : [...current, value]
                                           );
                                         }}
