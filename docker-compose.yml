@@ -53,13 +53,13 @@ services:
     build:
       context: ./backend
       target: production
-    image: enic_mis_api:beta-v0.0.1
+    image: enic_mis_api:${APP_VERSION}
     profiles: ["prod"]
     container_name: aspnet-api-prod
     volumes:
       - dataprotection-keys:/root/.aspnet/DataProtection-Keys
     environment:
-      APP_VERSION: beta-v0.0.1
+      APP_VERSION: ${APP_VERSION}
       ASPNETCORE_URLS: "http://+:8080"
       ASPNETCORE_ENVIRONMENT: Production
 
@@ -67,13 +67,15 @@ services:
     build:
       context: ./frontend
       target: production
-    image: enic_mis_client:beta-v0.0.1
+    image: enic_mis_client:${APP_VERSION}
     profiles: ["prod"]
     container_name: react-frontend-prod
     ports:
       - "8000:80"
     stdin_open: true
     tty: true
+    environment:
+      - VITE_APP_VERSION=${APP_VERSION}
 
 volumes:
   mssql-data:
