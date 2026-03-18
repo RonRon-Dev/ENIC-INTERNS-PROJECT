@@ -7,12 +7,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type {
   ExportConfig,
   ExportFormat,
   ExportMode,
+  XmlValidationResult,
 } from "@/types/spreadsheet";
 import {
+  AlertTriangle,
+  CheckCircle2,
   Download,
   FileDown,
   FileText,
@@ -21,38 +31,38 @@ import {
   Table2,
 } from "lucide-react";
 import React, { useState } from "react";
-
-// BUG FIX 1: Import ZIP_THRESHOLD from the hook so it stays in sync with the
-// worker threshold. Previously a local const ZIP_THRESHOLD = 5 could desync.
-import { ZIP_THRESHOLD } from "@/hooks/useSpreadsheetData";
+import { toast } from "sonner";
 
 interface ExportDialogProps {
   open: boolean;
   onClose: () => void;
   onExport: (config: ExportConfig, visibleCols: string[]) => void;
+  onValidateXml: (visibleCol: string) => void;
   /** Visible (export) columns — what gets written into the file */
   columns: string[];
   /** All columns from the file — used for the per-row filename picker only */
   allColumns: string[];
   selectedCount: number;
   isExporting?: boolean;
-  /** BUG FIX 5: Signal whether the last export ended in an error, so we
-   *  don't auto-close the dialog on failure (only close on success). */
+  isValidating?: boolean;
   exportError?: boolean;
+  xmlValidation?: XmlValidationResult | null;
 }
 
 export function ExportDialog({
   open,
   onClose,
   onExport,
+  onValidateXml,
   columns,
   allColumns,
   selectedCount,
   isExporting = false,
+  isValidating = false,
   exportError = false,
+  xmlValidation = null,
 }: ExportDialogProps) {
-  // BUG FIX 8: Compute today lazily inside makeFileName so it doesn't capture
-  // a stale date if the dialog is left open past midnight.
+  // Compute today lazily so a dialog left open past midnight still gets the right date.
   const makeFileName = (format: ExportFormat, mode: ExportMode) => {
     const today = new Date().toISOString().slice(0, 10);
     return `exported-${format}-${mode}_${today}`;
@@ -65,12 +75,11 @@ export function ExportDialog({
     fileNameCol: allColumns[0] ?? "",
     zipFileName: makeFileName("xlsx", "single"),
     skipNullNames: false,
-    xmlCol: "",
-    xmlWrap: false,
   });
 
-  // columnsRef / allColumnsRef always hold the latest prop values so the
-  // open-reset effect can read them without stale closure issues.
+  // Whether the user has acknowledged the XML warning and chosen to proceed
+  const [xmlWarningAcknowledged, setXmlWarningAcknowledged] = useState(false);
+
   const columnsRef = React.useRef(columns);
   React.useEffect(() => {
     columnsRef.current = columns;
@@ -80,8 +89,7 @@ export function ExportDialog({
     allColumnsRef.current = allColumns;
   }, [allColumns]);
 
-  // Reset config each time the dialog opens so stale values (e.g. a
-  // fileNameCol that no longer exists after hiding columns) don't persist.
+  // Reset config and acknowledgement each time the dialog opens
   const prevOpenRef = React.useRef(false);
   React.useEffect(() => {
     if (!prevOpenRef.current && open) {
@@ -93,18 +101,13 @@ export function ExportDialog({
         fileNameCol: allColumnsRef.current[0] ?? "",
         zipFileName: newName,
         skipNullNames: false,
-        // BUG FIX 6: Always clear xmlCol on open so switching away from XML
-        // format and back doesn't leave a stale column reference active.
-        xmlCol: "",
-        xmlWrap: false,
       });
+      setXmlWarningAcknowledged(false);
     }
     prevOpenRef.current = open;
   }, [open]);
 
-  // Auto-update fileName and zipFileName when format or mode changes.
-  // Uses refs to detect changes without adding config to the dep array
-  // (which would cause infinite loops via setConfig).
+  // Auto-update file names when format or mode changes
   const prevFormatRef = React.useRef(config.format);
   const prevModeRef = React.useRef(config.mode);
   React.useEffect(() => {
@@ -112,23 +115,18 @@ export function ExportDialog({
     const modeChanged = prevModeRef.current !== config.mode;
     if (formatChanged || modeChanged) {
       const newName = makeFileName(config.format, config.mode);
-      setConfig((prev) => ({
-        ...prev,
-        fileName: newName,
-        zipFileName: newName,
-        // BUG FIX 6: Clear xmlCol when switching away from XML format so a
-        // stale column selection doesn't persist and confuse the worker.
-        xmlCol: config.format !== "xml" ? "" : prev.xmlCol,
-        xmlWrap: config.format !== "xml" ? false : prev.xmlWrap,
-      }));
+      setConfig((prev) => ({ ...prev, fileName: newName, zipFileName: newName }));
       prevFormatRef.current = config.format;
       prevModeRef.current = config.mode;
     }
   }, [config.format, config.mode]);
 
-  // BUG FIX 5: Only auto-close the dialog when export completes successfully.
-  // Previously this effect fired on EXPORT_ERROR too (isExporting flips to
-  // false in both cases), closing the dialog before the user saw the toast.
+  // Reset XML acknowledgement whenever a new validation result arrives
+  React.useEffect(() => {
+    setXmlWarningAcknowledged(false);
+  }, [xmlValidation]);
+
+  // Auto-close only on successful export completion
   const prevExportingRef = React.useRef(false);
   React.useEffect(() => {
     if (prevExportingRef.current && !isExporting && !exportError) {
@@ -139,6 +137,42 @@ export function ExportDialog({
 
   const set = <K extends keyof ExportConfig>(key: K, val: ExportConfig[K]) =>
     setConfig((prev) => ({ ...prev, [key]: val }));
+
+  // XML is only meaningful when exactly 1 column is visible.
+  // Clicking it with multiple columns fires a toast instead of selecting.
+  const handleFormatClick = (fmt: ExportFormat) => {
+    if (fmt === "xml" && columns.length !== 1) {
+      toast.warning("XML export unavailable", {
+        description:
+          "Hide all columns except your XML column first, then select XML format.",
+      });
+      return;
+    }
+    set("format", fmt);
+  };
+
+  const isPerRow = config.mode === "per-row";
+  const isXml = config.format === "xml";
+  const hasValidationResult = xmlValidation !== null;
+  const hasXmlWarning = hasValidationResult && xmlValidation.invalidCount > 0;
+
+  // Export button is disabled when:
+  // - currently exporting or validating
+  // - per-row mode with no filename column selected
+  // - XML has warnings that haven't been acknowledged
+  const perRowMissingFileName = isPerRow && !config.fileNameCol;
+  const xmlNeedsAck = isXml && hasXmlWarning && !xmlWarningAcknowledged;
+  const canExport =
+    !isExporting && !isValidating && !perRowMissingFileName && !xmlNeedsAck;
+
+  // Two-step for XML: first click validates, second click exports
+  const handleExportClick = () => {
+    if (isXml && !hasValidationResult && !isValidating) {
+      onValidateXml(columns[0] ?? "");
+      return;
+    }
+    onExport(config, columns);
+  };
 
   const formatOptions: {
     value: ExportFormat;
@@ -168,18 +202,9 @@ export function ExportDialog({
       value: "xml",
       label: "XML",
       icon: <FileText className="h-4 w-4" />,
-      desc: "Markup format",
+      desc: columns.length === 1 ? "Single column" : "1 column needed",
     },
   ];
-
-  const isPerRow = config.mode === "per-row";
-  const isXml = config.format === "xml";
-
-  // BUG FIX 2: Warn in the UI when per-row mode with ≤ ZIP_THRESHOLD rows
-  // will trigger individual file downloads (which browsers may block after
-  // the first). We surface a note so users know to expect this.
-  const willTriggerMultiDownload =
-    isPerRow && selectedCount > 1 && selectedCount <= ZIP_THRESHOLD;
 
   return (
     <Dialog open={open} onOpenChange={(v: boolean) => !v && onClose()}>
@@ -190,37 +215,46 @@ export function ExportDialog({
             Export Configuration
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Configure how {selectedCount} selected row
-            {selectedCount !== 1 ? "s" : ""} will be exported.
+            Configure how{" "}
+            <span className="font-medium text-foreground">
+              {selectedCount.toLocaleString()}
+            </span>{" "}
+            selected row{selectedCount !== 1 ? "s" : ""} will be exported.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 py-1">
-          {/* Format */}
+          {/* ── Format ── */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-foreground">
               Format
             </label>
             <div className="grid grid-cols-4 gap-2">
-              {formatOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => set("format", opt.value)}
-                  className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-all ${
-                    config.format === opt.value
-                      ? "border-primary bg-primary/5 text-primary"
-                      : "border-border hover:border-border/80 hover:bg-muted/30 text-muted-foreground"
-                  }`}
-                >
-                  {opt.icon}
-                  <span className="text-xs font-medium">{opt.label}</span>
-                  <span className="text-[10px] opacity-60">{opt.desc}</span>
-                </button>
-              ))}
+              {formatOptions.map((opt) => {
+                const isXmlUnavailable =
+                  opt.value === "xml" && columns.length !== 1;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => handleFormatClick(opt.value)}
+                    className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-all ${
+                      config.format === opt.value
+                        ? "border-primary bg-primary/5 text-primary"
+                        : isXmlUnavailable
+                        ? "border-border text-muted-foreground/40 cursor-pointer"
+                        : "border-border hover:border-border/80 hover:bg-muted/30 text-muted-foreground"
+                    }`}
+                  >
+                    {opt.icon}
+                    <span className="text-xs font-medium">{opt.label}</span>
+                    <span className="text-[10px] opacity-60">{opt.desc}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Mode */}
+          {/* ── Mode ── */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-foreground">
               Export mode
@@ -238,11 +272,7 @@ export function ExportDialog({
                 const desc =
                   value === "single"
                     ? "All rows in one file"
-                    : selectedCount > ZIP_THRESHOLD
-                    ? "Bundled as .zip"
-                    : `${selectedCount} individual file${
-                        selectedCount !== 1 ? "s" : ""
-                      }`;
+                    : "Each row as its own file, bundled in a zip";
                 return (
                   <button
                     key={value}
@@ -280,21 +310,11 @@ export function ExportDialog({
                 );
               })}
             </div>
-
-            {/* BUG FIX 2: Warn user that ≤ ZIP_THRESHOLD files are downloaded
-                individually — some browsers may block simultaneous downloads. */}
-            {willTriggerMultiDownload && (
-              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
-                {selectedCount} files will download individually. If your
-                browser blocks them, allow multiple downloads for this site or
-                select more than {ZIP_THRESHOLD} rows to get a zip instead.
-              </p>
-            )}
           </div>
 
-          {/* Single file name */}
+          {/* ── Single file name ── */}
           {!isPerRow && (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-foreground">
                 File name
               </label>
@@ -309,91 +329,42 @@ export function ExportDialog({
                   .{config.format}
                 </span>
               </div>
-              <p className="text-[11px] text-muted-foreground/50">
-                Auto-generated from format and mode. You can edit this freely.
-              </p>
             </div>
           )}
 
-          {/* XML options — shown only when format is XML */}
-          {isXml && (
-            <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/20 px-3 py-3">
-              <div className="flex flex-col gap-1">
-                <p className="text-xs font-semibold text-foreground">
-                  XML source column
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Select the column that already contains formatted XML. Its
-                  value will be written directly to the file — no additional
-                  wrapping or escaping.
-                </p>
-              </div>
-              <select
-                className="rounded-md border border-border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                value={config.xmlCol}
-                onChange={(e) => set("xmlCol", e.target.value)}
-              >
-                <option value="">— generate XML from all columns —</option>
-                {allColumns.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-
-              {/* Wrap toggle — only relevant when a column is selected */}
-              {config.xmlCol && (
-                <div
-                  className="flex items-center justify-between cursor-pointer"
-                  onClick={() => set("xmlWrap", !config.xmlWrap)}
-                >
-                  <div>
-                    <p className="text-xs font-medium text-foreground">
-                      Wrap in root element
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {config.xmlWrap
-                        ? "Each file will be wrapped in <export>…</export>"
-                        : "Raw column value written verbatim — no wrapper added"}
-                    </p>
-                  </div>
-                  <div
-                    className={`relative shrink-0 h-4 w-7 rounded-full transition-colors duration-200 ${
-                      config.xmlWrap ? "bg-primary" : "bg-border"
-                    }`}
-                  >
-                    <div
-                      className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform duration-200 ${
-                        config.xmlWrap ? "translate-x-3.5" : "translate-x-0.5"
-                      }`}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Per-row options */}
+          {/* ── Per-row options ── */}
           {isPerRow && (
             <div className="flex flex-col gap-3">
-              {/* File name column */}
+              {/* Filename column — shadcn Select matching ColumnDialog's type selector style */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-foreground">
-                  File name column
+                  Filename column{" "}
+                  <span className="text-destructive">*</span>
                 </label>
-                <select
-                  className="rounded-md border border-border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                <Select
                   value={config.fileNameCol}
-                  onChange={(e) => set("fileNameCol", e.target.value)}
+                  onValueChange={(val) => set("fileNameCol", val)}
                 >
-                  <option value="">— use row number —</option>
-                  {allColumns.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                      {columns.includes(c) ? "" : " (hidden)"}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="— select a column —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allColumns.map((c) => (
+                      <SelectItem key={c} value={c} className="text-xs">
+                        {c}
+                        {!columns.includes(c) && (
+                          <span className="ml-1 text-muted-foreground/50">
+                            (hidden)
+                          </span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground/60">
+                  Each row's file will be named after this column's value.
+                  Blank values fall back to row number.
+                </p>
               </div>
 
               {/* Skip null names toggle */}
@@ -407,8 +378,8 @@ export function ExportDialog({
                   </p>
                   <p className="text-[11px] text-muted-foreground">
                     {config.skipNullNames
-                      ? "Rows where the filename column is blank or null will be skipped"
-                      : "All rows exported — blank names fall back to row number"}
+                      ? "Rows where the filename column is blank will be skipped"
+                      : "Blank names fall back to row number"}
                   </p>
                 </div>
                 <div
@@ -426,31 +397,83 @@ export function ExportDialog({
                 </div>
               </div>
 
-              {/* Zip file name — only when count exceeds threshold */}
-              {selectedCount > ZIP_THRESHOLD && (
-                <div className="flex flex-col gap-2 pt-2 mt-1 border-t border-border">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-                      {selectedCount} files
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      · will be bundled into a zip
-                    </span>
-                  </div>
-                  <label className="text-xs font-medium text-foreground">
-                    Zip file name
+              {/* Zip file name */}
+              <div className="flex flex-col gap-1.5 pt-2 border-t border-border">
+                <label className="text-xs font-medium text-foreground">
+                  Zip file name
+                </label>
+                <div className="flex items-center">
+                  <input
+                    className="flex-1 rounded-l-md border border-border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={config.zipFileName}
+                    onChange={(e) => set("zipFileName", e.target.value)}
+                    placeholder={makeFileName(config.format, config.mode)}
+                  />
+                  <span className="rounded-r-md border border-l-0 border-border bg-muted px-3 py-1.5 text-xs text-muted-foreground">
+                    .zip
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── XML validation result panel ── */}
+          {isXml && hasValidationResult && (
+            <div
+              className={`rounded-lg border px-3 py-3 flex flex-col gap-2 ${
+                hasXmlWarning
+                  ? "border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30"
+                  : "border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-950/30"
+              }`}
+            >
+              <div className="flex items-start gap-2">
+                {hasXmlWarning ? (
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+                )}
+                <div className="flex flex-col gap-0.5">
+                  {hasXmlWarning ? (
+                    <>
+                      <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                        {xmlValidation.invalidCount.toLocaleString()} of{" "}
+                        {xmlValidation.totalScanned.toLocaleString()} rows may
+                        have invalid XML
+                      </p>
+                      <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80">
+                        Sample row
+                        {xmlValidation.sampleRows.length > 1 ? "s" : ""}:{" "}
+                        {xmlValidation.sampleRows.join(", ")}. These files may
+                        be malformed.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs font-semibold text-green-700 dark:text-green-300">
+                      All {xmlValidation.totalScanned.toLocaleString()} rows
+                      passed the XML check
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Acknowledgement checkbox — only shown when there are warnings */}
+              {hasXmlWarning && (
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    id="xml-ack"
+                    type="checkbox"
+                    checked={xmlWarningAcknowledged}
+                    onChange={(e) =>
+                      setXmlWarningAcknowledged(e.target.checked)
+                    }
+                    className="h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
+                  />
+                  <label
+                    htmlFor="xml-ack"
+                    className="text-[11px] text-amber-700 dark:text-amber-300 cursor-pointer select-none"
+                  >
+                    I understand, export anyway
                   </label>
-                  <div className="flex items-center">
-                    <input
-                      className="flex-1 rounded-l-md border border-border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                      value={config.zipFileName}
-                      onChange={(e) => set("zipFileName", e.target.value)}
-                      placeholder={makeFileName(config.format, config.mode)}
-                    />
-                    <span className="rounded-r-md border border-l-0 border-border bg-muted px-3 py-1.5 text-xs text-muted-foreground">
-                      .zip
-                    </span>
-                  </div>
                 </div>
               )}
             </div>
@@ -462,24 +485,38 @@ export function ExportDialog({
             variant="outline"
             size="sm"
             onClick={onClose}
-            disabled={isExporting}
+            disabled={isExporting || isValidating}
           >
             Cancel
           </Button>
           <Button
             size="sm"
-            className="gap-1.5"
-            disabled={isExporting}
-            onClick={() => onExport(config, columns)}
+            className="gap-1.5 min-w-[130px]"
+            disabled={!canExport}
+            onClick={handleExportClick}
           >
             {isExporting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Exporting…
+              </>
+            ) : isValidating ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Validating…
+              </>
+            ) : isXml && !hasValidationResult ? (
+              <>
+                <Download className="h-3.5 w-3.5" />
+                Validate & Export
+              </>
             ) : (
-              <Download className="h-3.5 w-3.5" />
+              <>
+                <Download className="h-3.5 w-3.5" />
+                Export {selectedCount.toLocaleString()} row
+                {selectedCount !== 1 ? "s" : ""}
+              </>
             )}
-            {isExporting
-              ? "Exporting…"
-              : `Export ${selectedCount} row${selectedCount !== 1 ? "s" : ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>
