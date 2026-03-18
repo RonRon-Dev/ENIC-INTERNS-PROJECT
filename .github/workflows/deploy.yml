@@ -10,9 +10,12 @@ on:
       - '.github/**'
 
 jobs:
-  deploy:
+  version-bump:
     runs-on: [self-hosted, windows]
     environment: production
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      skip: ${{ steps.bump.outputs.skip }}
 
     steps:
       - name: Checkout Code
@@ -20,15 +23,6 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
-
-
-      - name: Restore appsettings.Production.json  # ← right after checkout
-        shell: powershell
-        run: |
-          Copy-Item -Path "C:\Users\Ron\Desktop\secrets\appsettings.json" `
-                    -Destination "${{ github.workspace }}\backend\appsettings.json" `
-                    -Force
-          Write-Host "appsettings.json restored"
 
       - name: Determine version bump
         id: bump
@@ -72,37 +66,90 @@ jobs:
           git commit -m "chore: bump version to beta-v${{ steps.version.outputs.version }}"
           git push origin main
 
+  prepare:
+    needs: version-bump
+    if: needs.version-bump.outputs.skip != 'true'
+    runs-on: [self-hosted, windows]
+    environment: production
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Restore appsettings.json
+        shell: powershell
+        run: |
+          Copy-Item -Path "C:\Users\Ron\Desktop\secrets\appsettings.json" `
+                    -Destination "${{ github.workspace }}\backend\appsettings.json" `
+                    -Force
+          Write-Host "appsettings.json restored"
+
       - name: Generate .env.prod
-        if: steps.bump.outputs.skip != 'true'
         shell: powershell
         run: |
-          "APP_VERSION=beta-v${{ steps.version.outputs.version }}" | Out-File .env.prod -Encoding utf8
+          "APP_VERSION=beta-v${{ needs.version-bump.outputs.version }}" | Out-File .env.prod -Encoding utf8
+          Write-Host ".env.prod generated"
 
-      - name: Deploy
-        if: steps.bump.outputs.skip != 'true'
+  deploy:
+    needs: [version-bump, prepare]
+    if: needs.version-bump.outputs.skip != 'true'
+    runs-on: [self-hosted, windows]
+    environment: production
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Restore appsettings.json
         shell: powershell
         run: |
-          Write-Host "Starting deployment..."
+          Copy-Item -Path "C:\Users\Ron\Desktop\secrets\appsettings.json" `
+                    -Destination "${{ github.workspace }}\backend\appsettings.json" `
+                    -Force
 
+      - name: Generate .env.prod
+        shell: powershell
+        run: |
+          "APP_VERSION=beta-v${{ needs.version-bump.outputs.version }}" | Out-File .env.prod -Encoding utf8
+
+      - name: Build images
+        shell: powershell
+        run: |
           Write-Host "Building new images..."
           docker compose --env-file .env.prod --profile prod build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Switch containers
+        shell: powershell
+        run: |
           Write-Host "Switching to new containers..."
           docker compose --env-file .env.prod --profile prod up -d
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Cleanup
+        shell: powershell
+        run: |
           Write-Host "Cleaning up old images..."
           docker image prune -f
 
-          Write-Host "Successfully deployed beta-v${{ steps.version.outputs.version }}"
+  notify:
+    needs: [version-bump, deploy]
+    if: always() && needs.version-bump.outputs.skip != 'true'
+    runs-on: [self-hosted, windows]
 
+    steps:
       - name: Notify success
-        if: success() && steps.bump.outputs.skip != 'true'
+        if: needs.deploy.result == 'success'
         shell: powershell
-        run: Write-Host "Deployed beta-v${{ steps.version.outputs.version }}"
+        run: Write-Host "Successfully deployed beta-v${{ needs.version-bump.outputs.version }}"
 
       - name: Notify failure
-        if: failure()
+        if: needs.deploy.result == 'failure'
         shell: powershell
         run: Write-Host "Deployment failed for commit ${{ github.sha }}"
