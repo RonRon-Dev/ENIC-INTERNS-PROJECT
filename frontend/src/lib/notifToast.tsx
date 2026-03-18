@@ -101,7 +101,7 @@ const modeConfig: Record<
     title: "Warning",
     description: ({ reason }) => reason ?? "Please check the information provided.",
     icon: ShieldOff,
-    iconClass: "text-amber-600 bg-amber-400/20",
+    iconClass: "text-amber-600 bg-amber-400/50",
   },
   updateprivileges: {
     title: "Privilege Updated",
