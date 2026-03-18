@@ -1,144 +1,85 @@
-import { useLocation, useNavigate } from "react-router-dom";
-import { toolsData } from "@/data/tools";
-import {
-  Construction,
-  ArrowLeft,
-  Clock4,
-  Wrench,
-  GitBranch,
-} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { ArrowLeft, HardHat, Home } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 
-function resolvePageMeta(pathname: string): {
-  title: string;
-  description: string;
-  parentTitle?: string;
-  icon?: React.ElementType;
-} {
-  for (const tool of toolsData) {
-    if (tool.url && tool.url === pathname) {
-      return {
-        title: tool.title,
-        description: tool.description ?? "",
-        icon: tool.icon,
-      };
-    }
-    if (tool.subtools) {
-      for (const sub of tool.subtools) {
-        if (sub.url === pathname) {
-          return {
-            title: sub.title,
-            description: sub.description ?? tool.description ?? "",
-            parentTitle: tool.title,
-            icon: tool.icon,
-          };
-        }
-      }
-    }
-  }
-  const segment = pathname.split("/").filter(Boolean).pop() ?? "page";
-  return {
-    title: segment.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-    description: "This page is currently under development.",
-  };
-}
-
-const hints = [
-  {
-    icon: Clock4,
-    text: "Check back soon — this module is actively being built.",
-  },
-  {
-    icon: Wrench,
-    text: "Our team is working hard to bring this feature to life.",
-  },
-  {
-    icon: GitBranch,
-    text: "This page is in active development on a feature branch.",
-  },
-];
-
-export default function SubToolTestPage() {
-  const location = useLocation();
+export function MaintenanceError() {
   const navigate = useNavigate();
-  const meta = resolvePageMeta(location.pathname);
-  const ModuleIcon = meta.icon;
-
-  const hint = hints[location.pathname.length % hints.length];
-  const HintIcon = hint.icon;
+  const location = useLocation();
 
   return (
-    <div className="flex w-full flex-col items-center justify-center">
-      <div className="w-full flex flex-col items-center gap-6 rounded-xl border-2 border-spacing-1 border-dashed border-border bg-muted/30 p-12 text-center">
-
-        {/* Top — module icon + construction overlay */}
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="w-full max-w-4xl flex flex-col items-center gap-6 rounded-xl border-2 border-dashed border-border bg-muted/30 p-12 text-center">
+        {/* Icon */}
         <div className="relative flex items-center justify-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-border bg-card">
-            {ModuleIcon ? (
-              <ModuleIcon className="h-9 w-9 text-muted-foreground" />
-            ) : (
-              <Construction className="h-9 w-9 text-muted-foreground" />
-            )}
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-border bg-background">
+            <HardHat className="h-9 w-9 text-muted-foreground" />
           </div>
-          <div className="absolute -bottom-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-muted border border-border">
-            <Construction className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className="absolute -bottom-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full border border-warning/30 bg-warning/10">
+            <span className="text-[10px] font-bold text-warning">503</span>
           </div>
         </div>
 
-        {/* Badges */}
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {meta.parentTitle && (
-            <Badge variant="secondary" className="text-xs font-normal">
-              {meta.parentTitle}
-            </Badge>
-          )}
-          <Badge variant="outline" className="text-xs font-normal text-muted-foreground">
-            Under Development
-          </Badge>
-        </div>
+        {/* Badge */}
+        <Badge className="border-warning/30 bg-warning/10 text-xs font-normal text-warning shadow-none hover:bg-warning/10">
+          Under Maintenance
+        </Badge>
 
         {/* Title + description */}
         <div className="space-y-2">
           <h3 className="text-xl font-semibold tracking-tight text-foreground">
-            {meta.title}
+            This page is temporarily under maintenance
           </h3>
-          <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-            {meta.description}
+          <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
+            We&apos;re fixing things on this page right now. Please check back
+            soon, or contact your administrator if you need help.
           </p>
         </div>
 
         <Separator className="w-full border-dashed" />
 
-        {/* Hint row */}
-        <div className="flex items-start gap-3 text-left px-2">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-card border border-border mt-0.5">
-            <HintIcon className="h-3.5 w-3.5 text-muted-foreground" />
+        {/* Path hint */}
+        <div className="flex w-full items-start gap-3 px-2 text-left">
+          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
+            <HardHat className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
-          <p className="text-xs text-muted-foreground/70 leading-relaxed pt-1">
-            {hint.text}
-          </p>
+          <div className="flex flex-col gap-0.5 pt-0.5">
+            <p className="text-xs font-medium text-muted-foreground">
+              Unavailable route
+            </p>
+            <code className="text-[11px] font-mono text-muted-foreground">
+              {location.pathname}
+            </code>
+          </div>
         </div>
 
         <Separator className="w-full border-dashed" />
 
-        {/* Footer row */}
-        <div className="flex items-center justify-between w-full">
+        {/* Footer actions */}
+        <div className="flex w-full items-center justify-between">
           <Button
             variant="ghost"
             size="sm"
-            className="gap-2 text-muted-foreground hover:text-foreground -ml-2"
+            className="-ml-2 gap-2 text-muted-foreground"
             onClick={() => navigate(-1)}
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Go back
           </Button>
-          <span className="font-mono text-[11px] text-muted-foreground/40">
-            {location.pathname}
-          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => navigate("/home")}
+          >
+            <Home className="h-3.5 w-3.5" />
+            Back to Home
+          </Button>
         </div>
       </div>
     </div>
   );
 }
+
+export default MaintenanceError;

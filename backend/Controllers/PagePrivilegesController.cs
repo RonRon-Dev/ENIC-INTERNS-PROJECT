@@ -1,6 +1,6 @@
 using backend.Data;
-using backend.Dtos.Request;
-using backend.Dtos.Response;
+using backend.Dtos.Request.User;
+using backend.Dtos.Response.User;
 using backend.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -26,7 +26,8 @@ public class PagePrivilegesController(AppDbContext context) : ControllerBase
         {
             Url = p.Url,
             Title = p.Title,
-            AllowedRoles = p.PagePrivileges.Select(pp => pp.Role.Name.ToLower()).ToList()
+            AllowedRoles = p.PagePrivileges.Select(pp => pp.Role.Name.ToLower()).ToList(),
+            Maintenance = p.IsUnderMaintenance
         }).ToList();
     }
 
@@ -44,6 +45,7 @@ public class PagePrivilegesController(AppDbContext context) : ControllerBase
         if (page == null)
             return NotFound(new { message = "Page not found." });
 
+        page.IsUnderMaintenance = req.Maintenance;
         context.PagePrivileges.RemoveRange(page.PagePrivileges);
 
         foreach (var roleId in req.RoleIds.Distinct())

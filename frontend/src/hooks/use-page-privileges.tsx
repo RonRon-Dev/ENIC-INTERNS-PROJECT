@@ -3,9 +3,9 @@ import { pagePrivilegesApi, type PagePrivilege } from '@/services/pagePrivileges
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
 
 type PagePrivilegesContextType = {
-  // url → lowercase role names. Empty array = all roles allowed.
   privileges: Record<string, string[]>
-  refresh: () => Promise<void>
+  maintenance: Record<string, boolean>
+  refresh: (options?: { silent?: boolean }) => Promise<void>
   loading: boolean
 }
 
@@ -14,22 +14,35 @@ const PagePrivilegesContext = createContext<PagePrivilegesContextType | null>(nu
 export function PagePrivilegesProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
   const [privileges, setPrivileges] = useState<Record<string, string[]>>({})
+  const [maintenance, setMaintenance] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(false)
 
-  const load = useCallback(async () => {
-    if (!isAuthenticated) return
-    setLoading(true)
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    if (!isAuthenticated) {
+      setPrivileges({})
+      setMaintenance({})
+      return
+    }
+
+    const silent = options?.silent ?? false
+    if (!silent) setLoading(true)
+
     try {
       const data: PagePrivilege[] = await pagePrivilegesApi.getAll()
-      const map: Record<string, string[]> = {}
-      for (const p of data) {
-        map[p.url] = p.allowedRoles // already lowercase from backend
+      const privilegesMap: Record<string, string[]> = {}
+      const maintenanceMap: Record<string, boolean> = {}
+
+      for (const page of data) {
+        privilegesMap[page.url] = page.allowedRoles
+        maintenanceMap[page.url] = page.maintenance
       }
-      setPrivileges(map)
+
+      setPrivileges(privilegesMap)
+      setMaintenance(maintenanceMap)
     } catch {
-      // silently fail — ProtectedRoute falls back to toolsData.allowedRoles
+      // ProtectedRoute falls back to toolsData.allowedRoles when the API is unavailable.
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [isAuthenticated])
 
@@ -38,7 +51,7 @@ export function PagePrivilegesProvider({ children }: { children: React.ReactNode
   }, [load])
 
   return (
-    <PagePrivilegesContext value={{ privileges, refresh: load, loading }}>
+    <PagePrivilegesContext value={{ privileges, maintenance, refresh: load, loading }}>
       {children}
     </PagePrivilegesContext>
   )

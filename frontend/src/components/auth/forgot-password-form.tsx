@@ -13,6 +13,7 @@ import { forgotPasswordSchema, type ForgotPasswordRequest } from "@/validations"
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { authenticationApi } from "@/services/auth";
+import { notifToast } from "@/lib/notifToast";
 
 interface ForgotPasswordFormProps {
   onBack: () => void;
@@ -31,17 +32,14 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
     resolver: zodResolver(forgotPasswordSchema),
   });
 
-  const [serverError, setServerError] = useState<string | null>(null);
-
   const onSubmit = async (data: ForgotPasswordRequest) => {
     try {
-      setServerError(null);
       const response = await authenticationApi.forgotPassword(data);
-      setIsSent(true);
       if (!response.success) {
-        setServerError(response.message);
+        notifToast({ reason: response.message }, 'error');
         return;
       }
+      setIsSent(true);
       // After a successful submission, check the current status of the latest reset request
       // (it could be newly Pending, or the previous one was Rejected giving them a reason to resubmit)
       try {
@@ -54,7 +52,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
       const res = error.response?.data;
 
       if (!res) {
-        setServerError("Something went wrong");
+        notifToast({ reason: 'Something went wrong' }, 'error');
         return;
       }
       if (res.errors) {
@@ -66,7 +64,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
         });
       }
       if (res.message) {
-        setServerError(res.message);
+        notifToast({ reason: res.message }, 'error');
       }
     }
   };
@@ -106,10 +104,6 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
                 {errors.username?.message}
               </p>
             </Field>
-            <p className="text-red-500 text-sm">{
-              // Display any server-side error messages that are not field-specific
-              serverError
-            }</p>
             <Button type="submit" className="w-full">
               Send Reset Request
             </Button>

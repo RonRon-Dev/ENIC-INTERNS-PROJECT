@@ -20,6 +20,12 @@ public static class PageSeeder
         ("/finance/budget",        "Budget Planner",     ["Superadmin", "Managers"]),
         ("/marketing/campaigns",   "Campaigns",          ["Superadmin", "Marketing"]),
         ("/marketing/leads",       "Leads",              ["Superadmin", "Marketing"]),
+        ("/documentation/knowledge-base", "Knowledge Base", ["Superadmin", "Admin", "Operations", "Managers", "Marketing"]),
+        ("/documentation/sops",    "SOPs",               ["Superadmin", "Admin", "Operations"]),
+        ("/documentation/policies","Policies",           ["Superadmin", "Admin"]),
+        ("/it/tickets",            "Tickets",            ["Superadmin", "Admin", "Operations", "Managers", "Marketing"]),
+        ("/it/assets",             "IT Assets",          ["Superadmin", "Admin", "IT"]),
+        ("/it/system-health",      "System Health",      ["Superadmin", "IT"]),
         ("/ai-assistant",          "AI Assistant",       ["Superadmin", "Admin"]),
     ];
 

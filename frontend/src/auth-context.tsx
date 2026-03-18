@@ -25,6 +25,7 @@ type AuthContextType = {
   loading: boolean;
   isAuthenticated: boolean;
   sessionExpired: boolean;
+  sessionExpiredReason: string | null;
   idleSecondsLeft: number | null;
   refreshUser: () => Promise<void>;
   setUser: (user: User | null) => void;
@@ -60,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [sessionExpiredReason, setSessionExpiredReason] = useState<string | null>(null);
   const [idleSecondsLeft, setIdleSecondsLeft] = useState<number | null>(null);
 
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -88,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     countdownValueRef.current = COUNTDOWN_SECONDS;
   }, []);
 
-  const triggerSessionExpired = useCallback(async () => {
+  const triggerSessionExpired = useCallback(async (reason?: string) => {
     if (hasExpiredRef.current) return;
     hasExpiredRef.current = true;
 
@@ -101,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authenticationApi.logout().catch(() => {});
 
     setUser(null);
+    setSessionExpiredReason(reason ?? "Your session has expired due to inactivity. Please log in again to continue.");
     setSessionExpired(true);
   }, []);
 
@@ -148,6 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const dismissSessionExpired = useCallback(() => {
     setSessionExpired(false);
+    setSessionExpiredReason(null);
     hasExpiredRef.current = false;
   }, []);
 
@@ -165,9 +169,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── Listen for session:expired from api.ts interceptor ───────────────────
 
   useEffect(() => {
-    const handler = () => {
+    const handler = (event: Event) => {
       if (isInitializingRef.current) return;
-      triggerSessionExpired();
+      const customEvent = event as CustomEvent<{ reason?: string }>;
+      triggerSessionExpired(customEvent.detail?.reason);
     };
     window.addEventListener("session:expired", handler);
     return () => window.removeEventListener("session:expired", handler);
@@ -212,6 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         isAuthenticated: !!user,
         sessionExpired,
+        sessionExpiredReason,
         idleSecondsLeft,
         refreshUser,
         dismissSessionExpired,
