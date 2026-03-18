@@ -5,6 +5,7 @@ using backend.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using backend.Extensions;
 
 namespace backend.Controllers.Auth;
 
@@ -13,7 +14,8 @@ namespace backend.Controllers.Auth;
 public class AuthController(IAuthService service, IWebHostEnvironment env) : ControllerBase
 {
     // Secure = true and SameSite = Strict in production
-    private bool IsProduction => env.IsProduction() && false; // Set to false for testing in production-like environment. Change to true for actual production.
+    private bool IsProduction => env.IsProduction() && false; 
+    // Set to false for testing in production-like environment. Change to true for actual production.
 
     private CookieOptions AccessTokenCookieOptions => new CookieOptions
     {
@@ -35,7 +37,7 @@ public class AuthController(IAuthService service, IWebHostEnvironment env) : Con
     [HttpGet("iam")]
     public async Task<ActionResult<IamResponse>> GetIam()
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = User.GetCurrentUser().ToString();
 
         if (userId is null)
           return Unauthorized(new IamResponse 
@@ -62,9 +64,9 @@ public class AuthController(IAuthService service, IWebHostEnvironment env) : Con
 
     [Authorize]
     [HttpGet("my-request-status")]
-    public async Task<ActionResult<MyRequestStatusResponse>> GetMyRequestStatus([FromQuery] string requestType = "Reset Password")
+    public async Task<ActionResult<MyRequestStatusResponse>> GetMyRequestStatus(string requestType = "Reset Password")
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = User.GetCurrentUser().ToString();
         if (userId is null) return Unauthorized();
         var result = await service.GetMyRequestStatusAsync(int.Parse(userId), requestType);
         return Ok(result);

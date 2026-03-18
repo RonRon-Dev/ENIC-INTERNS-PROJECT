@@ -6,27 +6,22 @@ using backend.Data;
 using backend.Dtos.Request.Auth;
 using backend.Dtos.Request.User;
 using backend.Dtos.Response.Auth;
+using backend.Extensions;
 using backend.Models;
+using backend.Services.ActivityLogger;
 using backend.Services.Interface;
+using BCrypt.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using backend.Services.ActivityLogger;
-using BCrypt.Net;
-using backend.Extensions;
 
 namespace backend.Services.Auth;
 
-public class AuthService(
-    AppDbContext context, 
-    IConfiguration configuration,
-    ActivityLoggerService logger) : IAuthService
+public class AuthService(AppDbContext context, IConfiguration configuration, ActivityLoggerService logger) : IAuthService
 {
     public async Task<IamResponse?> GetIamAsync(int userId)
     {
-        var user = await context
-            .Users
-            .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.Id == userId);
+        var user = await context.Users.Include(u => u.Role)
+                       .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user == null)
             return new IamResponse
@@ -35,7 +30,7 @@ public class AuthService(
                 UserName = null,
                 NameIdentifier = null,
                 RoleName = null,
-                ForcePasswordChange = false
+                ForcePasswordChange = false,
             };
 
         return new IamResponse
@@ -44,14 +39,15 @@ public class AuthService(
             UserName = user.UserName,
             NameIdentifier = user.Id.ToString(),
             RoleName = user.Role?.Name,
-            ForcePasswordChange = user.ForcePasswordChange
+            ForcePasswordChange = user.ForcePasswordChange,
         };
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
         var username = request.UserName.Trim().ToLower();
-        var existingUser = await context.Users.FirstOrDefaultAsync(u => u.UserName.ToLower() == username);
+        var existingUser = await context.Users.FirstOrDefaultAsync(
+            u => u.UserName.ToLower() == username);
 
         if (existingUser != null)
         {
@@ -61,11 +57,12 @@ public class AuthService(
                 Message = "Username already exists",
                 AccessToken = null!,
                 RefreshToken = null!,
-                ForcePasswordChange = false
+                ForcePasswordChange = false,
             };
         }
 
-        var guestRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Guest");
+        var guestRole =
+            await context.Roles.FirstOrDefaultAsync(r => r.Name == "Guest");
         if (guestRole is null)
         {
             return new AuthResponse
@@ -74,7 +71,7 @@ public class AuthService(
                 Message = "Guest role not found. Seed roles first.",
                 AccessToken = null!,
                 RefreshToken = null!,
-                ForcePasswordChange = false
+                ForcePasswordChange = false,
             };
         }
 
@@ -102,30 +99,29 @@ public class AuthService(
         });
 
         // User Registration Logs
-        await logger.LogAuthenticationAsync(
-              user.Id,
-              user.UserName,
-              "User Registration (Pending Approval)",
-              true,
-              null
-          );
+        await logger.LogAuthenticationAsync(user.Id, user.UserName,
+                                            "User Registration (Pending Approval)",
+                                            true, null);
 
         await context.SaveChangesAsync();
 
         return new AuthResponse
         {
             Success = true,
-            Message = "User registered successfully, contact your administrator for account approval and role assignment.",
+            Message = "User registered successfully, contact your administrator " +
+                    "for account approval and role assignment.",
             AccessToken = null!,
             RefreshToken = null!,
-            ForcePasswordChange = false
+            ForcePasswordChange = false,
         };
     }
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest request)
     {
         var loginUsername = request.UserName.Trim().ToLower();
-        var user = await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.UserName.ToLower() == loginUsername);
+        var user =
+            await context.Users.Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.UserName.ToLower() == loginUsername);
         if (user == null)
         {
             return new AuthResponse
@@ -134,7 +130,7 @@ public class AuthService(
                 Message = "User not found",
                 AccessToken = null!,
                 RefreshToken = null!,
-                ForcePasswordChange = false
+                ForcePasswordChange = false,
             };
         }
 
@@ -142,17 +138,14 @@ public class AuthService(
         {
             // Check their latest registration request for status/reason
             var latestReq = await context.UserRequests
-                .Where(r => r.UserId == user.Id && r.RequestType == "Account Registration")
-                .OrderByDescending(r => r.RequestDate)
-                .FirstOrDefaultAsync();
+                                .Where(r => r.UserId == user.Id &&
+                                            r.RequestType == "Account Registration")
+                                .OrderByDescending(r => r.RequestDate)
+                                .FirstOrDefaultAsync();
 
             await logger.LogAuthenticationAsync(
-                  user.Id,
-                  user.UserName,
-                  "User Login Blocked - Pending Approval",
-                  false,
-                  null
-            );
+                user.Id, user.UserName, "User Login Blocked - Pending Approval",
+                false, null);
 
             await context.SaveChangesAsync();
 
@@ -161,9 +154,11 @@ public class AuthService(
             return new AuthResponse
             {
                 Success = false,
-                Message = isRejected
-                    ? $"Your registration was rejected. Reason: {reason ?? "No reason provided"}."
-                    : "Account pending approval. Please contact your administrator.",
+                Message =
+                  isRejected
+                      ? $"Your registration was rejected. Reason: {reason ?? "No reason provided"}."
+                      : "Account pending approval. Please contact your " +
+                            "administrator.",
                 AccessToken = null!,
                 RefreshToken = null!,
                 ForcePasswordChange = false,
@@ -175,12 +170,8 @@ public class AuthService(
         if (!user.IsActive)
         {
             await logger.LogAuthenticationAsync(
-                user.Id,
-                user.UserName,
-                "User Login Blocked - Account Disabled",
-                false,
-                null
-            );
+                user.Id, user.UserName, "User Login Blocked - Account Disabled",
+                false, null);
 
             await context.SaveChangesAsync();
 
@@ -190,7 +181,7 @@ public class AuthService(
                 Message = "Account is disabled. Please contact your administrator.",
                 AccessToken = null!,
                 RefreshToken = null!,
-                ForcePasswordChange = false
+                ForcePasswordChange = false,
             };
         }
 
@@ -199,16 +190,24 @@ public class AuthService(
             return new AuthResponse
             {
                 Success = false,
-                Message = "Too many failed attempts. Contact administrator to reset your account.",
+                Message = "Too many failed attempts. Contact " +
+                        "administrator to reset your account.",
                 AccessToken = null!,
                 RefreshToken = null!,
-                ForcePasswordChange = true
+                ForcePasswordChange = true,
             };
         }
 
-        if (user.LockoutEndUtc.HasValue && DateTime.UtcNow < user.LockoutEndUtc.Value)
+        if (user.LockoutEndUtc.HasValue &&
+            DateTime.UtcNow < user.LockoutEndUtc.Value)
         {
-            var remaining = (int)Math.Ceiling((user.LockoutEndUtc.Value - DateTime.UtcNow).TotalMinutes);
+            var remaining = (int)Math.Ceiling(
+                (user.LockoutEndUtc.Value - DateTime.UtcNow).TotalMinutes);
+
+            await logger.LogAuthenticationAsync(
+                user.Id, user.UserName,
+                "User Login Blocked - Account Temporarily Locked", false,
+                new { RemainingLockoutMinutes = remaining });
 
             return new AuthResponse
             {
@@ -216,18 +215,20 @@ public class AuthService(
                 Message = $"Account locked. Try again in {remaining} minute(s).",
                 AccessToken = null!,
                 RefreshToken = null!,
-                ForcePasswordChange = false
+                ForcePasswordChange = false,
             };
         }
 
         // Lockout expired: clear lock time but keep attempt count
-        if (user.LockoutEndUtc.HasValue && DateTime.UtcNow >= user.LockoutEndUtc.Value)
+        if (user.LockoutEndUtc.HasValue &&
+            DateTime.UtcNow >= user.LockoutEndUtc.Value)
         {
             user.LockoutEndUtc = null;
             await context.SaveChangesAsync();
         }
 
-        var isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
+        var isPasswordValid =
+            BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
 
         if (!isPasswordValid)
         {
@@ -239,44 +240,35 @@ public class AuthService(
                 user.RequiresAdminReset = true;
                 user.ForcePasswordChange = true;
 
-                context.ActivityLogs.Add(new ActivityLogs
-                {
-                    UserId = user.Id,
-                    UserName = user.UserName,
-                    ActivityType = "authentication",
-                    Description = "Account Hard-Locked (5 failed login attempts) - Requires Admin Reset",
-                    Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
-                    IsSuccess = false,
-                    Timestamp = DateTime.UtcNow,
-                });
+                await logger.LogAuthenticationAsync(
+                    user.Id, user.UserName,
+                    "Account Hard-Locked (5 failed login attempts) - Requires Admin " +
+                        "Reset",
+                    false, new { request.UserName });
 
                 await context.SaveChangesAsync();
 
                 return new AuthResponse
                 {
                     Success = false,
-                    Message = "Too many failed attempts. Contact administrator to reset your account.",
+                    Message = "Too many failed attempts. Contact " +
+                            "administrator to reset your account.",
                     AccessToken = null!,
                     RefreshToken = null!,
-                    ForcePasswordChange = true
+                    ForcePasswordChange = true,
                 };
             }
 
-            // 3rd failed attempt ONLY: lock for 10 minutes
+            // 3rd failed attempt ONLY: lock for 2 minutes
             if (user.FailedLoginAttempts == 3)
             {
                 user.LockoutEndUtc = DateTime.UtcNow.AddMinutes(2);
 
-                context.ActivityLogs.Add(new ActivityLogs
-                {
-                    UserId = user.Id,
-                    UserName = user.UserName,
-                    ActivityType = "authentication",
-                    Description = "Account Locked (3 failed login attempts) - 2 minutes",
-                    Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
-                    IsSuccess = false,
-                    Timestamp = DateTime.UtcNow,
-                });
+                await logger.LogAuthenticationAsync(
+                    user.Id, user.UserName,
+                    "Account Temporarily Locked (3 failed login attempts) - 2 Minute " +
+                        "Lockout",
+                    false, null);
 
                 await context.SaveChangesAsync();
 
@@ -286,21 +278,14 @@ public class AuthService(
                     Message = "Too many failed attempts. Account locked for 2 minutes.",
                     AccessToken = null!,
                     RefreshToken = null!,
-                    ForcePasswordChange = false
+                    ForcePasswordChange = false,
                 };
             }
 
             // 1st, 2nd, 4th attempt: invalid credentials
-            context.ActivityLogs.Add(new ActivityLogs
-            {
-                UserId = user.Id,
-                UserName = user.UserName,
-                ActivityType = "authentication",
-                Description = $"User Login Failed (Attempt {user.FailedLoginAttempts})",
-                Payload = System.Text.Json.JsonSerializer.Serialize(new { request.UserName }),
-                IsSuccess = false,
-                Timestamp = DateTime.UtcNow,
-            });
+            await logger.LogAuthenticationAsync(
+                user.Id, user.UserName, "User Login Failed - Invalid Credentials",
+                false, null);
 
             await context.SaveChangesAsync();
 
@@ -310,18 +295,13 @@ public class AuthService(
                 Message = "Invalid username or password",
                 AccessToken = null!,
                 RefreshToken = null!,
-                ForcePasswordChange = false
+                ForcePasswordChange = false,
             };
         }
 
         // Log successful login
-        await logger.LogAuthenticationAsync(
-              user.Id,
-              user.UserName,
-              "User Login Successful",
-              true,
-              null
-          );
+        await logger.LogAuthenticationAsync(user.Id, user.UserName,
+                                            "User Login Successful", true, null);
 
         user.FailedLoginAttempts = 0;
         user.LockoutEndUtc = null;
@@ -337,7 +317,7 @@ public class AuthService(
             Message = "Login successful",
             RefreshToken = newRefreshToken,
             AccessToken = GenerateToken(user, newRefreshToken),
-            ForcePasswordChange = user.ForcePasswordChange
+            ForcePasswordChange = user.ForcePasswordChange,
         };
     }
 
@@ -353,20 +333,15 @@ public class AuthService(
                 Message = "User not found.",
                 AccessToken = null!,
                 RefreshToken = null!,
-                ForcePasswordChange = false
+                ForcePasswordChange = false,
             };
         }
 
         user.RefreshToken = null;
         user.RefreshTokenExpiry = null;
 
-        await logger.LogAuthenticationAsync(
-              user.Id,
-              user.UserName,
-              "User Logout",
-              true,
-              null
-          );
+        await logger.LogAuthenticationAsync(user.Id, user.UserName, "User Logout",
+                                            true, null);
 
         await context.SaveChangesAsync();
 
@@ -376,16 +351,16 @@ public class AuthService(
             Message = "Logged out successfully.",
             AccessToken = null!,
             RefreshToken = null!,
-            ForcePasswordChange = false
+            ForcePasswordChange = false,
         };
     }
 
     public async Task<AuthResponse?> RefreshTokenAsync(string? refreshToken)
     {
-        var user = await context.Users
-            .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken &&
-                u.RefreshTokenExpiry > DateTime.UtcNow);
+        var user =
+            await context.Users.Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken &&
+                                          u.RefreshTokenExpiry > DateTime.UtcNow);
 
         if (user is null)
             return null;
@@ -398,16 +373,13 @@ public class AuthService(
             Message = "Token refreshed",
             AccessToken = GenerateToken(user, newRefreshToken),
             RefreshToken = newRefreshToken,
-            ForcePasswordChange = user.ForcePasswordChange
+            ForcePasswordChange = user.ForcePasswordChange,
         };
     }
 
-    // -------------------------
-    // Forgot Password FLOW
-    // -------------------------
-
-    // USER: submits forgot request 
-    public async Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordRequest request)
+    // USER: submits forgot request
+    public async Task<ForgotPasswordResponse>
+    ForgotPasswordAsync(ForgotPasswordRequest request)
     {
         var username = (request.UserName ?? "").Trim().ToLower();
 
@@ -420,9 +392,8 @@ public class AuthService(
             };
         }
 
-        var user = await context.Users
-            .Include(u => u.UserRequests)
-            .FirstOrDefaultAsync(u => u.UserName.ToLower() == username);
+        var user = await context.Users.Include(u => u.UserRequests)
+                       .FirstOrDefaultAsync(u => u.UserName.ToLower() == username);
 
         if (user is null)
         {
@@ -436,63 +407,78 @@ public class AuthService(
         // Deactivated users cannot request a password reset
         if (!user.IsActive)
         {
+            await logger.LogAuthenticationAsync(
+                user.Id, user.UserName,
+                "Password Reset Request Blocked - Account Disabled", false,
+                new { request.UserName });
+
             return new ForgotPasswordResponse
             {
                 Success = false,
-                Message = "Your account has been deactivated. Please contact your administrator.",
+                Message = "Your account has been deactivated. Please contact your " +
+                        "administrator.",
             };
         }
 
         // Rejected self-registered users cannot request a password reset
         if (!user.IsVerified)
         {
-            var latestRegReq = user.UserRequests?
-                .Where(r => r.RequestType == "Account Registration")
-                .OrderByDescending(r => r.RequestDate)
-                .FirstOrDefault();
+            var latestRegReq =
+                user.UserRequests?.Where(r => r.RequestType == "Account Registration")
+                    .OrderByDescending(r => r.RequestDate)
+                    .FirstOrDefault();
 
-            if (latestRegReq?.RequestStatus == "Rejected")
+            var status = latestRegReq?.RequestStatus;
+
+            if (status == "Rejected")
             {
+                await logger.LogAuthenticationAsync(
+                    user.Id, user.UserName,
+                    "Password Reset Request Blocked - Registration Rejected", false,
+                    new { request.UserName });
+
                 return new ForgotPasswordResponse
                 {
                     Success = false,
-                    Message = $"Your registration was rejected. Reason: {latestRegReq.DecisionReason ?? "No reason provided"}. You cannot reset your password.",
+                    Message =
+                      $"Your registration was rejected. Reason: {latestRegReq.DecisionReason ?? "No reason provided"}. You cannot reset your password.",
                 };
             }
+
+            logger.LogAuthenticationAsync(
+                user.Id, user.UserName,
+                "Password Reset Request Blocked - Account Pending Approval", false,
+                new { request.UserName });
 
             return new ForgotPasswordResponse
             {
                 Success = false,
-                Message = "Your account is still pending approval. You cannot reset your password yet.",
+                Message = "Your account is still pending approval. You cannot reset " +
+                        "your password yet.",
             };
         }
 
         user.UserRequests ??= new List<UserRequests>();
 
-        var now = DateTime.UtcNow;
-        var cooldownMinutes = 10;
-
         var pendingReset = user.UserRequests
-            .Where(r => r.RequestType == "Reset Password" && r.RequestStatus == "Pending")
+            .Where(r => r.RequestType == "Reset Password" &&
+                        r.RequestStatus == "Pending")
             .OrderByDescending(r => r.RequestDate)
             .FirstOrDefault();
 
         if (pendingReset != null)
         {
-            var minutesSince = (now - pendingReset.RequestDate).TotalMinutes;
+            await logger.LogAuthenticationAsync(
+                user.Id, user.UserName,
+                "Password Reset Request Blocked - Existing Pending Request", false,
+                new { request.UserName });
 
-            if (minutesSince < cooldownMinutes)
+            return new ForgotPasswordResponse
             {
-                var remaining = (int)Math.Ceiling(cooldownMinutes - minutesSince);
-                return new ForgotPasswordResponse
-                {
-                    Success = false,
-                    Message = $"You already requested a password reset. Please try again in {remaining} minute(s)."
-                };
-            }
-
-            // Cooldown passed — expire the old pending request
-            pendingReset.RequestStatus = "Expired";
+                Success = false,
+                Message = "You already have a pending reset request. Please wait for " +
+                        "admin approval.",
+            };
         }
 
         user.UserRequests.Add(new UserRequests
@@ -503,12 +489,11 @@ public class AuthService(
         });
 
         await logger.LogAuthenticationAsync(
-              user.Id,
-              user.UserName,
-              "Reset Password Request (Pending Admin Approval)",
-              true,
-              new { request.UserName }
-          );
+            user.Id, 
+            user.UserName, 
+            "Reset Password Request (Pending Admin Approval)",
+            true,
+            new { request.UserName });
 
         await context.SaveChangesAsync();
 
@@ -519,47 +504,59 @@ public class AuthService(
         };
     }
 
-    public async Task<ForgotPasswordResponse> UpdatePasswordAsync(ResetPasswordRequest request)
+    public async Task<ForgotPasswordResponse> UpdatePasswordAsync(
+        ResetPasswordRequest request)
     {
         var newPassword = (request.NewPassword ?? "").Trim();
         if (string.IsNullOrWhiteSpace(newPassword))
-            return new ForgotPasswordResponse { Success = false, Message = "New password is required." };
+            return new ForgotPasswordResponse
+            {
+                Success = false,
+                Message = "New password is required.",
+            };
 
         if (newPassword.Length < 8)
-            return new ForgotPasswordResponse { Success = false, Message = "New password must be at least 8 characters long." };
+            return new ForgotPasswordResponse
+            {
+                Success = false,
+                Message = "New password must be at least 8 characters long.",
+            };
 
-        var user = await context.Users.FirstOrDefaultAsync(u => u.UserName == request.UserName);
+        var user = await context.Users.FirstOrDefaultAsync(u => u.UserName ==
+                                                                request.UserName);
         if (user is null)
-            return new ForgotPasswordResponse { Success = false, Message = "User not found." };
+            return new ForgotPasswordResponse
+            {
+                Success = false,
+                Message = "User not found."
+            };
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         user.ForcePasswordChange = false;
 
-        // invalidate temp code
-        /* user.PasswordResetCodeHash = null;
-        user.PasswordResetCodeExpiresUtc = null; */
-
-        await logger.LogAuthenticationAsync(
-              user.Id,
-              user.UserName,
-              "User Update Password Successfully",
-              true,
-              null
-          );
+        await logger.LogAuthenticationAsync(user.Id, user.UserName,
+                                            "User Update Password Successfully",
+                                            true, null);
 
         await context.SaveChangesAsync();
-
-        return new ForgotPasswordResponse { Success = true, Message = "Password updated successfully." };
+        return new ForgotPasswordResponse
+        {
+            Success = true,
+            Message = "Password updated successfully.",
+        };
     }
 
-    public async Task<MyRequestStatusResponse?> GetMyRequestStatusAsync(int userId, string requestType)
+    public async Task<MyRequestStatusResponse?> GetMyRequestStatusAsync(
+        int userId, string requestType)
     {
-        var req = await context.UserRequests
-            .Where(r => r.UserId == userId && r.RequestType == requestType)
-            .OrderByDescending(r => r.RequestDate)
-            .FirstOrDefaultAsync();
+        var req =
+            await context.UserRequests
+                .Where(r => r.UserId == userId && r.RequestType == requestType)
+                .OrderByDescending(r => r.RequestDate)
+                .FirstOrDefaultAsync();
 
-        if (req is null) return null;
+        if (req is null)
+            return null;
 
         return new MyRequestStatusResponse
         {
@@ -571,7 +568,8 @@ public class AuthService(
         };
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Helpers
+    // ───────────────────────────────────────────────────────────────
 
     private string GenerateToken(Users user, string refreshToken)
     {
@@ -586,14 +584,13 @@ public class AuthService(
         if (string.IsNullOrWhiteSpace(secret))
             throw new InvalidOperationException("AppSettings:Token is missing.");
 
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.Name, user.UserName),
-            new Claim(ClaimTypes.GivenName, user.Name),
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim("ForcePasswordChange", user.ForcePasswordChange.ToString()),
-            new Claim("rtv", TokenHashExtensions.ComputeTokenHash(refreshToken))
-        };
+        var claims = new List<Claim> {
+        new Claim(ClaimTypes.Name, user.UserName),
+        new Claim(ClaimTypes.GivenName, user.Name),
+        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new Claim("ForcePasswordChange", user.ForcePasswordChange.ToString()),
+        new Claim("rtv", TokenHashExtensions.ComputeTokenHash(refreshToken)),
+      };
 
         if (user.Role != null && !string.IsNullOrWhiteSpace(user.Role.Name))
             claims.Add(new Claim(ClaimTypes.Role, user.Role.Name));
@@ -602,13 +599,10 @@ public class AuthService(
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
 
         var token = new JwtSecurityToken(
-            issuer: issuer,
-            audience: audience,
-            claims: claims,
+            issuer: issuer, audience: audience, claims: claims,
             notBefore: DateTime.UtcNow,
             expires: DateTime.UtcNow.AddMinutes(15), // matches cookie expiry
-            signingCredentials: creds
-        );
+            signingCredentials: creds);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
