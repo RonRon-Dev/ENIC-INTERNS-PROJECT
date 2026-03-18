@@ -4,43 +4,36 @@ on:
   push:
     branches: "**"
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test-backend:
-    runs-on: [ self-hosted, linux ]
+    runs-on: [self-hosted, linux]
     steps:
       - uses: actions/checkout@v3
-      # Uncomment this if you are not going to self-host the workflow
-      # - name: Setup .NET
-      #   uses: actions/setup-dotnet@v3
-      #   with:
-      #     dotnet-version: '10.0.x'
 
       - name: Restore dependencies
-        run: cd backend && dotnet restore
-
-      # - name: Check Code Formatting
-      #   run: cd backend && dotnet format --verify-no-changes --no-restore
+        run: nix develop .# --command bash -c "cd backend && dotnet restore"
 
       - name: Build
-        run: cd backend && dotnet build --no-restore
+        run: nix develop .# --command bash -c "cd backend && dotnet build --no-restore"
 
-      - name: Check Code Quality (analyze)
+      - name: Check Code Quality
         run: |
-          cd backend
-          dotnet build --no-restore \
-            /p:EnforceCodeStyleInBuild=true \
-            /p:AnalysisLevel=latest \
-            /p:TreatWarningsAsErrors=false \
-            /warnaserror
+          nix develop .# --command bash -c "
+            cd backend && dotnet build --no-restore \
+              /p:EnforceCodeStyleInBuild=true \
+              /p:AnalysisLevel=latest \
+              /p:TreatWarningsAsErrors=false \
+              /warnaserror
+          "
 
       - name: Run tests
-        run: cd backend && dotnet test --no-build --verbosity normal
+        run: nix develop .# --command bash -c "cd backend && dotnet test --no-build --verbosity normal"
 
   all-checks-passed:
-    needs: [ test-backend ]
-    runs-on: [ self-hosted, nixos ]
+    needs: [test-backend]
+    runs-on: [self-hosted, linux]  # ← fix this to match test-backend
     steps:
       - name: All checks passed
-        run: echo "All tests passed for API successfully!"
+        run: echo "✅ All checks passed for API successfully!"
