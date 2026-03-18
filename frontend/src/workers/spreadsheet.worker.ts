@@ -1063,7 +1063,8 @@ function runQuery(msg: {
 
 function buildFileBytes(
   data: Record<string, unknown>[],
-  format: string
+  format: string,
+  skipHeader = false
 ): Uint8Array | string {
   const safeData = Array.isArray(data) ? data : [];
   if (format === "xml") {
@@ -1078,6 +1079,7 @@ function buildFileBytes(
   }
   const ws = XLSX.utils.json_to_sheet(safeData, {
     raw: true,
+    skipHeader,
   } as XLSX.JSON2SheetOpts);
   if (format === "xlsx") {
     const wb = XLSX.utils.book_new();
@@ -1320,7 +1322,7 @@ self.onmessage = async (e: MessageEvent) => {
           usedNames.set(safe, cnt + 1);
           zip.file(
             `${cnt === 0 ? safe : `${safe}_${cnt + 1}`}.${config.format}`,
-            buildFileBytes([project(finalIndices[i])], config.format)
+            buildFileBytes([project(finalIndices[i])], config.format, true)
           );
         }
         const zipBlob = await zip.generateAsync({ type: "blob" });
