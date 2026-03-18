@@ -21,6 +21,15 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
 
+
+      - name: Restore appsettings.Production.json  # ← right after checkout
+        shell: powershell
+        run: |
+          Copy-Item -Path "C:\Users\Ron\Desktop\secrets\appsettings.json" `
+                    -Destination "${{ github.workspace }}\backend\appsettings.json" `
+                    -Force
+          Write-Host "appsettings.json restored"
+
       - name: Determine version bump
         id: bump
         shell: powershell
@@ -96,4 +105,4 @@ jobs:
       - name: Notify failure
         if: failure()
         shell: powershell
-        run: Write-Host "❌ Deployment failed for commit ${{ github.sha }}"
+        run: Write-Host "Deployment failed for commit ${{ github.sha }}"

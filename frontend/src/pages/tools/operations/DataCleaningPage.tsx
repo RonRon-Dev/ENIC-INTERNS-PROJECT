@@ -1,5 +1,10 @@
+import { DataTable } from "@/components/spreadsheet/DataTable";
+import { DialogsSection } from "@/components/spreadsheet/DialogsSection";
+import { UploadZone } from "@/components/spreadsheet/UploadZone";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
+import { useDataCleaningDerived } from "@/hooks/useDataCleaningDerived";
+import { useDataCleaningDialogs } from "@/hooks/useDataCleaningDialogs";
 import {
   PAGE_SIZE_OPTIONS,
   useSpreadsheetData,
@@ -19,105 +24,44 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useState } from "react";
-
-import { ConfirmDialog } from "@/components/confirm-dialog";
-import { ColumnDialog } from "@/components/spreadsheet/ColumnDialog";
-import { DataTable } from "@/components/spreadsheet/DataTable";
-import { ExportDialog } from "@/components/spreadsheet/ExportDialog";
-import { FilterDrawer } from "@/components/spreadsheet/FilterDrawer";
-import { HeaderPickerDialog } from "@/components/spreadsheet/HeaderPickerDialog";
-import { UploadZone } from "@/components/spreadsheet/UploadZone";
+import { useCallback } from "react";
 
 export default function DataCleaningPage() {
   const { setOpen: setSidebarOpen } = useSidebar();
 
-  const {
-    columns,
-    setColumns,
-    colVisibility,
-    setColVisible,
-    fileName,
-    hasData,
-    rawSheetData,
-    showHeaderPicker,
-    commitWithHeaderRow,
-    dismissHeaderPicker,
-    isLoading,
-    progress,
-    activeFilters,
-    updateActiveFilters,
-    dateRangeFilters,
-    updateDateRangeFilters,
-    clearAllFilters,
-    filterValues,
-    filterValuesLoading,
-    requestFilterValues,
-    sort,
-    handleSort,
-    search,
-    updateSearch,
-    processedCount,
-    totalRows,
-    totalPages,
-    clampedPage,
-    pagedRows,
-    setPage,
-    page,
-    pageSize,
-    setPageSize,
-    selectedIds,
-    selectedCount,
-    toggleRow,
-    toggleAll,
-    clearSelection,
-    allFilteredSelected,
-    parseFile,
-    isExporting,
-    exportError,
-    handleExport,
-    validateExport,
-    xmlValidation,
-    isValidating,
-    resetData,
-    rowsReady,
-    setRowsReady,
-    colTypes,
-    setColType,
-    detectedTypes,
-  } = useSpreadsheetData();
+  // ── Data & worker state ─────────────────────────────────────────────────────
+  const s = useSpreadsheetData();
 
+  // ── Dialog open/close flags ─────────────────────────────────────────────────
+  const d = useDataCleaningDialogs();
+
+  // ── Navigation guard ────────────────────────────────────────────────────────
   const { showBlocker, confirmLeave, cancelLeave } = useUnsavedChanges(
-    hasData,
+    s.hasData,
     "You have unsaved data. Leaving will clear all imported rows and selections."
   );
 
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const [showColDialog, setShowColDialog] = useState(false);
-  const [showExportDialog, setShowExportDialog] = useState(false);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
+  // ── Memoised derived values ─────────────────────────────────────────────────
+  const { visibleColumns, activeFilterCount, paginationRange } =
+    useDataCleaningDerived({
+      columns: s.columns,
+      colVisibility: s.colVisibility,
+      activeFilters: s.activeFilters,
+      dateRangeFilters: s.dateRangeFilters,
+      clampedPage: s.clampedPage,
+      totalPages: s.totalPages,
+    });
 
-  const activeFilterCount =
-    Object.keys(activeFilters).length + Object.keys(dateRangeFilters).length;
+  // Request full distinct values from worker when FilterDrawer opens.
+  const handleFilterDrawerOpen = useCallback(() => {
+    s.requestFilterValues(visibleColumns);
+  }, [s, visibleColumns]);
 
-  // Only pass columns that are currently visible to the ExportDialog
-  const visibleColumns = columns.filter((c) => colVisibility[c] !== false);
-
-  // Request full distinct values from worker when FilterDrawer opens
-  const handleFilterDrawerOpen = () => {
-    requestFilterValues(columns.filter((c) => colVisibility[c] !== false));
-  };
-
-  // Pagination range helper — shows at most 5 page buttons
-  const getPaginationRange = () => {
-    const delta = 2;
-    const range: number[] = [];
-    const left = Math.max(1, clampedPage - delta);
-    const right = Math.min(totalPages, clampedPage + delta);
-    for (let p = left; p <= right; p++) range.push(p);
-    return range;
-  };
+  // Close ColumnDialog and mark rows as ready if this is the first open.
+  const handleColDialogClose = useCallback(() => {
+    d.closeColDialog();
+    if (!s.rowsReady) s.setRowsReady(true);
+  }, [d, s]);
 
   return (
     <div className="flex w-full flex-col h-full">
@@ -134,28 +78,28 @@ export default function DataCleaningPage() {
             </p>
           </div>
 
-          {hasData && (
+          {s.hasData && (
             <div className="flex items-center gap-2">
               {/* File info badge */}
               <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground">
                 <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" />
                 <span className="font-mono max-w-[100px] truncate">
-                  {fileName}
+                  {s.fileName}
                 </span>
                 <span className="text-muted-foreground/40">·</span>
                 <span className="max-w-[180px] truncate">
-                  {processedCount < totalRows ? (
+                  {s.processedCount < s.totalRows ? (
                     <>
                       <span className="text-foreground font-medium">
-                        {processedCount.toLocaleString()}
+                        {s.processedCount.toLocaleString()}
                       </span>
                       <span className="text-muted-foreground">
                         {" "}
-                        of {totalRows.toLocaleString()} rows
+                        of {s.totalRows.toLocaleString()} rows
                       </span>
                     </>
                   ) : (
-                    <>{totalRows.toLocaleString()} rows</>
+                    <>{s.totalRows.toLocaleString()} rows</>
                   )}
                 </span>
               </div>
@@ -166,17 +110,17 @@ export default function DataCleaningPage() {
                 variant="outline"
                 size="sm"
                 className="gap-1.5 text-xs h-8"
-                onClick={() => setShowColDialog(true)}
+                onClick={d.openColDialog}
               >
                 <Columns3 className="h-3.5 w-3.5" />
                 Columns
               </Button>
 
               <Button
-                variant={showFilterPanel ? "default" : "outline"}
+                variant={d.showFilterPanel ? "default" : "outline"}
                 size="sm"
                 className="gap-1.5 text-xs h-8 relative"
-                onClick={() => setShowFilterPanel((v) => !v)}
+                onClick={d.toggleFilterPanel}
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 Filters
@@ -187,13 +131,12 @@ export default function DataCleaningPage() {
                 )}
               </Button>
 
-              {/* Clear all filters button — visible when any filter is active */}
               {activeFilterCount > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="gap-1.5 text-xs h-8 text-muted-foreground hover:text-destructive"
-                  onClick={clearAllFilters}
+                  onClick={s.clearAllFilters}
                 >
                   <FilterX className="h-3.5 w-3.5" />
                   Clear filters
@@ -204,7 +147,7 @@ export default function DataCleaningPage() {
                 variant="outline"
                 size="sm"
                 className="gap-1.5 text-xs h-8"
-                onClick={() => setShowReplaceConfirm(true)}
+                onClick={d.openReplaceConfirm}
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 Replace
@@ -212,34 +155,34 @@ export default function DataCleaningPage() {
 
               <div className="h-5 w-px bg-border" />
 
-              {selectedCount > 0 && (
+              {s.selectedCount > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="gap-1.5 text-xs h-8 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowClearConfirm(true)}
+                  onClick={d.openClearConfirm}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  Clear ({selectedCount.toLocaleString()})
+                  Clear ({s.selectedCount.toLocaleString()})
                 </Button>
               )}
 
               <Button
                 size="sm"
                 className="gap-1.5 text-xs h-8"
-                onClick={() => setShowExportDialog(true)}
-                disabled={selectedCount === 0 || isExporting}
+                onClick={d.openExportDialog}
+                disabled={s.selectedCount === 0 || s.isExporting}
               >
-                {isExporting ? (
+                {s.isExporting ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <Download className="h-3.5 w-3.5" />
                 )}
-                {isExporting
+                {s.isExporting
                   ? "Exporting…"
                   : `Export${
-                      selectedCount > 0
-                        ? ` ${selectedCount.toLocaleString()}`
+                      s.selectedCount > 0
+                        ? ` ${s.selectedCount.toLocaleString()}`
                         : ""
                     }`}
               </Button>
@@ -247,20 +190,20 @@ export default function DataCleaningPage() {
           )}
         </div>
 
-        {/* ── Search bar (shown when data is loaded) ── */}
-        {hasData && rowsReady && (
+        {/* ── Search bar ── */}
+        {s.hasData && s.rowsReady && (
           <div className="relative shrink-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
               placeholder="Search all columns…"
-              value={search}
-              onChange={(e) => updateSearch(e.target.value)}
+              value={s.search}
+              onChange={(e) => s.updateSearch(e.target.value)}
             />
-            {search && (
+            {s.search && (
               <button
                 className="absolute right-3 top-1/2 -translate-y-1/2"
-                onClick={() => updateSearch("")}
+                onClick={() => s.updateSearch("")}
               >
                 <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
               </button>
@@ -268,17 +211,17 @@ export default function DataCleaningPage() {
           </div>
         )}
 
-        {/* ── Upload ── */}
-        {!hasData && (
+        {/* ── Upload zone ── */}
+        {!s.hasData && (
           <UploadZone
-            onFile={parseFile}
-            progress={progress}
-            isLoading={isLoading}
+            onFile={s.parseFile}
+            progress={s.progress}
+            isLoading={s.isLoading}
           />
         )}
 
         {/* ── Waiting for column confirmation ── */}
-        {hasData && !rowsReady && !isLoading && (
+        {s.hasData && !s.rowsReady && !s.isLoading && (
           <div className="flex flex-col flex-1 items-center justify-center gap-3 text-center">
             <div className="rounded-full bg-muted p-4">
               <Columns3 className="h-6 w-6 text-muted-foreground" />
@@ -295,72 +238,68 @@ export default function DataCleaningPage() {
           </div>
         )}
 
-        {/* ── Data table ── */}
-        {hasData && rowsReady && (
+        {/* ── Data table + pagination ── */}
+        {s.hasData && s.rowsReady && (
           <div className="flex flex-col flex-1 min-h-0 gap-3">
             <DataTable
-              rows={pagedRows}
-              columns={columns}
-              visibleCols={colVisibility}
-              selectedIds={selectedIds}
-              onToggleRow={toggleRow}
-              onToggleAll={toggleAll}
-              sort={sort}
-              onSort={handleSort}
-              allFilteredSelected={allFilteredSelected}
-              page={page}
-              pageSize={pageSize}
+              rows={s.pagedRows}
+              columns={s.columns}
+              visibleCols={s.colVisibility}
+              selectedIds={s.selectedIds}
+              onToggleRow={s.toggleRow}
+              onToggleAll={s.toggleAll}
+              sort={s.sort}
+              onSort={s.handleSort}
+              allFilteredSelected={s.allFilteredSelected}
+              page={s.page}
+              pageSize={s.pageSize}
             />
 
             {/* ── Pagination footer ── */}
             <div className="flex items-center justify-between shrink-0 text-xs text-muted-foreground">
               <div className="flex items-center gap-3">
-                {/* Selection summary */}
-                {selectedCount > 0 && (
+                {s.selectedCount > 0 && (
                   <span className="text-primary font-medium">
-                    {selectedCount.toLocaleString()} selected
-                    {selectedCount !== totalRows && " across all pages"}
+                    {s.selectedCount.toLocaleString()} selected
+                    {s.selectedCount !== s.totalRows && " across all pages"}
                   </span>
                 )}
-
-                {/* Page size selector */}
                 <div className="flex items-center gap-1.5">
                   <span>Rows per page:</span>
                   <select
                     className="rounded border border-border bg-background px-1.5 py-0.5 text-xs focus:outline-none"
-                    value={pageSize}
-                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    value={s.pageSize}
+                    onChange={(e) => s.setPageSize(Number(e.target.value))}
                   >
-                    {PAGE_SIZE_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
                       </option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              {/* Page navigation */}
               <div className="flex items-center gap-1">
                 <span className="mr-2 tabular-nums">
-                  Page {clampedPage} of {totalPages.toLocaleString()}
+                  Page {s.clampedPage} of {s.totalPages.toLocaleString()}
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
                   className="h-7 w-7 p-0"
-                  disabled={clampedPage <= 1}
-                  onClick={() => setPage((p) => p - 1)}
+                  disabled={s.clampedPage <= 1}
+                  onClick={() => s.setPage((p) => p - 1)}
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </Button>
-                {getPaginationRange().map((p) => (
+                {paginationRange.map((p) => (
                   <Button
                     key={p}
-                    variant={p === clampedPage ? "default" : "outline"}
+                    variant={p === s.clampedPage ? "default" : "outline"}
                     size="sm"
                     className="h-7 w-7 p-0 text-xs"
-                    onClick={() => setPage(p)}
+                    onClick={() => s.setPage(p)}
                   >
                     {p}
                   </Button>
@@ -369,8 +308,8 @@ export default function DataCleaningPage() {
                   variant="outline"
                   size="sm"
                   className="h-7 w-7 p-0"
-                  disabled={clampedPage >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
+                  disabled={s.clampedPage >= s.totalPages}
+                  onClick={() => s.setPage((p) => p + 1)}
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
@@ -380,95 +319,17 @@ export default function DataCleaningPage() {
         )}
       </div>
 
-      {/* ── Dialogs ── */}
-      <HeaderPickerDialog
-        open={showHeaderPicker}
-        rawData={rawSheetData}
-        onConfirm={(rowIndex) =>
-          commitWithHeaderRow(rowIndex, () => {
-            setShowColDialog(true);
-            setShowFilterPanel(false);
-            setSidebarOpen(false);
-          })
-        }
-        onClose={dismissHeaderPicker}
-      />
-
-      <FilterDrawer
-        open={showFilterPanel}
-        columns={columns}
-        visibleCols={colVisibility}
-        filterValues={filterValues}
-        filterValuesLoading={filterValuesLoading}
-        onOpen={handleFilterDrawerOpen}
-        activeFilters={activeFilters}
-        onFiltersChange={updateActiveFilters}
-        dateRangeFilters={dateRangeFilters}
-        onDateRangeChange={updateDateRangeFilters}
-        onClearAll={clearAllFilters}
-        onClose={() => setShowFilterPanel(false)}
-      />
-
-      <ColumnDialog
-        open={showColDialog}
-        columns={columns}
-        visibility={colVisibility}
-        colTypes={colTypes}
-        detectedTypes={detectedTypes}
-        onChange={setColVisible}
-        onReorder={setColumns}
-        onSetColType={setColType}
-        onClose={() => {
-          setShowColDialog(false);
-          if (!rowsReady) setRowsReady(true);
-        }}
-      />
-
-      <ExportDialog
-        open={showExportDialog}
-        onClose={() => setShowExportDialog(false)}
-        onExport={handleExport}
-        onValidateXml={validateExport}
-        columns={visibleColumns}
-        allColumns={columns}
-        selectedCount={selectedCount}
-        isExporting={isExporting}
-        isValidating={isValidating}
-        exportError={exportError}
-        xmlValidation={xmlValidation}
-      />
-      <ConfirmDialog
-        open={showClearConfirm}
-        onOpenChange={(v) => !v && setShowClearConfirm(false)}
-        title="Clear selection?"
-        desc={`This will deselect all ${selectedCount.toLocaleString()} selected rows.`}
-        handleConfirm={() => {
-          clearSelection();
-          setShowClearConfirm(false);
-        }}
-        destructive
-      />
-
-      <ConfirmDialog
-        open={showReplaceConfirm}
-        onOpenChange={(v) => !v && setShowReplaceConfirm(false)}
-        title="Replace file?"
-        desc="This will clear all current data and selection. You'll be prompted to upload a new file."
-        handleConfirm={() => {
-          resetData();
-          setShowReplaceConfirm(false);
-        }}
-        destructive
-      />
-
-      <ConfirmDialog
-        open={showBlocker}
-        onOpenChange={(v) => !v && cancelLeave()}
-        title="Leave page?"
-        desc="You have unsaved data. Leaving will clear all imported rows and selections."
-        confirmText="Leave"
-        handleConfirm={confirmLeave}
-        destructive
+      {/* ── All dialogs ── */}
+      <DialogsSection
+        spreadsheet={s}
+        dialogs={d}
+        visibleColumns={visibleColumns}
+        onColDialogClose={handleColDialogClose}
+        onFilterDrawerOpen={handleFilterDrawerOpen}
+        setSidebarOpen={setSidebarOpen}
+        showBlocker={showBlocker}
+        confirmLeave={confirmLeave}
+        cancelLeave={cancelLeave}
       />
     </div>
   );

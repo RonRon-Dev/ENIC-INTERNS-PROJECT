@@ -19,6 +19,7 @@ type ToastMode =
   | "addrole"
   | "appsettings"
   | "error"
+  | "warning"
   | "updateprivileges"
   | "copy"
   | "approveReset";
@@ -95,6 +96,12 @@ const modeConfig: Record<
     description: ({ reason }) => reason ?? "Something went wrong.",
     icon: UserX,
     iconClass: "text-destructive bg-destructive/70",
+  },
+  warning: {
+    title: "Warning",
+    description: ({ reason }) => reason ?? "Please check the information provided.",
+    icon: ShieldOff,
+    iconClass: "text-amber-600 bg-amber-400/50",
   },
   updateprivileges: {
     title: "Privilege Updated",

@@ -11,7 +11,7 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
+  FormLabel
 } from "@/components/ui/form";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -36,7 +36,6 @@ import {
   Code,
   Cpu,
   FileText,
-  HardHat,
   LayoutGrid,
   List,
   Megaphone,
@@ -46,11 +45,12 @@ import {
   ShieldCheck,
   User,
   UserCheck,
-  Users,
+  Users
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { Switch } from "../ui/switch";
 import { useUsers } from "./users-provider";
 
 type Props = {
@@ -166,6 +166,7 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
 
   const isHome = selected?.url === "/home";
   const isUsers = selected?.url === "/users";
+  const isDashboard = selected?.url === "/dashboard";
   const homeEntry = categories.find((c) => c.url === "/home");
 
   // Returns lowercase role values for a URL — DB wins, falls back to toolsData
@@ -464,71 +465,39 @@ export function UsersPrivilegesDialog({ open, onOpenChange }: Props) {
                 <Form {...form}>
                   <form id="privileges-form" className="flex flex-col h-full">
                     <div className="p-6 flex-1 space-y-4 overflow-auto">
-                      <div>
-                        <p className="font-semibold text-sm">
-                          {selected.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground font-mono">
-                          {selected.url}
-                        </p>
-                      </div>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-semibold text-sm">{selected.title}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{selected.url}</p>
+                        </div>
 
-                      {/* ── Maintenance toggle ── */}
-                      <FormField
-                        control={form.control}
-                        name="maintenance"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                              Page Status
-                            </FormLabel>
-                            <FormControl>
-                              <div
-                                className={cn(
-                                  "flex items-center gap-2.5 text-sm mt-1",
-                                  isHome || isUsers ? "cursor-not-allowed" : "cursor-pointer"
-                                )}
-                                onClick={() => {
-                                  if (isHome || isUsers) return;
-                                  field.onChange(!field.value);
-                                }}
-                              >
-                                <div
-                                  className={cn(
-                                    "size-4 rounded-sm border flex items-center justify-center shrink-0 transition-colors",
-                                    field.value && !(isHome || isUsers)
-                                      ? "bg-primary border-primary"
-                                      : field.value && (isHome || isUsers)
-                                        ? "bg-muted/40 border-muted-foreground/20"
-                                        : "border-muted-foreground/30"
-                                  )}
-                                >
-                                  {field.value && (
-                                    <Check className="size-3 text-primary-foreground" />
-                                  )}
-                                </div>
-                                <HardHat
-                                  className={cn(
-                                    "size-3.5",
-                                    field.value && !(isHome || isUsers)
-                                      ? "text-warning"
-                                      : "text-muted-foreground/40"
-                                  )}
-                                />
-                                <span
-                                  className={cn(
-                                    field.value && !(isHome || isUsers)
-                                      ? "text-warning"
-                                      : "text-muted-foreground/40"
-                                  )}
-                                >
+                        <FormField
+                          control={form.control}
+                          name="maintenance"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center gap-3">
+                              <div className="text-right">
+                                <FormLabel className="text-xs font-medium text-muted-foreground">
                                   Under Maintenance
-                                </span>
+                                </FormLabel>
+                                {/* <FormDescription className="text-[11px]">
+                                  {field.value ? "Page is under maintenance" : "Page is live"}
+                                </FormDescription> */}
                               </div>
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={(val) => {
+                                    if (isHome || isUsers || isDashboard) return;
+                                    field.onChange(val);
+                                  }}
+                                  disabled={isHome || isUsers || isDashboard}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
                       <FormField
                         control={form.control}

@@ -1,6 +1,7 @@
 import { useAuth } from "@/auth-context";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useDialog } from "@/components/dialogs/dialog-provider";
+import SubToolTestPage from "@/components/errors/503";
 import { Search } from "@/components/search";
 import { SearchProvider } from "@/components/search-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -18,6 +19,8 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { toolsData } from "@/data/tools";
+import { usePagePrivileges } from "@/hooks/use-page-privileges";
+import { notifToast } from "@/lib/notifToast";
 import NProgress from "@/lib/nprogress";
 import { ChevronLeft } from "lucide-react";
 import React, { useEffect, useMemo, useRef } from "react";
@@ -58,6 +61,8 @@ export default function AppLayout() {
   const { user } = useAuth();
   const hasOpened = useRef(false);
   const breadcrumbNameMap = useMemo(() => buildBreadcrumbMap(), []);
+  const { maintenance } = usePagePrivileges();
+  const isSuperAdmin = user?.roleName?.toLowerCase() === "superadmin";
 
   const breadcrumbSegments =
     pathnames.length <= 2 ? pathnames : pathnames.slice(-2);
@@ -74,6 +79,12 @@ export default function AppLayout() {
     const timeout = setTimeout(() => NProgress.done(), 300);
     return () => clearTimeout(timeout);
   }, [location]);
+
+  useEffect(() => {
+    if (maintenance[location.pathname] && isSuperAdmin) {
+      notifToast({ reason: "This page is currently under maintenance. As a Super Admin, you can access it, but regular users cannot." }, 'warning')
+    }
+  }, [location.pathname]);
 
   return (
     <>
@@ -145,7 +156,7 @@ export default function AppLayout() {
 
             {/* Page Content */}
             <div className="flex flex-1 flex-col gap-4 px-24 py-10">
-              <Outlet />
+              {maintenance[location.pathname] && !isSuperAdmin ? <SubToolTestPage /> : <Outlet />}
             </div>
           </SidebarInset>
         </SidebarProvider>
