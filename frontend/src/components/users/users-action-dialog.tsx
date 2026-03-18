@@ -89,6 +89,8 @@ export function UsersActionDialog({
   })
 
   const { apiRoles, refresh } = useUsers()
+  const filteredRoles = apiRoles.filter((r) => r.name.toLowerCase() !== "superadmin");
+
   const [tempPassword, setTempPassword] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   // const [error, setError] = useState<string | null>(null)
@@ -339,7 +341,7 @@ export function UsersActionDialog({
                         onValueChange={field.onChange}
                         placeholder='Select a role'
                         className='col-span-3'
-                        items={apiRoles.map((r) => ({
+                        items={filteredRoles.map((r) => ({
                           label: r.name.charAt(0).toUpperCase() + r.name.slice(1),
                           value: r.name.toLowerCase(),
                         }))}
@@ -565,6 +567,8 @@ export function UsersApproveDialog({
   currentRow,
 }: UserApproveDialogProps) {
   const { apiRoles, refresh } = useUsers()
+  const filteredRoles = apiRoles.filter((r) => r.name.toLowerCase() !== "superadmin");
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
@@ -638,7 +642,7 @@ export function UsersApproveDialog({
                       onValueChange={field.onChange}
                       placeholder='Select a role'
                       className='col-span-6'
-                      items={apiRoles.map((r) => ({
+                      items={filteredRoles.map((r) => ({
                         label: r.name,
                         value: r.name,
                       }))}

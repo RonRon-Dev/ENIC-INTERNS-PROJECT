@@ -82,7 +82,7 @@ export default function AppLayout() {
 
   useEffect(() => {
     if (maintenance[location.pathname] && isSuperAdmin) {
-      toast.info("This page is currently under maintenance.")
+      toast.info("This page is currently under maintenance. Viewing as Super Admin.");
     }
   }, [location.pathname]);
 
