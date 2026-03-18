@@ -88,9 +88,6 @@ jobs:
           dotnet restore
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-          dotnet tool install --global dotnet-ef
-          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-
           $output = dotnet ef migrations has-pending-model-changes 2>&1
 
           if ($output -match "true") {
@@ -99,12 +96,6 @@ jobs:
             $migrationName = "AutoMigration_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
             dotnet ef migrations add $migrationName
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-            git config user.name "GitHub Actions"
-            git config user.email "actions@github.com"
-            git add .
-            git commit -m "chore: auto migration $migrationName"
-            git push origin main
 
             Write-Host "Migration created: $migrationName"
           } else {
