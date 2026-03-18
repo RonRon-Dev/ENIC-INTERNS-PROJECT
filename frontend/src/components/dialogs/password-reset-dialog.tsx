@@ -1,11 +1,7 @@
 'use client'
 
-import { KeyRound, ShieldCheck } from 'lucide-react'
-import { ConfirmDialog } from '../confirm-dialog'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { useState } from 'react'
+import { useAuth } from '@/auth-context'
+import { PasswordInput } from "@/components/password-input"
 import {
   Form,
   FormControl,
@@ -14,10 +10,22 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { PasswordInput } from "@/components/password-input";
 import { authenticationApi } from '@/services/auth'
-import { useAuth } from '@/auth-context'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Check, KeyRound, Minus, ShieldCheck } from 'lucide-react'
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
+import { ConfirmDialog } from '../confirm-dialog'
 
+const passwordRules = [
+  { label: 'At least 8 characters', test: (v: string) => v.length >= 8 },
+  { label: 'One uppercase letter', test: (v: string) => /[A-Z]/.test(v) },
+  { label: 'One number', test: (v: string) => /[0-9]/.test(v) },
+  { label: 'One special character', test: (v: string) => /[^A-Za-z0-9]/.test(v) },
+]
+
+// inside the component, watch password:
 const schema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
   confirmPassword: z.string(),
@@ -42,6 +50,7 @@ export function PasswordResetDialog({ open, onOpenChange }: PasswordResetDialogP
     resolver: zodResolver(schema),
     defaultValues: { password: '', confirmPassword: '' },
   })
+  const password = form.watch('password')
 
   const handleReset = () => {
     form.handleSubmit(async (values) => {
@@ -86,7 +95,7 @@ export function PasswordResetDialog({ open, onOpenChange }: PasswordResetDialogP
           </div>
           <Form {...form}>
             <form className='text-left w-3/4' onSubmit={(e) => { e.preventDefault(); handleReset() }}>
-              <div className='grid grid-rows-2 gap-3 '>
+              <div className='flex flex-col gap-3'>
                 <FormField
                   control={form.control}
                   name='password'
@@ -96,6 +105,22 @@ export function PasswordResetDialog({ open, onOpenChange }: PasswordResetDialogP
                       <FormControl>
                         <PasswordInput {...field} />
                       </FormControl>
+                      {form.formState.dirtyFields.password && (
+                        <div className="mt-2 space-y-1">
+                          {passwordRules.map(({ label, test }) => {
+                            const passed = test(password ?? '')
+                            return (
+                              <div key={label} className={`flex items-center gap-1.5 text-xs ${passed ? 'text-success' : 'text-muted-foreground'}`}>
+                                {passed
+                                  ? <Check className="size-3 shrink-0" />
+                                  : <Minus className="size-3 shrink-0" />
+                                }
+                                {label}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
