@@ -78,30 +78,6 @@ jobs:
         run: |
           "APP_VERSION=beta-v${{ steps.version.outputs.version }}" | Out-File .env.prod -Encoding utf8
 
-      - name: Auto create migrations
-        if: steps.bump.outputs.skip != 'true'
-        shell: powershell
-        run: |
-          cd backend
-
-          # restore packages first ← add this
-          dotnet restore
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-          $output = dotnet ef migrations has-pending-model-changes 2>&1
-
-          if ($output -match "true") {
-            Write-Host "Pending model changes detected, creating migration..."
-
-            $migrationName = "AutoMigration_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-            dotnet ef migrations add $migrationName
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-            Write-Host "Migration created: $migrationName"
-          } else {
-            Write-Host "No pending model changes"
-          }
-
       - name: Deploy
         if: steps.bump.outputs.skip != 'true'
         shell: powershell
