@@ -25,6 +25,6 @@ appsettings.Development.json
 appsettings.Production.json
 appsettings.json
 secrets.json
-Migrations
+# Migrations
 
 *.publishsettings
