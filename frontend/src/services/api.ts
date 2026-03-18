@@ -1,6 +1,10 @@
 import axios, { AxiosError } from "axios";
 import { authenticationApi } from "./auth";
 
+type SessionExpiredDetail = {
+  reason?: string;
+};
+
 const api = axios.create({
   baseURL: "/api",
   withCredentials: true,
@@ -51,6 +55,10 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    const initialReason =
+      (error.response?.data as { message?: string } | undefined)?.message ??
+      "Your session is no longer valid. Please sign in again.";
+
     originalRequest._retry = true;
 
     if (isRefreshing) {
@@ -69,7 +77,15 @@ api.interceptors.response.use(
       return api(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError as AxiosError);
-      window.dispatchEvent(new CustomEvent("session:expired"));
+      const refreshReason =
+        ((refreshError as AxiosError)?.response?.data as { message?: string } | undefined)
+          ?.message ?? initialReason;
+
+      window.dispatchEvent(
+        new CustomEvent<SessionExpiredDetail>("session:expired", {
+          detail: { reason: refreshReason },
+        })
+      );
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;

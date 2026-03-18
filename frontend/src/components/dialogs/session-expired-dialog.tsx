@@ -12,7 +12,7 @@ import { AlertTriangle, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export function SessionExpiredDialog() {
-  const { sessionExpired, idleSecondsLeft, dismissSessionExpired } = useAuth();
+  const { sessionExpired, sessionExpiredReason, idleSecondsLeft, dismissSessionExpired } = useAuth();
   const navigate = useNavigate();
 
   const handleLogin = () => {
@@ -73,8 +73,7 @@ export function SessionExpiredDialog() {
               <DialogTitle className="text-base">Session Expired</DialogTitle>
             </div>
             <DialogDescription className="text-sm leading-relaxed">
-              Your session has expired due to inactivity. Please log in again to
-              continue.
+              {sessionExpiredReason ?? "Your session has expired due to inactivity. Please log in again to continue."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-2">

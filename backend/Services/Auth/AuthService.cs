@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using backend.Services.ActivityLogger;
 using BCrypt.Net;
+using backend.Extensions;
 
 namespace backend.Services.Auth;
 
@@ -156,11 +157,12 @@ public class AuthService(
             await context.SaveChangesAsync();
 
             var isRejected = latestReq?.RequestStatus == "Rejected";
+            var reason = latestReq?.DecisionReason;
             return new AuthResponse
             {
                 Success = false,
                 Message = isRejected
-                    ? "Your registration was rejected. Please see the reason below."
+                    ? $"Your registration was rejected. Reason: {reason ?? "No reason provided"}."
                     : "Account pending approval. Please contact your administrator.",
                 AccessToken = null!,
                 RefreshToken = null!,
@@ -327,12 +329,14 @@ public class AuthService(
 
         await context.SaveChangesAsync();
 
+        var newRefreshToken = await GenerateAndSaveRefreshTokenAsync(user);
+
         return new AuthResponse
         {
             Success = true,
             Message = "Login successful",
-            AccessToken = GenerateToken(user),
-            RefreshToken = await GenerateAndSaveRefreshTokenAsync(user),
+            RefreshToken = newRefreshToken,
+            AccessToken = GenerateToken(user, newRefreshToken),
             ForcePasswordChange = user.ForcePasswordChange
         };
     }
@@ -386,12 +390,14 @@ public class AuthService(
         if (user is null)
             return null;
 
+        var newRefreshToken = await GenerateAndSaveRefreshTokenAsync(user);
+
         return new AuthResponse
         {
             Success = true,
             Message = "Token refreshed",
-            AccessToken = GenerateToken(user),
-            RefreshToken = await GenerateAndSaveRefreshTokenAsync(user),
+            AccessToken = GenerateToken(user, newRefreshToken),
+            RefreshToken = newRefreshToken,
             ForcePasswordChange = user.ForcePasswordChange
         };
     }
@@ -424,6 +430,40 @@ public class AuthService(
             {
                 Success = true,
                 Message = "Reset request submitted. Please wait for admin approval.",
+            };
+        }
+
+        // Deactivated users cannot request a password reset
+        if (!user.IsActive)
+        {
+            return new ForgotPasswordResponse
+            {
+                Success = false,
+                Message = "Your account has been deactivated. Please contact your administrator.",
+            };
+        }
+
+        // Rejected self-registered users cannot request a password reset
+        if (!user.IsVerified)
+        {
+            var latestRegReq = user.UserRequests?
+                .Where(r => r.RequestType == "Account Registration")
+                .OrderByDescending(r => r.RequestDate)
+                .FirstOrDefault();
+
+            if (latestRegReq?.RequestStatus == "Rejected")
+            {
+                return new ForgotPasswordResponse
+                {
+                    Success = false,
+                    Message = $"Your registration was rejected. Reason: {latestRegReq.DecisionReason ?? "No reason provided"}. You cannot reset your password.",
+                };
+            }
+
+            return new ForgotPasswordResponse
+            {
+                Success = false,
+                Message = "Your account is still pending approval. You cannot reset your password yet.",
             };
         }
 
@@ -533,7 +573,7 @@ public class AuthService(
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private string GenerateToken(Users user)
+    private string GenerateToken(Users user, string refreshToken)
     {
         var issuer = configuration["AppSettings:Issuer"];
         var audience = configuration["AppSettings:Audience"];
@@ -551,7 +591,8 @@ public class AuthService(
             new Claim(ClaimTypes.Name, user.UserName),
             new Claim(ClaimTypes.GivenName, user.Name),
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim("ForcePasswordChange", user.ForcePasswordChange.ToString())
+            new Claim("ForcePasswordChange", user.ForcePasswordChange.ToString()),
+            new Claim("rtv", TokenHashExtensions.ComputeTokenHash(refreshToken))
         };
 
         if (user.Role != null && !string.IsNullOrWhiteSpace(user.Role.Name))

@@ -102,10 +102,11 @@ export default function SubToolTestPage() {
         {/* Title + description */}
         <div className="space-y-2">
           <h3 className="text-xl font-semibold tracking-tight text-foreground">
-            {meta.title}
+            This page is temporarily under maintenance
           </h3>
           <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-            {meta.description}
+            We&apos;re fixing things on this page right now. Please check back
+            soon, or contact your administrator if you need help.
           </p>
         </div>
 

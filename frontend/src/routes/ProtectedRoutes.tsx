@@ -1,4 +1,6 @@
 import { useAuth } from "@/auth-context";
+import { UnauthorisedError } from "@/components/errors/403";
+import { MaintenanceError } from "@/components/errors/503";
 import type { UserRole } from "@/data/schema";
 import { usePagePrivileges } from "@/hooks/use-page-privileges";
 import { notifToast } from "@/lib/notifToast";
@@ -39,14 +41,13 @@ export function LoadingScreen() {
   );
 }
 
-// export function ProtectedRoute({
-//   children,
-//   allowedRoles,
-// }: ProtectedRouteProps) {
-//   const { isAuthenticated, loading, user, sessionExpired } = useAuth();
-//   const { privileges, loading: privilegesLoading } = usePagePrivileges();
-//   const { pathname } = useLocation();
-//   const toastFired = useRef(false)
+export function ProtectedRoute({
+  children,
+  allowedRoles,
+}: ProtectedRouteProps) {
+  const { isAuthenticated, loading, user, sessionExpired } = useAuth();
+  const { privileges, maintenance, loading: privilegesLoading } = usePagePrivileges();
+  const { pathname } = useLocation();
 
 //   if (loading || privilegesLoading) return <LoadingScreen />;
 
@@ -105,6 +106,10 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   if (sessionExpired) return null;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (isUnauthorized) return <Navigate to="/home" replace />;
+
+  if (maintenance[pathname]) {
+    return <MaintenanceError />;
+  }
 
   return <>{children}</>;
 }

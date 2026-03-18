@@ -41,7 +41,7 @@ export function LoginForm({
   const { refreshUser } = useAuth()
   const navigate = useNavigate();
 
-  const [rejectionReason, setRejectionReason] = useState<string | null>(null)
+  const [blockedMessage, setBlockedMessage] = useState<string | null>(null)
   const [requestStatus, setRequestStatus] = useState<string | null>(null)
 
   const form = useForm<UserForm>({
@@ -54,16 +54,17 @@ export function LoginForm({
   });
 
   const onSubmit = async (data: UserForm) => {
-    setRejectionReason(null)
+    setBlockedMessage(null)
     setRequestStatus(null)
     try {
       NProgress.start()
       const response = await authenticationApi.login(data)
       if (!response.success) {
-        if (response.requestStatus === 'Rejected' && response.decisionReason) {
-          setRejectionReason(response.decisionReason)
+        if (response.requestStatus === 'Rejected') {
+          setBlockedMessage(response.message)
           setRequestStatus('Rejected')
         } else if (response.requestStatus === 'Pending') {
+          setBlockedMessage(response.message)
           setRequestStatus('Pending')
         } else {
           notifToast({ reason: response.message }, 'error')
@@ -100,20 +101,14 @@ export function LoginForm({
         <Alert variant="destructive" className="text-start">
           <XCircle className="h-4 w-4" />
           <AlertTitle>Registration Rejected</AlertTitle>
-          <AlertDescription>
-            {rejectionReason
-              ? <>Reason: <span className="font-semibold">{rejectionReason}</span>. Please sign up again or contact your administrator.</>
-              : 'Your registration was rejected. Please contact your administrator.'}
-          </AlertDescription>
+          <AlertDescription>{blockedMessage}</AlertDescription>
         </Alert>
       )}
 
       {requestStatus === 'Pending' && (
         <Alert className="text-start border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400">
           <AlertTitle>Pending Approval</AlertTitle>
-          <AlertDescription>
-            Your account is still awaiting approval from an administrator.
-          </AlertDescription>
+          <AlertDescription>{blockedMessage}</AlertDescription>
         </Alert>
       )}
 
