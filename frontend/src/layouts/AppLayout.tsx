@@ -20,11 +20,11 @@ import {
 } from "@/components/ui/sidebar";
 import { toolsData } from "@/data/tools";
 import { usePagePrivileges } from "@/hooks/use-page-privileges";
+import { notifToast } from "@/lib/notifToast";
 import NProgress from "@/lib/nprogress";
 import { ChevronLeft } from "lucide-react";
 import React, { useEffect, useMemo, useRef } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 
 function toTitleCase(segment: string) {
   return segment.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -82,7 +82,7 @@ export default function AppLayout() {
 
   useEffect(() => {
     if (maintenance[location.pathname] && isSuperAdmin) {
-      toast.info("This page is currently under maintenance. Viewing as Super Admin.");
+      notifToast({ reason: "This page is currently under maintenance. As a Super Admin, you can access it, but regular users cannot." }, 'warning')
     }
   }, [location.pathname]);
 
