@@ -2,32 +2,45 @@ name: API CI
 
 on:
   push:
-    branches: "**"
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
 jobs:
   test-backend:
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted, nixos ]
     steps:
       - uses: actions/checkout@v3
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '10.0.x'
+      # Uncomment this if you are not going to self-host the workflow
+      # - name: Setup .NET
+      #   uses: actions/setup-dotnet@v3
+      #   with:
+      #     dotnet-version: '10.0.x'
 
       - name: Restore dependencies
         run: cd backend && dotnet restore
 
+      # - name: Check Code Formatting
+      #   run: cd backend && dotnet format --verify-no-changes --no-restore
+
       - name: Build
         run: cd backend && dotnet build --no-restore
+
+      - name: Check Code Quality (analyze)
+        run: |
+          cd backend
+          dotnet build --no-restore \
+            /p:EnforceCodeStyleInBuild=true \
+            /p:AnalysisLevel=latest \
+            /p:TreatWarningsAsErrors=false \
+            /warnaserror
 
       - name: Run tests
         run: cd backend && dotnet test --no-build --verbosity normal
 
   all-checks-passed:
     needs: [ test-backend ]
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted, nixos ]
     steps:
       - name: All checks passed
         run: echo "All tests passed for API successfully!"

@@ -2,21 +2,22 @@ name: Client CI
 
 on:
   push:
-    branches: "**"
+    branches: [main]
   pull_request:
     branches: [main]
 
 jobs:
   test-frontend:
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted, nixos ]
     steps:
       - uses: actions/checkout@v3
-      - name: Setup Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+      # Uncomment this if you are not going to self-host the actions
+      # - name: Setup Node
+      #   uses: actions/setup-node@v3
+      #   with:
+      #     node-version: '24'
+      #     cache: 'npm'
+      #     cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: cd frontend && npm install
@@ -35,7 +36,7 @@ jobs:
 
   all-checks-passed:
     needs: [ test-frontend ]
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted, nixos ]
     steps:
       - name: All checks passed
         run: echo "All tests passed for frontend successfully!"
