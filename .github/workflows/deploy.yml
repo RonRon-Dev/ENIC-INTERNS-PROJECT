@@ -78,6 +78,42 @@ jobs:
         run: |
           "APP_VERSION=beta-v${{ steps.version.outputs.version }}" | Out-File .env.prod -Encoding utf8
 
+      - name: Auto create migrations
+      if: steps.bump.outputs.skip != 'true'
+      shell: powershell
+      run: |
+        cd backend
+
+        # install dotnet ef tool if not present
+        dotnet tool install --global dotnet-ef
+        $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+
+        # check if there are pending model changes
+        $output = dotnet ef migrations has-pending-model-changes 2>&1
+        
+        if ($output -match "true") {
+          Write-Host "Pending model changes detected, creating migration..."
+          
+          # generate migration name from current date
+          $migrationName = "AutoMigration_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+          
+          dotnet ef migrations add $migrationName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          Write-Host "Migration created: $migrationName"
+
+          # commit the new migration
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "chore: auto migration $migrationName"
+          git push origin main
+
+          Write-Host "Migration committed and pushed"
+        } else {
+          Write-Host "No pending model changes"
+        }
+
       - name: Deploy
         if: steps.bump.outputs.skip != 'true'
         shell: powershell
