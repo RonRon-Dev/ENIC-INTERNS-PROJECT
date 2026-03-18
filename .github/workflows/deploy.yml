@@ -23,7 +23,7 @@ jobs:
 
       - name: Determine version bump
         id: bump
-        shell: pwsh
+        shell: powershell
         run: |
           $COMMIT_MSG = git log -1 --pretty=%B
           Write-Host "Commit message: $COMMIT_MSG"
@@ -45,7 +45,7 @@ jobs:
       - name: Bump version in package.json
         if: steps.bump.outputs.skip != 'true'
         id: version
-        shell: pwsh
+        shell: powershell
         run: |
           cd frontend
           npm version ${{ steps.bump.outputs.bump }} --no-git-tag-version
@@ -55,7 +55,7 @@ jobs:
 
       - name: Commit version bump
         if: steps.bump.outputs.skip != 'true'
-        shell: pwsh
+        shell: powershell
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
@@ -65,13 +65,13 @@ jobs:
 
       - name: Generate .env.prod
         if: steps.bump.outputs.skip != 'true'
-        shell: pwsh
+        shell: powershell
         run: |
           "APP_VERSION=beta-v${{ steps.version.outputs.version }}" | Out-File .env.prod -Encoding utf8
 
       - name: Deploy
         if: steps.bump.outputs.skip != 'true'
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "Starting deployment..."
 
@@ -90,10 +90,10 @@ jobs:
 
       - name: Notify success
         if: success() && steps.bump.outputs.skip != 'true'
-        shell: pwsh
+        shell: powershell
         run: Write-Host "Deployed beta-v${{ steps.version.outputs.version }}"
 
       - name: Notify failure
         if: failure()
-        shell: pwsh
+        shell: powershell
         run: Write-Host "❌ Deployment failed for commit ${{ github.sha }}"
