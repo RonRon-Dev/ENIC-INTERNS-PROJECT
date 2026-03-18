@@ -18,7 +18,9 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { toolsData } from "@/data/tools";
+import { usePagePrivileges } from "@/hooks/use-page-privileges";
 import NProgress from "@/lib/nprogress";
+import SubToolTestPage from "@/pages/tools/DevelopmentToolPage";
 import { ChevronLeft } from "lucide-react";
 import React, { useEffect, useMemo, useRef } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -58,6 +60,8 @@ export default function AppLayout() {
   const { user } = useAuth();
   const hasOpened = useRef(false);
   const breadcrumbNameMap = useMemo(() => buildBreadcrumbMap(), []);
+  const { maintenance } = usePagePrivileges();
+
 
   const breadcrumbSegments =
     pathnames.length <= 2 ? pathnames : pathnames.slice(-2);
@@ -145,7 +149,7 @@ export default function AppLayout() {
 
             {/* Page Content */}
             <div className="flex flex-1 flex-col gap-4 px-24 py-10">
-              <Outlet />
+              {maintenance[location.pathname] ? <SubToolTestPage /> : <Outlet />}
             </div>
           </SidebarInset>
         </SidebarProvider>
