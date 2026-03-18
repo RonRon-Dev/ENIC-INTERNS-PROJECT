@@ -1,6 +1,7 @@
 import { useAuth } from "@/auth-context";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useDialog } from "@/components/dialogs/dialog-provider";
+import SubToolTestPage from "@/components/errors/503";
 import { Search } from "@/components/search";
 import { SearchProvider } from "@/components/search-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -20,10 +21,10 @@ import {
 import { toolsData } from "@/data/tools";
 import { usePagePrivileges } from "@/hooks/use-page-privileges";
 import NProgress from "@/lib/nprogress";
-import SubToolTestPage from "@/pages/tools/DevelopmentToolPage";
 import { ChevronLeft } from "lucide-react";
 import React, { useEffect, useMemo, useRef } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 function toTitleCase(segment: string) {
   return segment.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -61,7 +62,7 @@ export default function AppLayout() {
   const hasOpened = useRef(false);
   const breadcrumbNameMap = useMemo(() => buildBreadcrumbMap(), []);
   const { maintenance } = usePagePrivileges();
-
+  const isSuperAdmin = user?.roleName?.toLowerCase() === "superadmin";
 
   const breadcrumbSegments =
     pathnames.length <= 2 ? pathnames : pathnames.slice(-2);
@@ -78,6 +79,12 @@ export default function AppLayout() {
     const timeout = setTimeout(() => NProgress.done(), 300);
     return () => clearTimeout(timeout);
   }, [location]);
+
+  useEffect(() => {
+    if (maintenance[location.pathname] && isSuperAdmin) {
+      toast.info("This page is currently under maintenance.")
+    }
+  }, [location.pathname]);
 
   return (
     <>
@@ -149,7 +156,7 @@ export default function AppLayout() {
 
             {/* Page Content */}
             <div className="flex flex-1 flex-col gap-4 px-24 py-10">
-              {maintenance[location.pathname] ? <SubToolTestPage /> : <Outlet />}
+              {maintenance[location.pathname] && !isSuperAdmin ? <SubToolTestPage /> : <Outlet />}
             </div>
           </SidebarInset>
         </SidebarProvider>
