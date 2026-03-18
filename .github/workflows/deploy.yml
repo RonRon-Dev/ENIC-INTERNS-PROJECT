@@ -29,10 +29,6 @@ jobs:
                     -Destination "${{ github.workspace }}\backend\appsettings.json" `
                     -Force
           Write-Host "appsettings.json restored"
-          Copy-Item -Path "C:\Users\Ron\Desktop\secrets\appsettings.Production.json" `
-                    -Destination "${{ github.workspace }}\backend\appsettings.Production.json" `
-                    -Force
-          Write-Host "appsettings.Production.json restored"
 
       - name: Determine version bump
         id: bump
