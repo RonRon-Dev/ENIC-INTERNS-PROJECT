@@ -1,54 +1,63 @@
 using System.Security.Cryptography;
 using backend.Data;
-using backend.Models;
-using backend.Services.ActivityLogger;
 using backend.Dtos.Request.User;
 using backend.Dtos.Response.User;
+using backend.Models;
+using backend.Services.ActivityLogger;
 using backend.Services.Interface;
-using Microsoft.EntityFrameworkCore;
 using BCrypt.Net;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services.User;
 
-public class UserService(
-    AppDbContext context,
-    ActivityLoggerService logger) : IUserService
+public class UserService(AppDbContext context, ActivityLoggerService logger) : IUserService
 {
-    // Getting all users with their roles, but not including sensitive information like password hash.
+    // Getting all users with their roles, but not including sensitive information
+    // like password hash.
     public async Task<List<UserResponse>> GetAllUsersAsync()
     {
-        var users = await context.Users
-            .Include(u => u.Role)
+        var users = await context
+            .Users.Include(u => u.Role)
             .Where(u => u.IsVerified)
             .AsNoTracking()
             .ToListAsync();
 
-        return users.Select(u => new UserResponse
-        {
-            Id = u.Id,
-            Name = u.Name,
-            UserName = u.UserName,
-            IsVerified = u.IsVerified,
-            IsActive = u.IsActive,
-            Role = u.Role != null ? new RoleResponse { Id = u.Role.Id, Name = u.Role.Name } : null,
-            Status = (!u.IsActive) ? "Deactivated" :
-                     (!u.IsVerified) ? "Pending" :
-                     (u.RequiresAdminReset || (u.LockoutEndUtc != null && DateTime.UtcNow < u.LockoutEndUtc)) ? "Locked" :
-                     "Active",
-        }).ToList();
+        return users
+            .Select(u => new UserResponse
+            {
+                Id = u.Id,
+                Name = u.Name,
+                UserName = u.UserName,
+                IsVerified = u.IsVerified,
+                IsActive = u.IsActive,
+                Role =
+                    u.Role != null ? new RoleResponse { Id = u.Role.Id, Name = u.Role.Name } : null,
+                Status =
+                    (!u.IsActive) ? "Deactivated"
+                    : (!u.IsVerified) ? "Pending"
+                    : (
+                        u.RequiresAdminReset
+                        || (u.LockoutEndUtc != null && DateTime.UtcNow < u.LockoutEndUtc)
+                    )
+                        ? "Locked"
+                    : "Active",
+            })
+            .ToList();
     }
 
-    // Getting a single user by ID with their role, but not including sensitive information like password hash.
+    // Getting a single user by ID with their role, but not including sensitive
+    // information like password hash.
     public async Task<UserResponse?> GetUserByIdAsync(int id) =>
-        await context.Users
-            .Include(u => u.Role)
+        await context
+            .Users.Include(u => u.Role)
             .Where(u => u.Id == id)
             .Select(u => new UserResponse
             {
                 Id = u.Id,
                 Name = u.Name,
                 UserName = u.UserName,
-                Role = u.Role != null ? new RoleResponse { Id = u.Role.Id, Name = u.Role.Name } : null,
+                Role =
+                    u.Role != null ? new RoleResponse { Id = u.Role.Id, Name = u.Role.Name } : null,
             })
             .FirstOrDefaultAsync();
 
@@ -56,10 +65,10 @@ public class UserService(
     {
         status = (status ?? "Pending").Trim();
 
-        return await context.UserRequests
-            .AsNoTracking()
+        return await context
+            .UserRequests.AsNoTracking()
             .Include(r => r.User)
-            .ThenInclude(u => u!.Role)
+                .ThenInclude(u => u!.Role)
             .Where(r => r.RequestStatus == status)
             .OrderByDescending(r => r.RequestDate)
             .Select(r => new UserRequestResponse
@@ -80,17 +89,23 @@ public class UserService(
                 IsVerified = r.User.IsVerified,
                 IsActive = r.User.IsActive,
 
-                CurrentRole = r.User.Role != null
-                    ? new RoleResponse { Id = r.User.Role.Id, Name = r.User.Role.Name }
-                    : null
+                CurrentRole =
+                    r.User.Role != null
+                        ? new RoleResponse { Id = r.User.Role.Id, Name = r.User.Role.Name }
+                        : null,
             })
             .ToListAsync();
     }
 
     public async Task<List<RoleResponse>> GetRolesAsync() =>
-        await context.Roles
-            .OrderBy(r => r.Name)
-            .Select(r => new RoleResponse { Id = r.Id, Name = r.Name, Icon = r.Icon })
+        await context
+            .Roles.OrderBy(r => r.Name)
+            .Select(r => new RoleResponse
+            {
+                Id = r.Id,
+                Name = r.Name,
+                Icon = r.Icon,
+            })
             .ToListAsync();
 
     public async Task<UserStatsResponse> GetUserStatsAsync()
@@ -100,8 +115,8 @@ public class UserService(
         var active = await context.Users.CountAsync(u => u.IsVerified && u.IsActive);
         var deactivated = await context.Users.CountAsync(u => u.IsVerified && !u.IsActive);
 
-        var assigned = await context.Users
-            .Include(u => u.Role)
+        var assigned = await context
+            .Users.Include(u => u.Role)
             .CountAsync(u => u.Role != null && u.Role.Name != "Guest");
 
         return new UserStatsResponse
@@ -110,12 +125,16 @@ public class UserService(
             PendingUsers = pending,
             ActiveUsers = active,
             DeactivatedUsers = deactivated,
-            AssignedUsers = assigned
+            AssignedUsers = assigned,
         };
     }
 
-    // Creating a new user with the provided information and a hashed password. The role is assigned based on the RoleId provided in the request.
-    public async Task<CreateUserResponse> CreateUserAsync(CreateUserRequest request, int currentUser)
+    // Creating a new user with the provided information and a hashed password.
+    // The role is assigned based on the RoleId provided in the request.
+    public async Task<CreateUserResponse> CreateUserAsync(
+        CreateUserRequest request,
+        int currentUser
+    )
     {
         var username = request.UserName.Trim().ToLower();
         var exists = await context.Users.AnyAsync(u => u.UserName.ToLower() == username);
@@ -138,24 +157,24 @@ public class UserService(
             PasswordHash = password,
             RoleId = request.RoleId,
             CreatedAt = DateTime.UtcNow,
-            IsVerified = true, 
+            IsVerified = true,
             ForcePasswordChange = true,
         };
 
         context.Users.Add(newUser);
 
-        var payload = new 
-        { 
-            target_user = new 
+        var payload = new
+        {
+            target_user = new
             {
                 id = newUser.Id,
                 name = newUser.Name,
                 username = newUser.UserName,
                 role = role.Name,
                 is_verified = newUser.IsVerified,
-                ForcePasswordChange = newUser.ForcePasswordChange
+                ForcePasswordChange = newUser.ForcePasswordChange,
             },
-            temp_generated_password = true
+            temp_generated_password = true,
         };
 
         await logger.LogAccountManagementAsync(
@@ -177,47 +196,46 @@ public class UserService(
     }
 
     // This method should be UpdateRoleAsync, ,to be updated
-    public async Task<UpdateUserResponse> AssignRoleAsync(int id, int currentUser, UpdateUserRequest request)
+    public async Task<UpdateUserResponse> AssignRoleAsync(
+        int id,
+        int currentUser,
+        UpdateUserRequest request
+    )
     {
-        var entity = await context.Users
-            .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.Id == id);
+        var entity = await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id);
 
-        if (entity is null) 
-            return new UpdateUserResponse
-            {
-                Success = false,
-                Message = "User not found.",
-            };
+        if (entity is null)
+            return new UpdateUserResponse { Success = false, Message = "User not found." };
 
         var pastRole = entity.Role is null ? "No Role" : entity.Role.Name;
-        var role = await context.Roles.
-            FirstOrDefaultAsync(r => r.Id == request.RoleId);
-        if (role is null) 
-            return new UpdateUserResponse
-            {
-                Success = false,
-                Message = "Role not found.",
-            };
+        var role = await context.Roles.FirstOrDefaultAsync(r => r.Id == request.RoleId);
+        if (role is null)
+            return new UpdateUserResponse { Success = false, Message = "Role not found." };
         entity.RoleId = role.Id;
 
         var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
+        if (authUser is null)
+            return new UpdateUserResponse
+            {
+                Success = false,
+                Message = "Authenticated user not found.",
+            };
 
-        var payload = new 
-        { 
-            target_user = new 
+        var payload = new
+        {
+            target_user = new
             {
                 id = entity.Id,
                 name = entity.Name,
                 username = entity.UserName,
                 past_role = pastRole,
-                new_role = role.Name
-            }
+                new_role = role.Name,
+            },
         };
 
         await logger.LogPrivilegeChangeAsync(
-            authUser!.Id,
-            authUser!.UserName,
+            authUser.Id,
+            authUser.UserName,
             $"Assign New Role to User (Role: {role.Name})",
             true,
             payload
@@ -230,32 +248,26 @@ public class UserService(
             Message = "Assgined New Role to User Successfully.",
         };
     }
-    
+
     public async Task<UpdateUserResponse> EnableUserAsync(int id, int currentUser)
     {
-        var user = await context.Users
-          .Include(u => u.Role)
-          .FirstOrDefaultAsync(u => u.Id == id);
-        if (user is null) 
-            return new UpdateUserResponse
-            {
-                Success = false,
-                Message = "User not found.",
-            };
+        var user = await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id);
+        if (user is null)
+            return new UpdateUserResponse { Success = false, Message = "User not found." };
 
         user.IsActive = true;
 
         var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
 
-        var payload = new 
-        { 
-            tartget_user = new 
+        var payload = new
+        {
+            tartget_user = new
             {
                 id = user.Id,
                 name = user.Name,
                 username = user.UserName,
                 role = user.Role?.Name ?? "No Role",
-            }
+            },
         };
 
         await logger.LogPrivilegeChangeAsync(
@@ -268,25 +280,15 @@ public class UserService(
 
         await context.SaveChangesAsync();
 
-        return new UpdateUserResponse
-        {
-            Success = true,
-            Message = "User enabled successfully.",
-        };
+        return new UpdateUserResponse { Success = true, Message = "User enabled successfully." };
     }
 
     public async Task<UpdateUserResponse> DisableUserAsync(int id, int currentUser)
     {
-        var user = await context.Users
-            .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.Id == id);
+        var user = await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id);
 
-        if (user is null) 
-            return new UpdateUserResponse
-            {
-                Success = false,
-                Message = "User not found.",
-            };
+        if (user is null)
+            return new UpdateUserResponse { Success = false, Message = "User not found." };
 
         user.IsActive = false;
         user.RefreshToken = null;
@@ -294,15 +296,15 @@ public class UserService(
 
         var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
 
-        var payload = new 
-        { 
-            target_user = new 
+        var payload = new
+        {
+            target_user = new
             {
                 id = user.Id,
                 name = user.Name,
                 username = user.UserName,
                 role = user.Role?.Name ?? "No Role",
-            }
+            },
         };
 
         await logger.LogPrivilegeChangeAsync(
@@ -315,37 +317,31 @@ public class UserService(
 
         await context.SaveChangesAsync();
 
-        return new UpdateUserResponse
-        {
-            Success = true,
-            Message = "User disabled successfully.",
-        };
+        return new UpdateUserResponse { Success = true, Message = "User disabled successfully." };
     }
 
-    public async Task<UpdateUserResponse> ApproveRegistrationAsync(ApproveRegistrationRequest request, int currentUser)
+    public async Task<UpdateUserResponse> ApproveRegistrationAsync(
+        ApproveRegistrationRequest request,
+        int currentUser
+    )
     {
         var user = await context.Users.FirstOrDefaultAsync(u => u.Id == request.UserId);
-
         if (user is null)
-            return new UpdateUserResponse
-            {
-                Success = false,
-                Message = "User not found.",
-            };
+            return new UpdateUserResponse { Success = false, Message = "User not found." };
 
         var role = await context.Roles.FirstOrDefaultAsync(r => r.Id == request.RoleId);
         if (role is null)
-            return new UpdateUserResponse
-            {
-                Success = false,
-                Message = "Role not found.",
-            };
+            return new UpdateUserResponse { Success = false, Message = "Role not found." };
 
         user.RoleId = role.Id;
         user.IsVerified = true;
 
-        var regReq = await context.UserRequests
-            .Where(r => r.UserId == user.Id && r.RequestType == "Account Registration" && r.RequestStatus == "Pending")
+        var regReq = await context
+            .UserRequests.Where(r =>
+                r.UserId == user.Id
+                && r.RequestType == "Account Registration"
+                && r.RequestStatus == "Pending"
+            )
             .OrderByDescending(r => r.RequestDate)
             .FirstOrDefaultAsync();
 
@@ -354,29 +350,34 @@ public class UserService(
             regReq.RequestStatus = "Approved";
             regReq.DecisionByUserId = currentUser;
             regReq.DecisionAtUtc = DateTime.UtcNow;
-            regReq.DecisionReason = "Approved";
         }
 
         var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
+        if (authUser is null)
+            return new UpdateUserResponse
+            {
+                Success = false,
+                Message = "Authenticated user not found.",
+            };
 
-        var payload = new 
-        { 
-            target_user = new 
+        var payload = new
+        {
+            target_user = new
             {
                 id = user.Id,
                 name = user.Name,
                 username = user.UserName,
                 role = role.Name,
-                is_verified = user.IsVerified
-            }
+                is_verified = user.IsVerified,
+            },
         };
 
         await logger.LogAccountManagementAsync(
-            authUser!.Id,
-            authUser!.UserName,
+            authUser.Id,
+            authUser.UserName,
             "Admin Approved Registration",
             true,
-            payload 
+            payload
         );
 
         await context.SaveChangesAsync();
@@ -387,20 +388,17 @@ public class UserService(
         };
     }
 
-    // ADMIN: approves reset, generates TEMP PASSWORD (code), sets ForcePasswordChange = true
-    public async Task<ResetPasswordResponse> ApproveResetPasswordAsync(ApproveResetPasswordRequest request, int currentUser)
+    // ADMIN: approves reset, generates TEMP PASSWORD (code), sets
+    // ForcePasswordChange = true
+    public async Task<ResetPasswordResponse> ApproveResetPasswordAsync(
+        ApproveResetPasswordRequest request,
+        int currentUser
+    )
     {
-        var username = (request.UserName ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(username))
-            return new ResetPasswordResponse
-            {
-                Success = false,
-                Message = "Username is required.",
-                TemporaryPassword = "",
-            };
+        var username = (request.UserName).Trim();
 
-        var user = await context.Users
-            .Include(u => u.UserRequests)
+        var user = await context
+            .Users.Include(u => u.UserRequests)
             .Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.UserName.ToLower() == username.ToLower());
 
@@ -412,7 +410,11 @@ public class UserService(
                 TemporaryPassword = "",
             };
 
-        if (!user.UserRequests.Any(ur => ur.RequestType == "Reset Password" && ur.RequestStatus == "Pending"))
+        if (
+            !user.UserRequests.Any(ur =>
+                ur.RequestType == "Reset Password" && ur.RequestStatus == "Pending"
+            )
+        )
             return new ResetPasswordResponse
             {
                 Success = false,
@@ -423,8 +425,18 @@ public class UserService(
         var code = GenerateTempPassword(10);
         var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUser);
 
-        var resetReq = user.UserRequests
-            .Where(r => r.RequestType == "Reset Password" && r.RequestStatus == "Pending")
+        if (authUser is null)
+            return new ResetPasswordResponse
+            {
+                Success = false,
+                Message = "Authenticated user not found.",
+                TemporaryPassword = "",
+            };
+
+        var resetReq = user
+            .UserRequests.Where(r =>
+                r.RequestType == "Reset Password" && r.RequestStatus == "Pending"
+            )
             .OrderByDescending(r => r.RequestDate)
             .FirstOrDefault();
 
@@ -441,23 +453,23 @@ public class UserService(
 
         user.ForcePasswordChange = true;
 
-        var payload = new 
-        { 
-            target_user = new 
+        var payload = new
+        {
+            target_user = new
             {
                 id = user.Id,
                 name = user.Name,
                 username = user.UserName,
                 role = user.Role != null ? user.Role.Name : "No Role",
                 is_verified = user.IsVerified,
-                ForcePasswordChange = user.ForcePasswordChange
+                ForcePasswordChange = user.ForcePasswordChange,
             },
-            temp_generated_password = true
+            temp_generated_password = true,
         };
 
         await logger.LogAccountManagementAsync(
-            authUser!.Id,
-            authUser!.UserName,
+            authUser.Id,
+            authUser.UserName,
             "Admin Approved Reset (Temp Password Generated)",
             true,
             payload
@@ -474,16 +486,20 @@ public class UserService(
         };
     }
 
-    // Deleting a user by ID. This should also handle any related data cleanup if necessary (e.g., activity logs).
-    public async Task<ResetPasswordResponse> AdminResetPasswordAsync(AdminResetPasswordRequest request, int currentUserId)
+    // Deleting a user by ID. This should also handle any related data cleanup if
+    // necessary (e.g., activity logs).
+    public async Task<ResetPasswordResponse> AdminResetPasswordAsync(
+        AdminResetPasswordRequest request,
+        int currentUserId
+    )
     {
         var authUser = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUserId);
-        if (request.UserId <= 0)
+        if (authUser is null)
             return new ResetPasswordResponse
             {
                 Success = false,
-                Message = "UserId is required.",
-                TemporaryPassword = ""
+                Message = "Authenticated user not found.",
+                TemporaryPassword = "",
             };
 
         var user = await context.Users.FirstOrDefaultAsync(u => u.Id == request.UserId);
@@ -492,7 +508,7 @@ public class UserService(
             {
                 Success = false,
                 Message = "User not found.",
-                TemporaryPassword = ""
+                TemporaryPassword = "",
             };
 
         if (!user.IsActive)
@@ -500,7 +516,7 @@ public class UserService(
             {
                 Success = false,
                 Message = "User account is disabled.",
-                TemporaryPassword = ""
+                TemporaryPassword = "",
             };
 
         var code = GenerateTempPassword(10);
@@ -508,25 +524,25 @@ public class UserService(
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(code, 10);
         user.ForcePasswordChange = true;
 
-        var payload = new 
-        { 
-            target_user = new 
+        var payload = new
+        {
+            target_user = new
             {
                 id = user.Id,
                 name = user.Name,
                 username = user.UserName,
                 role = user.Role != null ? user.Role.Name : "No Role",
                 is_verified = user.IsVerified,
-                ForcePasswordChange = user.ForcePasswordChange
+                ForcePasswordChange = user.ForcePasswordChange,
             },
-            temp_generated_password = true
+            temp_generated_password = true,
         };
 
         await context.SaveChangesAsync();
 
         await logger.LogAccountManagementAsync(
-            authUser!.Id,
-            authUser!.UserName,
+            authUser.Id,
+            authUser.UserName,
             "Admin Reset User Password",
             true,
             payload
@@ -536,21 +552,16 @@ public class UserService(
         {
             Success = true,
             Message = "Password reset successfully. Temporary password generated.",
-            TemporaryPassword = code
+            TemporaryPassword = code,
         };
     }
 
-    public async Task<CreateRoleResponse> CreateRoleAsync(CreateRoleRequest request, int currentUserId)
+    public async Task<CreateRoleResponse> CreateRoleAsync(
+        CreateRoleRequest request,
+        int currentUserId
+    )
     {
         var name = (request.Name ?? "").Trim();
-
-        if (string.IsNullOrWhiteSpace(name))
-            return new CreateRoleResponse
-            {
-                Success = false,
-                Message = "Role name is required.",
-                Name = ""
-            };
 
         var exists = await context.Roles.AnyAsync(r => r.Name.ToLower() == name.ToLower());
         if (exists)
@@ -558,7 +569,7 @@ public class UserService(
             {
                 Success = false,
                 Message = "Role name already exists.",
-                Name = ""
+                Name = "",
             };
 
         var role = new Roles { Name = name };
@@ -566,12 +577,20 @@ public class UserService(
 
         var admin = await context.Users.FindAsync(currentUserId);
 
+        if (admin is null)
+            return new CreateRoleResponse
+            {
+                Success = false,
+                Message = "Authenticated user not found.",
+                Name = "",
+            };
+
         await context.SaveChangesAsync();
 
         await logger.LogPrivilegeChangeAsync(
-            currentUserId,
-            admin?.UserName ?? "admin",
-            $"Role Created: {name}",
+            admin.Id,
+            admin.UserName,
+            $"Created New Role: {name}",
             true,
             new { role = name }
         );
@@ -580,58 +599,83 @@ public class UserService(
         {
             Success = true,
             Message = "Role created successfully.",
-            Name = name
+            Name = name,
         };
     }
 
-    public async Task<UpdateUserResponse> RejectUserRequestAsync(RejectUserRequestRequest request, int currentUserId)
+    public async Task<UpdateUserResponse> RejectUserRequestAsync(
+        RejectUserRequestRequest request,
+        int currentUserId
+    )
     {
-        if (request.RequestId <= 0)
-            return new UpdateUserResponse { Success = false, Message = "RequestId is required." };
+        var admin = await context.Users.FindAsync(currentUserId);
+        if (admin is null)
+            return new UpdateUserResponse
+            {
+                Success = false,
+                Message = "Authenticated user not found.",
+            };
 
-        var reason = (request.Reason ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(reason))
-            return new UpdateUserResponse { Success = false, Message = "Rejection reason is required." };
-
-        var req = await context.UserRequests
-            .Include(r => r.User)
+        var req = await context
+            .UserRequests.Include(r => r.User)
             .FirstOrDefaultAsync(r => r.Id == request.RequestId);
 
-        if (req is null)
-            return new UpdateUserResponse { Success = false, Message = "Request not found." };
-
         if (req.RequestStatus != "Pending")
-            return new UpdateUserResponse { Success = false, Message = "Only pending requests can be rejected." };
+            return new UpdateUserResponse
+            {
+                Success = false,
+                Message = "Only pending requests can be rejected.",
+            };
 
         req.RequestStatus = "Rejected";
-        req.DecisionReason = reason;
+        req.DecisionReason = request.Reason?.Trim();
         req.DecisionByUserId = currentUserId;
         req.DecisionAtUtc = DateTime.UtcNow;
 
-        context.ActivityLogs.Add(new ActivityLogs
-        {
-            UserId = req.UserId,
-            UserName = req.User.UserName,
-            ActivityType = "privilege",
-            Description = $"Request Rejected: {req.RequestType}",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new
-            {
-                requestId = req.Id,
-                requestType = req.RequestType,
-                reason,
-                decidedBy = currentUserId
-            }),
-            IsSuccess = true,
-            Timestamp = DateTime.UtcNow
-        });
-
         await context.SaveChangesAsync();
 
-        return new UpdateUserResponse { Success = true, Message = "Request rejected successfully." };
+        var payload = new
+        {
+            target_user = new
+            {
+                id = req.User.Id,
+                name = req.User.Name,
+                username = req.User.UserName,
+                role = req.User.Role != null ? req.User.Role.Name : "No Role",
+                is_verified = req.User.IsVerified,
+                is_active = req.User.IsActive,
+            },
+            requestId = req.Id,
+            requestType = req.RequestType,
+            decidedBy = admin.UserName,
+            reason = req.DecisionReason,
+        };
+
+        await logger.LogPrivilegeChangeAsync(
+            admin.Id,
+            admin.UserName,
+            $"Rejected User Request (Type: {req.RequestType})",
+            true,
+            payload
+        );
+
+        return new UpdateUserResponse
+        {
+            Success = true,
+            Message = "Request rejected successfully.",
+        };
     }
 
     public async Task<UpdateUserResponse> UnlockUserAsync(int id, int currentUserId)
     {
+        var admin = await context.Users.FindAsync(currentUserId);
+        if (admin is null)
+            return new UpdateUserResponse
+            {
+                Success = false,
+                Message = "Authenticated user not found.",
+            };
+
         var user = await context.Users.FirstOrDefaultAsync(u => u.Id == id);
         if (user is null)
             return new UpdateUserResponse { Success = false, Message = "User not found." };
@@ -640,16 +684,29 @@ public class UserService(
         user.LockoutEndUtc = null;
         user.RequiresAdminReset = false;
 
-        context.ActivityLogs.Add(new ActivityLogs
+        var payload = new
         {
-            UserId = user.Id,
-            UserName = user.UserName,
-            ActivityType = "privilege",
-            Description = "Admin Unlocked User Account",
-            Payload = System.Text.Json.JsonSerializer.Serialize(new { targetUserId = id, adminUserId = currentUserId }),
-            IsSuccess = true,
-            Timestamp = DateTime.UtcNow,
-        });
+            target_user = new
+            {
+                id = user.Id,
+                name = user.Name,
+                username = user.UserName,
+                role = user.Role != null ? user.Role.Name : "No Role",
+                is_verified = user.IsVerified,
+                is_active = user.IsActive,
+                failed_login_attempts = user.FailedLoginAttempts,
+                lockout_end_utc = user.LockoutEndUtc,
+                requires_admin_reset = user.RequiresAdminReset,
+            },
+        };
+
+        await logger.LogAccountManagementAsync(
+            admin.Id,
+            admin.UserName,
+            $"Unlocked User Account",
+            true,
+            payload
+        );
 
         await context.SaveChangesAsync();
 
@@ -657,9 +714,12 @@ public class UserService(
     }
 
     private static DateTime PhTime =>
-        TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
+        TimeZoneInfo.ConvertTimeFromUtc(
+            DateTime.UtcNow,
             TimeZoneInfo.FindSystemTimeZoneById(
-                OperatingSystem.IsWindows() ? "Singapore Standard Time" : "Asia/Manila"));
+                OperatingSystem.IsWindows() ? "Singapore Standard Time" : "Asia/Manila"
+            )
+        );
 
     private static string GenerateTempPassword(int length)
     {

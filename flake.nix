@@ -5,7 +5,11 @@
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
   };
 
-  outputs = { self, nixpkgs, }:
+  outputs =
+    {
+      self,
+      nixpkgs,
+    }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -24,6 +28,8 @@
           sqlcmd
           zlib
           icu
+
+          act
         ];
         shellHook = ''
           echo "Welcome to the C# development environment with ASP.NET SDK and nodejs and npm!"

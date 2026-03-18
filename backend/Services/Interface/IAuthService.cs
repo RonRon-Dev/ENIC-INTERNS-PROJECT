@@ -11,7 +11,7 @@ public interface IAuthService
     Task<AuthResponse?> LoginAsync(LoginRequest request);
     Task<AuthResponse> LogoutAsync(int? userId);
     Task<AuthResponse?> RefreshTokenAsync(string? refreshToken);
-    Task<ForgotPasswordResponse>ForgotPasswordAsync(ForgotPasswordRequest request);
+    Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordRequest request);
     Task<ForgotPasswordResponse> UpdatePasswordAsync(ResetPasswordRequest request);
     Task<MyRequestStatusResponse?> GetMyRequestStatusAsync(int userId, string requestType);
 }
