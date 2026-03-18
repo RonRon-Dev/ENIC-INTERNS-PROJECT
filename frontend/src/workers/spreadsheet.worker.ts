@@ -26,6 +26,7 @@
 //   EXPORT             { config, visibleCols }
 //   RETYPE             { colTypes }
 //   GET_FILTER_VALUES  { columns: string[] }   ← NEW: returns full distinct values
+//   VALIDATE_XML       { visibleCol: string }   ← heuristic XML scan on selected rows
 //   RESET
 //
 // Worker → Main messages:
@@ -38,6 +39,7 @@
 //                       clampedPage, allFilteredIds: Int32Array (transferable),
 //                       allFilteredSelected, selectedCount }
 //   FILTER_VALUES     { values: Record<string, string[]> }   ← NEW
+//   XML_VALIDATION    { invalidCount, totalScanned, sampleRows }
 //   RETYPE_DONE
 //   EXPORT_DONE       { kind, url?, fileName?, files?, description }
 //   EXPORT_ERROR      { message }
@@ -78,7 +80,6 @@ let storedLargeCSVBuffer: ArrayBuffer | null = null;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 50;
-const ZIP_THRESHOLD = 5;
 // Smaller chunk size — yields to event loop more often on low-spec machines
 const CHUNK_SIZE = 2_000;
 // Initial column capacity — smaller than before to avoid over-allocation.
@@ -183,11 +184,18 @@ function formatDate(d: Date): string {
 }
 
 function isExcelSerial(n: number): boolean {
-  return Number.isInteger(n) && n >= EXCEL_DATE_MIN && n <= EXCEL_DATE_MAX;
+  // Accept both integer serials (date-only) and fractional serials (datetime).
+  // Excel stores datetimes as serial + time fraction e.g. 46026.604 = date + time.
+  // Serial 0 and 1 are Excel epoch artifacts (Jan 0/1 1900) — treat as invalid.
+  const intPart = Math.floor(n);
+  return intPart >= EXCEL_DATE_MIN && intPart <= EXCEL_DATE_MAX;
 }
 
 function excelSerialToDate(n: number): string {
-  return formatDate(new Date(Math.round((n - 25569) * 86400 * 1000)));
+  // Strip the time fraction — we only display the date part.
+  // Excel serial days since 1899-12-30 (not 1900-01-01 — Excel has a leap year bug).
+  const intPart = Math.floor(n);
+  return formatDate(new Date(Math.round((intPart - 25569) * 86400 * 1000)));
 }
 
 // ── Column type ───────────────────────────────────────────────────────────────
@@ -598,25 +606,62 @@ function parseSharedStrings(xml: string): string[] {
 }
 
 function parseDateStyleIndices(xml: string): Set<number> {
+  // Built-in Excel date format IDs (14–22 = date/time, 45–47 = time)
   const dateNumFmtIds = new Set([
     14, 15, 16, 17, 18, 19, 20, 21, 22, 45, 46, 47,
   ]);
-  const customDateRe = /[yYmMdDhHsS]/;
+
+  // Custom numFmt → is date? Detect by format code containing unescaped
+  // date tokens (y, d, h) or m only when adjacent to y/d/h (not "mm:ss").
+  // We use a conservative pattern that avoids false positives on "m" alone.
+  const isDateFormatCode = (code: string): boolean => {
+    // strip escaped chars and string literals first
+    const stripped = code.replace(/"[^"]*"/g, "").replace(/\[[^\]]*\]/g, "");
+    return (
+      /[yY]/.test(stripped) ||
+      /[dD]/.test(stripped) ||
+      (/[hH]/.test(stripped) && !/^[^hH]*[mM][^hH]*$/.test(stripped))
+    );
+  };
+
   const numFmts = new Map<number, boolean>();
-  const nfRe = /<numFmt\s[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"/g;
+  const nfRe =
+    /<numFmt(?=[\s>])[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"/g;
   let m: RegExpExecArray | null;
   while ((m = nfRe.exec(xml)) !== null) {
-    numFmts.set(parseInt(m[1], 10), customDateRe.test(m[2]));
+    numFmts.set(parseInt(m[1], 10), isDateFormatCode(m[2]));
   }
+
+  // Extract ONLY the <cellXfs> block — cell s= attributes index into this,
+  // NOT <cellStyleXfs>. Counting from the wrong block causes off-by-N errors.
+  const cellXfsMatch = /<cellXfs(?=[\s>])[^>]*>([\s\S]*?)<\/cellXfs>/.exec(xml);
+  const cellXfsXml = cellXfsMatch ? cellXfsMatch[1] : xml;
+
   const result = new Set<number>();
-  const xfRe = /<xf\b[^>]*numFmtId="(\d+)"[^>]*\/>/g;
+  // Match both self-closing <xf .../> AND open <xf ...> (real xlsx files use
+  // non-self-closing xf elements when they contain child nodes like <alignment>)
+  const xfRe = /<xf(?=[\s>/])([^>]*?)(?:\/>|>)/g;
   let idx = 0;
-  while ((m = xfRe.exec(xml)) !== null) {
-    const id = parseInt(m[1], 10);
-    if (dateNumFmtIds.has(id) || numFmts.get(id)) result.add(idx);
+  xfRe.lastIndex = 0;
+  while ((m = xfRe.exec(cellXfsXml)) !== null) {
+    const attrs = m[1];
+    const idM = /numFmtId="(\d+)"/.exec(attrs);
+    if (idM) {
+      const id = parseInt(idM[1], 10);
+      if (dateNumFmtIds.has(id) || numFmts.get(id)) result.add(idx);
+    }
     idx++;
   }
   return result;
+}
+
+// Convert Excel column letters (A, B, ..., Z, AA, AB, ...) to zero-based index.
+// Used to place sparse cells at the correct position in the row array.
+function colLetterToIndex(col: string): number {
+  let idx = 0;
+  for (let i = 0; i < col.length; i++)
+    idx = idx * 26 + (col.charCodeAt(i) - 64); // A=1, B=2 ...
+  return idx - 1; // zero-based
 }
 
 function parseSheetXml(
@@ -625,21 +670,34 @@ function parseSheetXml(
   dateStyleIndices: Set<number>
 ): string[][] {
   const rows: string[][] = [];
-  const rowRe = /<row\b[^>]*>([\s\S]*?)<\/row>/g;
-  const cellRe = /<c\b([^>]*)>([\s\S]*?)<\/c>/g;
-  const tRe = /\bt="([^"]*)"/;
-  const sRe = /\bs="(\d+)"/;
+  const rowRe = /<row(?=[\s>])[^>]*>([\s\S]*?)<\/row>/g;
+  const cellRe = /<c(?=[\s>])([^>]*)>([\s\S]*?)<\/c>/g;
+  // r= attribute gives the cell address e.g. r="AC4" — col letters + row number
+  const rRe = /(?:^|\s)r="([A-Z]+)\d+"/;
+  const tRe = /(?:^|\s)t="([^"]*)"/;
+  const sRe = /(?:^|\s)s="(\d+)"/;
   const vRe = /<v>([^<]*)<\/v>/;
   const isRe = /<is>[\s\S]*?<t[^>]*>([^<]*)<\/t>/;
   let rm: RegExpExecArray | null;
   while ((rm = rowRe.exec(xml)) !== null) {
     const rowXml = rm[1];
-    const cells: string[] = [];
+    // Use a sparse object keyed by column index — filled gaps become "".
+    // This is critical: Excel omits empty cells from the XML entirely.
+    // Without r=-based placement, every skipped cell shifts all subsequent
+    // columns left, putting data under the wrong header.
+    const sparse: Record<number, string> = {};
+    let maxColIdx = -1;
     let cm: RegExpExecArray | null;
     cellRe.lastIndex = 0;
     while ((cm = cellRe.exec(rowXml)) !== null) {
       const attrs = cm[1],
         inner = cm[2];
+
+      // Determine target column index from r= attribute
+      const rM = rRe.exec(attrs);
+      const colIdx = rM ? colLetterToIndex(rM[1]) : -1;
+      if (colIdx < 0) continue; // skip cells with no parseable reference
+
       const typeM = tRe.exec(attrs);
       const cellType = typeM ? typeM[1] : "";
       const sM = sRe.exec(attrs);
@@ -662,6 +720,10 @@ function parseSheetXml(
         if (vM) {
           const num = parseFloat(vM[1]);
           value =
+            // Only convert to date if the cell has an explicit date-formatted
+            // style. This is the only safe signal — numeric columns like IDs,
+            // amounts, and codes share the same integer range as date serials
+            // and cannot be distinguished by value alone.
             styleIdx >= 0 &&
             dateStyleIndices.has(styleIdx) &&
             isExcelSerial(num)
@@ -669,9 +731,15 @@ function parseSheetXml(
               : vM[1];
         }
       }
-      cells.push(value);
+      sparse[colIdx] = value;
+      if (colIdx > maxColIdx) maxColIdx = colIdx;
     }
-    if (cells.length > 0) rows.push(cells);
+    if (maxColIdx >= 0) {
+      // Materialise sparse object into a dense array, filling gaps with ""
+      const cells: string[] = new Array(maxColIdx + 1).fill("");
+      for (const [idx, val] of Object.entries(sparse)) cells[Number(idx)] = val;
+      rows.push(cells);
+    }
   }
   return rows;
 }
@@ -689,7 +757,7 @@ async function parseXlsxManual(buffer: ArrayBuffer): Promise<string[][]> {
   const wbFile = zip.file("xl/workbook.xml");
   if (wbFile) {
     const wbXml = await wbFile.async("string");
-    const sheetM = /<sheet\b[^>]*r:id="([^"]*)"/.exec(wbXml);
+    const sheetM = /<sheet(?=[\s>])[^>]*r:id="([^"]*)"/.exec(wbXml);
     if (sheetM) {
       const relsFile = zip.file("xl/_rels/workbook.xml.rels");
       if (relsFile) {
@@ -999,10 +1067,8 @@ function buildFileBytes(
 ): Uint8Array | string {
   const safeData = Array.isArray(data) ? data : [];
   if (format === "xml") {
-    // XML export: data rows already contain only the xmlCol value under key "__xml"
-    // (projected by the EXPORT handler). Each row's value is written verbatim.
-    // If xmlWrap is set, each value is wrapped in <export>...</export>.
-    // This is handled upstream — buildFileBytes just joins the values.
+    // XML export: each row contains only the single visible column's value
+    // under key "__xml", projected verbatim by the EXPORT handler.
     const lines: string[] = [];
     for (const r of safeData) {
       const val = String(r["__xml"] ?? "").trim();
@@ -1038,6 +1104,29 @@ function buildBlob(data: Record<string, unknown>[], format: string): Blob {
     });
   }
   return new Blob([bytes as string], { type: "text/plain" });
+}
+
+// ── XML heuristic validator ───────────────────────────────────────────────────
+// Lightweight well-formedness check — no DOM allocation, no per-call GC pressure.
+// Catches the most common issues: missing root tag, unescaped &, mismatched tags.
+// Returns true if the value looks like valid XML, false otherwise.
+function looksLikeValidXml(val: string): boolean {
+  const v = val.trim();
+  if (!v) return false;
+  // Must start with < and end with >
+  if (!v.startsWith("<") || !v.endsWith(">")) return false;
+  // Unescaped & not followed by valid entity reference is illegal XML —
+  // check this before the self-closing shortcut so it applies everywhere.
+  if (/&(?![a-zA-Z#][a-zA-Z0-9#]*;)/.test(v)) return false;
+  // Self-closing root: <foo/> or <foo attr="x"/>
+  if (/^<[^>]+\/>$/.test(v)) return true;
+  // Extract root tag name (namespace prefix allowed)
+  const openMatch = /^<([A-Za-z_][\w:.-]*)[\s>]/.exec(v);
+  if (!openMatch) return false;
+  const rootTag = openMatch[1];
+  // Must end with </rootTag>
+  if (!v.endsWith(`</${rootTag}>`)) return false;
+  return true;
 }
 
 function resolveName(
@@ -1117,6 +1206,60 @@ self.onmessage = async (e: MessageEvent) => {
       }
     }
     self.postMessage({ type: "RETYPE_DONE" });
+  } else if (msg.type === "VALIDATE_XML") {
+    // Heuristic scan of all selected rows against the single visible XML column.
+    // Runs entirely in the worker — zero main-thread cost, no DOM allocation.
+    const visibleCol: string = (msg.visibleCol ?? "").trim();
+
+    // Primary lookup — exact match (fast path)
+    let ci = colIndex.get(visibleCol) ?? -1;
+
+    // Fallback — case-insensitive + trimmed match in case the column name
+    // has encoding differences between the UI and the worker's colIndex.
+    if (ci < 0) {
+      const lower = visibleCol.toLowerCase();
+      for (const [name, idx] of colIndex.entries()) {
+        if (name.trim().toLowerCase() === lower) {
+          ci = idx;
+          break;
+        }
+      }
+    }
+
+    // If column still not found, report as a lookup error rather than
+    // silently flagging every row as invalid.
+    if (ci < 0) {
+      self.postMessage({
+        type: "XML_VALIDATION",
+        invalidCount: 0,
+        totalScanned: 0,
+        sampleRows: [],
+        columnNotFound: true,
+      });
+      return;
+    }
+
+    const selectedArr: number[] = [];
+    for (let ri = 0; ri < totalRows; ri++) {
+      if (selectedIds.has(ri)) selectedArr.push(ri);
+    }
+    let invalidCount = 0;
+    const sampleRows: number[] = [];
+    for (let i = 0; i < selectedArr.length; i++) {
+      const ri = selectedArr[i];
+      const val = colStore[ci][ri] ?? "";
+      if (!looksLikeValidXml(val)) {
+        invalidCount++;
+        if (sampleRows.length < 3) sampleRows.push(ri + 1); // 1-based for display
+      }
+    }
+    self.postMessage({
+      type: "XML_VALIDATION",
+      invalidCount,
+      totalScanned: selectedArr.length,
+      sampleRows,
+      columnNotFound: false,
+    });
   } else if (msg.type === "EXPORT") {
     try {
       const config = msg.config;
@@ -1124,34 +1267,31 @@ self.onmessage = async (e: MessageEvent) => {
         ? msg.visibleCols
         : [];
 
+      // Collect selected row indices in storage order
       const exportIndices: number[] = [];
       for (let ri = 0; ri < totalRows; ri++) {
         if (selectedIds.has(ri)) exportIndices.push(ri);
       }
 
+      // Per-row: optionally skip rows where the filename column is blank/null
       const isNullName = (row: Record<string, string>) => {
         if (!config.fileNameCol) return false;
         const val = (row[config.fileNameCol] ?? "").trim();
         return !val || /^(null|undefined|n\/a|-)$/i.test(val);
       };
-
       let finalIndices = exportIndices;
       if (config.mode === "per-row" && config.skipNullNames)
         finalIndices = exportIndices.filter((ri) => !isNullName(getRow(ri)));
       const skippedCount = exportIndices.length - finalIndices.length;
 
-      // For XML exports with xmlCol set, project only that column under the
-      // reserved key "__xml" so buildFileBytes can write it verbatim.
-      // For all other formats (and XML without xmlCol) project visible columns normally.
-      const isXmlColMode = config.format === "xml" && !!config.xmlCol;
+      // XML format with a single visible column → write that column's value verbatim.
+      // All other formats (and XML with multiple columns) project visible columns normally.
+      const isXmlMode = config.format === "xml";
 
       const project = (ri: number): Record<string, unknown> => {
         const row = getRow(ri);
-        if (isXmlColMode) {
-          const raw = (row[config.xmlCol] ?? "").trim();
-          // Apply optional wrap — user can toggle a root element around the value
-          const val = config.xmlWrap ? `<export>\n${raw}\n</export>` : raw;
-          return { __xml: val };
+        if (isXmlMode && visCols.length === 1) {
+          return { __xml: (row[visCols[0]] ?? "").trim() };
         }
         return Object.fromEntries(visCols.map((c) => [c, row[c] ?? ""]));
       };
@@ -1165,10 +1305,8 @@ self.onmessage = async (e: MessageEvent) => {
           fileName: `${config.fileName || "export"}.${config.format}`,
           description: `${finalIndices.length} rows saved`,
         });
-      } else if (
-        config.mode === "per-row" &&
-        finalIndices.length > ZIP_THRESHOLD
-      ) {
+      } else {
+        // Per-row mode — always zip regardless of count (no individual-file path)
         const zip = new JSZip();
         const usedNames = new Map<string, number>();
         for (let i = 0; i < finalIndices.length; i++) {
@@ -1177,7 +1315,7 @@ self.onmessage = async (e: MessageEvent) => {
             row,
             config.fileNameCol,
             `row_${i + 1}`
-          ).replace(/[/:*?"<>|]/g, "_");
+          ).replace(/[/:*?"<>|\\]/g, "_");
           const cnt = usedNames.get(safe) ?? 0;
           usedNames.set(safe, cnt + 1);
           zip.file(
@@ -1191,38 +1329,9 @@ self.onmessage = async (e: MessageEvent) => {
           kind: "zip",
           url: URL.createObjectURL(zipBlob),
           fileName: `${config.zipFileName || "export"}.zip`,
-          description: `${finalIndices.length} files zipped${
-            skippedCount > 0 ? ` · ${skippedCount} skipped` : ""
-          }`,
-        });
-      } else {
-        const files: { url: string; fileName: string }[] = [];
-        const usedNames = new Map<string, number>();
-        for (let i = 0; i < finalIndices.length; i++) {
-          const row = getRow(finalIndices[i]);
-          const safe = resolveName(
-            row,
-            config.fileNameCol,
-            `row_${i + 1}`
-          ).replace(/[/:*?"<>|]/g, "_");
-          const cnt = usedNames.get(safe) ?? 0;
-          usedNames.set(safe, cnt + 1);
-          files.push({
-            url: URL.createObjectURL(
-              buildBlob([project(finalIndices[i])], config.format)
-            ),
-            fileName: `${cnt === 0 ? safe : `${safe}_${cnt + 1}`}.${
-              config.format
-            }`,
-          });
-        }
-        self.postMessage({
-          type: "EXPORT_DONE",
-          kind: "files",
-          files,
-          description: `${files.length} files downloading${
-            skippedCount > 0 ? ` · ${skippedCount} skipped` : ""
-          }`,
+          description: `${finalIndices.length} file${
+            finalIndices.length !== 1 ? "s" : ""
+          } zipped${skippedCount > 0 ? ` · ${skippedCount} skipped` : ""}`,
         });
       }
     } catch (err) {

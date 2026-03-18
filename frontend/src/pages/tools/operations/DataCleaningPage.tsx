@@ -74,7 +74,11 @@ export default function DataCleaningPage() {
     allFilteredSelected,
     parseFile,
     isExporting,
+    exportError,
     handleExport,
+    validateExport,
+    xmlValidation,
+    isValidating,
     resetData,
     rowsReady,
     setRowsReady,
@@ -424,12 +428,15 @@ export default function DataCleaningPage() {
         open={showExportDialog}
         onClose={() => setShowExportDialog(false)}
         onExport={handleExport}
+        onValidateXml={validateExport}
         columns={visibleColumns}
         allColumns={columns}
         selectedCount={selectedCount}
         isExporting={isExporting}
+        isValidating={isValidating}
+        exportError={exportError}
+        xmlValidation={xmlValidation}
       />
-
       <ConfirmDialog
         open={showClearConfirm}
         onOpenChange={(v) => !v && setShowClearConfirm(false)}
