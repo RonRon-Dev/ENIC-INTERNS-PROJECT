@@ -8,7 +8,7 @@ on:
 
 jobs:
   test-frontend:
-    runs-on: [ self-hosted, nixos ]
+    runs-on: [ self-hosted, linux ]
     steps:
       - uses: actions/checkout@v3
       # Uncomment this if you are not going to self-host the actions
