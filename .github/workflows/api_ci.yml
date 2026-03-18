@@ -4,30 +4,36 @@ on:
   push:
     branches: "**"
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test-backend:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     steps:
       - uses: actions/checkout@v3
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '10.0.x'
 
       - name: Restore dependencies
-        run: cd backend && dotnet restore
+        run: nix develop .# --command bash -c "cd backend && dotnet restore"
 
       - name: Build
-        run: cd backend && dotnet build --no-restore
+        run: nix develop .# --command bash -c "cd backend && dotnet build --no-restore"
+
+      - name: Check Code Quality
+        run: |
+          nix develop .# --command bash -c "
+            cd backend && dotnet build --no-restore \
+              /p:EnforceCodeStyleInBuild=true \
+              /p:AnalysisLevel=latest \
+              /p:TreatWarningsAsErrors=false \
+              /warnaserror
+          "
 
       - name: Run tests
-        run: cd backend && dotnet test --no-build --verbosity normal
+        run: nix develop .# --command bash -c "cd backend && dotnet test --no-build --verbosity normal"
 
   all-checks-passed:
-    needs: [ test-backend ]
-    runs-on: ubuntu-latest
+    needs: [test-backend]
+    runs-on: [self-hosted, linux]  # ← fix this to match test-backend
     steps:
       - name: All checks passed
-        run: echo "All tests passed for API successfully!"
+        run: echo "✅ All checks passed for API successfully!"
