@@ -94,7 +94,7 @@ jobs:
           $output = dotnet ef migrations has-pending-model-changes 2>&1
 
           if ($output -match "true") {
-            Write-Host "📦 Pending model changes detected, creating migration..."
+            Write-Host "Pending model changes detected, creating migration..."
 
             $migrationName = "AutoMigration_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
             dotnet ef migrations add $migrationName
@@ -106,9 +106,9 @@ jobs:
             git commit -m "chore: auto migration $migrationName"
             git push origin main
 
-            Write-Host "✅ Migration created: $migrationName"
+            Write-Host "Migration created: $migrationName"
           } else {
-            Write-Host "✅ No pending model changes"
+            Write-Host "No pending model changes"
           }
 
       - name: Deploy
