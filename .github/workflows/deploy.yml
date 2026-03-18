@@ -21,6 +21,15 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
 
+
+      - name: Restore appsettings.Production.json  # ← right after checkout
+        shell: powershell
+        run: |
+          Copy-Item -Path "C:\Users\Ron\Desktop\secrets\appsettings.Production.json" `
+                    -Destination "${{ github.workspace }}\backend\appsettings.Production.json" `
+                    -Force
+          Write-Host "appsettings.Production.json restored"
+
       - name: Determine version bump
         id: bump
         shell: powershell
