@@ -58,7 +58,6 @@ services:
     container_name: aspnet-api-prod
     volumes:
       - dataprotection-keys:/root/.aspnet/DataProtection-Keys
-      #test
     environment:
       APP_VERSION: ${APP_VERSION}
       ASPNETCORE_URLS: "http://+:8080"
