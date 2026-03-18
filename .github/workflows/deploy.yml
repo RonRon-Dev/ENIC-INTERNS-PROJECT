@@ -25,6 +25,10 @@ jobs:
       - name: Restore appsettings.Production.json  # ← right after checkout
         shell: powershell
         run: |
+          Copy-Item -Path "C:\Users\Ron\Desktop\secrets\appsettings.json" `
+                    -Destination "${{ github.workspace }}\backend\appsettings.json" `
+                    -Force
+          Write-Host "appsettings.json restored"
           Copy-Item -Path "C:\Users\Ron\Desktop\secrets\appsettings.Production.json" `
                     -Destination "${{ github.workspace }}\backend\appsettings.Production.json" `
                     -Force
