@@ -2,7 +2,7 @@
 layout: home
 
 hero:
-  name: ENIC MIS
+  name: Version Bump Test
   text: Documentation
   tagline: User manual and technical reference for the ENIC Management Information System — built by ENIC Interns.
   actions:
