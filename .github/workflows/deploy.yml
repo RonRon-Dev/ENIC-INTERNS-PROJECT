@@ -28,22 +28,22 @@ jobs:
         id: bump
         shell: powershell
         run: |
-        $COMMITS = git log --pretty=%B origin/main..HEAD
-        Write-Host "Commits: $COMMITS"
+          $COMMITS = git log --pretty=%B origin/main..HEAD
+          Write-Host "Commits: $COMMITS"
 
-        if ($COMMITS -match 'BREAKING CHANGE') {
-          "bump=major" >> $env:GITHUB_OUTPUT
-          Write-Host "Major bump detected"
-        } elseif ($COMMITS -match '(?m)^feat') {
-          "bump=minor" >> $env:GITHUB_OUTPUT
-          Write-Host "Minor bump detected"
-        } elseif ($COMMITS -match '(?m)^(fix|refactor|perf)') {
-          "bump=patch" >> $env:GITHUB_OUTPUT
-          Write-Host "Patch bump detected"
-        } else {
-          "skip=true" >> $env:GITHUB_OUTPUT
-          Write-Host "No version bump needed"
-        }
+          if ($COMMITS -match 'BREAKING CHANGE') {
+            "bump=major" >> $env:GITHUB_OUTPUT
+            Write-Host "Major bump detected"
+          } elseif ($COMMITS -match '(?m)^feat') {
+            "bump=minor" >> $env:GITHUB_OUTPUT
+            Write-Host "Minor bump detected"
+          } elseif ($COMMITS -match '(?m)^(fix|refactor|perf)') {
+            "bump=patch" >> $env:GITHUB_OUTPUT
+            Write-Host "Patch bump detected"
+          } else {
+            "skip=true" >> $env:GITHUB_OUTPUT
+            Write-Host "No version bump needed"
+          }
 
       - name: Bump version in package.json
         if: steps.bump.outputs.skip != 'true'
