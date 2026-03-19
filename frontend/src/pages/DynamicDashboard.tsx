@@ -16,13 +16,7 @@ const MOCK_NOTES: Note[] = [
 export default function DynamicDashboard() {
   const { user } = useAuth();
   const firstName = user?.name?.split(" ")[0] ?? "User";
-  const fullName = user?.name ?? "";
   const role = user?.roleName ?? "";
-  const initials = user?.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
 
   const subtitle = role
     ? `Here's what's on your plate, ${firstName}.`
@@ -44,14 +38,14 @@ export default function DynamicDashboard() {
               <div className="flex items-center gap-3 shrink-0">
                 {/* Add Note — visible to all roles */}
                 <AddNoteDialog
-                  onSave={(note) => {
-                    const newNote: Note = {
-                      ...note,
-                      id: crypto.randomUUID(),
-                      lastEdited: "Just now",
-                    };
-                    onAddNote?.(newNote as Omit<Note, "id" | "lastEdited">);
-                  }}
+                // onSave={(note) => {
+                //   const newNote: Note = {
+                //     ...note,
+                //     id: crypto.randomUUID(),
+                //     lastEdited: "Just now",
+                //   };
+                //   onAddNote?.(newNote as Omit<Note, "id" | "lastEdited">);
+                // }}
                 />
               </div>
             </div>
