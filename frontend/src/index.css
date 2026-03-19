@@ -165,6 +165,15 @@
   .dark .sidebar-user-trigger[data-state="open"] {
     background-color: rgb(255 255 255 / 0.05);
   }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 .section-highlight {

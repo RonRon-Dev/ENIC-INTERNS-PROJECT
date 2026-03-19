@@ -66,7 +66,7 @@ function useClock() {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const EXCLUDED = ["Home", "Dashboard", "User Management"];
+const EXCLUDED = ["Home", "Dashboard", "User Management", "Analytics"];
 const FILTER_ALL = "All";
 const FILTER_EXTERNAL = "External";
 

@@ -16,9 +16,10 @@ import { usersApi } from "@/services/users";
 import { Atom } from "lucide-react";
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
+import pkg from "../../package.json";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const version = import.meta.env.VITE_APP_VERSION;
+  const version = import.meta.env.VITE_APP_VERSION || "beta-" + pkg.version;
   const { user } = useAuth();
   const { privileges } = usePagePrivileges();
   const [pendingCount, setPendingCount] = useState(0);

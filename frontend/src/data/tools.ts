@@ -8,6 +8,7 @@ import {
   HardHat,
   Home,
   LayoutDashboard,
+  LineChart,
   MonitorCog,
   User2Icon,
 } from "lucide-react";
@@ -54,7 +55,8 @@ export interface Tool {
 //       allowedRoles: ["superadmin", "admin"],
 //     }
 // ---------------------------------------------------------------------------
-const Dashboard = lazy(() => import("@/pages/AdminDashboardPage"));
+const AnalyticsPage = lazy(() => import("@/pages/AdminDashboardPage"));
+const DashboardPage = lazy(() => import("@/pages/DynamicDashboard"));
 const UserManagementPage = lazy(() => import("@/pages/UserManagementPage"));
 // const AIAssistant = lazy(() => import("@/pages/AIAssistantPage"));
 const AssetListPage = lazy(
@@ -84,9 +86,16 @@ export const toolsData: Tool[] = [
     title: "Dashboard",
     url: "/dashboard",
     icon: LayoutDashboard,
+    description: "Key metrics and system overview",
+    component: DashboardPage,
+  },
+  {
+    title: "Analytics",
+    url: "/analytics",
+    icon: LineChart,
     description: "View system stats and analytics",
     allowedRoles: ["superadmin", "admin"],
-    component: Dashboard,
+    component: AnalyticsPage,
   },
   {
     title: "User Management",

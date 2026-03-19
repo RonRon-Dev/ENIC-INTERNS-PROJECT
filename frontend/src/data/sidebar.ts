@@ -30,7 +30,7 @@ export function buildNavGroups(
   }
 
   // ── Group 2: Management ────────────────────────────────────────────────
-  const managementTitles = ["Dashboard", "User Management"];
+  const managementTitles = ["Dashboard", "User Management", "Analytics"];
   const managementItems = toolsData
     .filter(
       (t) =>
@@ -50,7 +50,7 @@ export function buildNavGroups(
   }
 
   // ── Group 3: Modules (tools with subtools) ─────────────────────────────
-  const excludedTitles = ["Home", "Dashboard", "User Management"];
+  const excludedTitles = ["Home", "Dashboard", "User Management", "Analytics"];
   const moduleItems = toolsData
     .filter((t) => {
       if (excludedTitles.includes(t.title)) return false;
