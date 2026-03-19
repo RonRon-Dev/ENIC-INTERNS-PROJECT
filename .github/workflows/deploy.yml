@@ -28,7 +28,7 @@ jobs:
         id: bump
         shell: powershell
         run: |
-          # Get the last chore/version bump commit hash to compare from
+          # Get the last automated commit hash to compare from
           $lastVersionCommit = git log --pretty="%H %s" | Where-Object { 
             $_ -match "chore: bump version" -or $_ -match "docs: snapshot" 
           } | Select-Object -First 1
@@ -38,28 +38,29 @@ jobs:
             Write-Host "Last version commit: $lastHash"
             $COMMITS = git log "$lastHash..HEAD" --pretty=%B
           } else {
-            # fallback: get last 10 commits if no version commit found
             $COMMITS = git log -10 --pretty=%B
           }
 
           Write-Host "Commits to analyze: $COMMITS"
 
-          # skip if only chore/docs-snapshot/version-bump commits
+          # filter out ONLY automated commits, keep everything else including docs
           $filteredCommits = $COMMITS | Where-Object {
             $_ -notmatch "^chore: bump version" -and
             $_ -notmatch "^docs: snapshot" -and
+            $_ -notmatch "^chore: auto migration" -and
             $_ -notmatch "^$"
           }
 
           if (-not $filteredCommits) {
             "skip=true" >> $env:GITHUB_OUTPUT
-            Write-Host "Only chore/snapshot commits found, skipping"
+            Write-Host "Only automated commits found, skipping"
             exit 0
           }
 
           $commitText = $filteredCommits -join "`n"
           Write-Host "Filtered commits: $commitText"
 
+          # check in priority order
           if ($commitText -match 'BREAKING CHANGE') {
             "bump=major" >> $env:GITHUB_OUTPUT
             Write-Host "Major bump detected"
@@ -71,10 +72,13 @@ jobs:
             Write-Host "Patch bump detected"
           } elseif ($commitText -match '(?m)^docs') {
             "docs_only=true" >> $env:GITHUB_OUTPUT
-            Write-Host "Docs only change detected"
+            Write-Host "Docs only change detected, deploying without version bump"
+          } elseif ($commitText -match '(?m)^(chore|style|test|misc)') {
+            "skip=true" >> $env:GITHUB_OUTPUT
+            Write-Host "Chore/style/test commit, skipping deployment"
           } else {
             "skip=true" >> $env:GITHUB_OUTPUT
-            Write-Host "No version bump needed, skipping deployment"
+            Write-Host "No deployment needed"
           }
 
       - name: Bump version in package.json
