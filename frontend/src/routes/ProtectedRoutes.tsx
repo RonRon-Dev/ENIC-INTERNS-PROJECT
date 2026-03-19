@@ -58,8 +58,11 @@ export function ProtectedRoute({
     dbRoles !== undefined
       ? (dbRoles as UserRole[])
       : allowedRoles?.map((role) => role.toLowerCase() as UserRole) ?? [];
+  const canEvaluateAccess =
+    !loading && !privilegesLoading && !sessionExpired && isAuthenticated;
 
   const isUnauthorized =
+    canEvaluateAccess &&
     (dbRoles !== undefined || (allowedRoles && allowedRoles.length > 0)) &&
     effectiveRoles.length > 0 &&
     (!userRole || !effectiveRoles.includes(userRole));

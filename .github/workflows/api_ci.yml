@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  test-backend:
+  restore:
     runs-on: [self-hosted, linux]
     steps:
       - uses: actions/checkout@v3
@@ -15,25 +15,68 @@ jobs:
       - name: Restore dependencies
         run: nix develop .# --command bash -c "cd backend && dotnet restore"
 
-      - name: Build
-        run: nix develop .# --command bash -c "cd backend && dotnet build --no-restore"
+  format:
+    needs: restore
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v3
 
-      - name: Check Code Quality
+      - name: Check formatting
+        run: nix develop .# --command bash -c "cd backend && dotnet restore && dotnet format --verify-no-changes --no-restore"
+
+  lint:
+    needs: restore
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check linting
         run: |
           nix develop .# --command bash -c "
-            cd backend && dotnet build --no-restore \
+            cd backend && dotnet restore && dotnet build \
               /p:EnforceCodeStyleInBuild=true \
               /p:AnalysisLevel=latest \
               /p:TreatWarningsAsErrors=false \
               /warnaserror
           "
 
+  build:
+    needs: [format, lint]
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build
+        run: nix develop .# --command bash -c "cd backend && dotnet restore && dotnet build --no-restore"
+
+  code-quality:
+    needs: build
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check Code Quality
+        run: |
+          nix develop .# --command bash -c "
+            cd backend && dotnet restore && dotnet build --no-restore \
+              /p:EnforceCodeStyleInBuild=true \
+              /p:AnalysisLevel=latest \
+              /p:TreatWarningsAsErrors=false \
+              /warnaserror
+          "
+
+  test:
+    needs: build
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v3
+
       - name: Run tests
-        run: nix develop .# --command bash -c "cd backend && dotnet test --no-build --verbosity normal"
+        run: nix develop .# --command bash -c "cd backend && dotnet restore && dotnet test --no-build --verbosity normal"
 
   all-checks-passed:
-    needs: [test-backend]
-    runs-on: [self-hosted, linux]  # ← fix this to match test-backend
+    needs: [code-quality, test]
+    runs-on: [self-hosted, linux]
     steps:
       - name: All checks passed
-        run: echo "✅ All checks passed for API successfully!"
+        run: echo "All checks passed for API successfully!"

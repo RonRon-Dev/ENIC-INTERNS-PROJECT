@@ -1,10 +1,10 @@
-using backend.Models;
 using backend.Data;
+using backend.Models;
 
 namespace backend.Services.ActivityLogger;
 
 public class ActivityLoggerService
-{ 
+{
     private readonly AppDbContext context;
     private readonly IHttpContextAccessor http;
     private static DateTime PhTime => DateTime.UtcNow.AddHours(8);
@@ -65,9 +65,7 @@ public class ActivityLoggerService
         await LogAsync("settings", userId, userName, description, isSuccess, payload);
     }
 
-    private object BuildPayload(
-        object? additionalData
-    )
+    private object BuildPayload(object? additionalData)
     {
         return new
         {
@@ -111,7 +109,7 @@ public class ActivityLoggerService
             return forwardedFor.Split(',')[0].Trim();
 
         return httpContext?.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
-    } 
+    }
 
     private string GetUserAgent()
     {

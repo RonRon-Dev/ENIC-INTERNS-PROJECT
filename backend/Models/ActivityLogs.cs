@@ -1,5 +1,6 @@
 namespace backend.Models;
 
+
 public class ActivityLogs
 {
     public long Id { get; set; }

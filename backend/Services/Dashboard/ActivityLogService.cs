@@ -1,6 +1,6 @@
-using backend.Extensions;
 using backend.Data;
 using backend.Dtos.Response.Dashboard;
+using backend.Extensions;
 using backend.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,10 +10,10 @@ public class ActivityLogService(AppDbContext context) : IActivityLogService
 {
     public async Task<List<ActivityLogResponse>> GetActivityLogsAsync()
     {
-        var q = context.ActivityLogs
-            .AsNoTracking()
+        var q = context
+            .ActivityLogs.AsNoTracking()
             .Include(l => l.User)
-            .ThenInclude(u => u!.Role)
+                .ThenInclude(u => u!.Role)
             .OrderByDescending(l => l.Timestamp)
             .AsQueryable();
 
@@ -21,6 +21,4 @@ public class ActivityLogService(AppDbContext context) : IActivityLogService
 
         return logs.Select(log => log.ToResponse()).ToList();
     }
-
 }
-

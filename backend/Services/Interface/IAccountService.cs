@@ -7,4 +7,3 @@ public interface IAccountService
 {
     Task<AccountResponse> UpdateAccountAsync(int Id, AccountRequest request);
 }
-
