@@ -15,6 +15,9 @@ dist-ssr
 *.local
 build/*
 
+frontend/docs/.vitepress/cache/*
+
+
 # Test generated output — keep source files, ignore results only
 src/tests/unit/results/
 src/tests/e2e/results/
