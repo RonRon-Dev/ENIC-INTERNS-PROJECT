@@ -227,15 +227,9 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add frontend/docs-versions/ frontend/docs/.vitepress/config.ts
-          
-          $status = git status --porcelain
-          if ($status) {
-            git commit -m "docs: snapshot v${{ needs.version-bump.outputs.prev_version }} to v${{ needs.version-bump.outputs.version }}"
-            git push origin main
-            Write-Host "Docs changes committed"
-          } else {
-            Write-Host "No docs changes to commit"
-          }
+          git commit -m "docs: snapshot v${{ needs.version-bump.outputs.prev_version }} to v${{ needs.version-bump.outputs.version }}"
+          git push origin main
+          Write-Host "Docs changes committed"
 
   prepare:
     needs: [version-bump, docs]
