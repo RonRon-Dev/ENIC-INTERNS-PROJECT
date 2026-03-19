@@ -27,7 +27,7 @@ RUN if [ -d "docs-versions" ]; then \
 
 FROM nginx:alpine AS production
 COPY --from=builder /app/build /usr/share/nginx/html
-COPY --from=builder /app/docs/.vitepress/build /usr/share/nginx/html/docs
+COPY --from=builder /app/docs/.vitepress/dist /usr/share/nginx/html/docs
 # Copy each versioned snapshot built output into /docs/v{version}/
 RUN mkdir -p /usr/share/nginx/html/docs
 COPY --from=builder /app/docs-versions /tmp/docs-versions
