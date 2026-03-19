@@ -6,7 +6,7 @@ on:
     paths-ignore:
       - '**.nix'
       - '.env.production'
-      - '**.md'
+      - 'README.md'
       - '.github/**'
 
 jobs:
@@ -16,6 +16,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       skip: ${{ steps.bump.outputs.skip }}
+      docs_only: ${{ steps.bump.outputs.docs_only }}  # ← add this
 
     steps:
       - name: Checkout Code
@@ -28,7 +29,6 @@ jobs:
         id: bump
         shell: powershell
         run: |
-          # Get the last automated commit hash to compare from
           $lastVersionCommit = git log --pretty="%H %s" | Where-Object { 
             $_ -match "chore: bump version" -or $_ -match "docs: snapshot" 
           } | Select-Object -First 1
@@ -43,7 +43,6 @@ jobs:
 
           Write-Host "Commits to analyze: $COMMITS"
 
-          # filter out ONLY automated commits, keep everything else including docs
           $filteredCommits = $COMMITS | Where-Object {
             $_ -notmatch "^chore: bump version" -and
             $_ -notmatch "^docs: snapshot" -and
@@ -60,7 +59,6 @@ jobs:
           $commitText = $filteredCommits -join "`n"
           Write-Host "Filtered commits: $commitText"
 
-          # check in priority order
           if ($commitText -match 'BREAKING CHANGE') {
             "bump=major" >> $env:GITHUB_OUTPUT
             Write-Host "Major bump detected"
@@ -82,8 +80,9 @@ jobs:
           }
 
       - name: Bump version in package.json
-        if: steps.bump.outputs.skip != 'true'
-        id: version
+        # ← only bump when NOT docs_only
+        if: steps.bump.outputs.skip != 'true' && steps.bump.outputs.docs_only != 'true'
+        id: version-new
         shell: powershell
         run: |
           cd frontend
@@ -92,8 +91,33 @@ jobs:
           "version=$VERSION" >> $env:GITHUB_OUTPUT
           Write-Host "Bumped to: beta-v$VERSION"
 
-      - name: Commit version bump
+      - name: Get current version for docs only
+        # ← get version without bumping for docs_only
+        if: steps.bump.outputs.docs_only == 'true'
+        id: version-docs
+        shell: powershell
+        run: |
+          cd frontend
+          $VERSION = node -p "require('./package.json').version"
+          "version=$VERSION" >> $env:GITHUB_OUTPUT
+          Write-Host "Docs only, keeping version: beta-v$VERSION"
+
+      - name: Set version output
         if: steps.bump.outputs.skip != 'true'
+        id: version
+        shell: powershell
+        run: |
+          if ("${{ steps.bump.outputs.docs_only }}" -eq "true") {
+            $VERSION = node -p "require('./frontend/package.json').version"
+          } else {
+            $VERSION = "${{ steps.version-new.outputs.version }}"
+          }
+          "version=$VERSION" >> $env:GITHUB_OUTPUT
+          Write-Host "Final version: beta-v$VERSION"
+
+      - name: Commit version bump
+        # ← only commit when NOT docs_only
+        if: steps.bump.outputs.skip != 'true' && steps.bump.outputs.docs_only != 'true'
         shell: powershell
         run: |
           git config user.name "GitHub Actions"
@@ -183,7 +207,12 @@ jobs:
       - name: Notify success
         if: needs.deploy.result == 'success'
         shell: powershell
-        run: Write-Host "Successfully deployed beta-v${{ needs.version-bump.outputs.version }}"
+        run: |
+          if ("${{ needs.version-bump.outputs.docs_only }}" -eq "true") {
+            Write-Host "Successfully deployed docs update"
+          } else {
+            Write-Host "Successfully deployed beta-v${{ needs.version-bump.outputs.version }}"
+          }
 
       - name: Notify failure
         if: needs.deploy.result == 'failure'
