@@ -116,17 +116,16 @@ jobs:
 
           if ($featCount -gt 0) {
             $minor = $minor + $featCount
-            $patch = $fixCount           # patch = number of fix commits
+            $patch = $fixCount
             "bump=minor" >> $env:GITHUB_OUTPUT
           } else {
-            $patch = $patch + $fixCount  # only fixes, increment patch
+            $patch = $patch + $fixCount
             "bump=patch" >> $env:GITHUB_OUTPUT
           }
 
           $newVersion = "$major.$minor.$patch"
           Write-Host "Calculated version: $currentVersion -> $newVersion"
 
-          # write new version to package.json
           $packageJson = Get-Content "frontend\package.json" -Raw | ConvertFrom-Json
           $packageJson.version = $newVersion
           $packageJson | ConvertTo-Json -Depth 10 | Set-Content "frontend\package.json"
@@ -147,10 +146,11 @@ jobs:
 
   docs:
     needs: version-bump
+    # ← only runs on minor or major bumps, NOT docs_only or patch
     if: >
       needs.version-bump.outputs.skip != 'true' &&
-      (needs.version-bump.outputs.docs_only == 'true' ||
-       needs.version-bump.outputs.bump == 'minor' ||
+      needs.version-bump.outputs.docs_only != 'true' &&
+      (needs.version-bump.outputs.bump == 'minor' ||
        needs.version-bump.outputs.bump == 'major')
     runs-on: [self-hosted, windows]
     environment: production
@@ -181,12 +181,8 @@ jobs:
           cd frontend
           npm install
 
-      - name: Snapshot docs for minor and major bumps
-        if: >
-          steps.docs-check.outputs.exists == 'true' &&
-          needs.version-bump.outputs.docs_only != 'true' &&
-          (needs.version-bump.outputs.bump == 'minor' ||
-           needs.version-bump.outputs.bump == 'major')
+      - name: Snapshot docs
+        if: steps.docs-check.outputs.exists == 'true'
         shell: powershell
         run: |
           $prevVersion = "v${{ needs.version-bump.outputs.prev_version }}"
@@ -201,11 +197,7 @@ jobs:
           }
 
       - name: Update snapshot config
-        if: >
-          steps.docs-check.outputs.exists == 'true' &&
-          needs.version-bump.outputs.docs_only != 'true' &&
-          (needs.version-bump.outputs.bump == 'minor' ||
-           needs.version-bump.outputs.bump == 'major')
+        if: steps.docs-check.outputs.exists == 'true'
         shell: powershell
         run: |
           $prevVersion = "v${{ needs.version-bump.outputs.prev_version }}"
@@ -220,11 +212,7 @@ jobs:
           }
 
       - name: Update version dropdown in latest docs
-        if: >
-          steps.docs-check.outputs.exists == 'true' &&
-          needs.version-bump.outputs.docs_only != 'true' &&
-          (needs.version-bump.outputs.bump == 'minor' ||
-           needs.version-bump.outputs.bump == 'major')
+        if: steps.docs-check.outputs.exists == 'true'
         shell: powershell
         run: |
           $prevVersion = "v${{ needs.version-bump.outputs.prev_version }}"
@@ -303,6 +291,12 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
+
+      - name: Pull latest changes
+        shell: powershell
+        run: |
+          git pull origin main  # ← gets snapshot committed by docs job
+          Write-Host "Latest code pulled including docs snapshots"
 
       - name: Restore appsettings.json
         shell: powershell
