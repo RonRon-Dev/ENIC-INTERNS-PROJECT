@@ -4,7 +4,7 @@ export default defineConfig({
   title: "ENIC MIS",
   description:
     "User manual and technical reference for the ENIC Management Information System",
-  base: process.env.NODE_ENV === "production" ? "/docs-live/" : "/docs-dev",
+  base: '/docs/v0.0.18/',
   appearance: "dark",
 
   themeConfig: {
@@ -16,7 +16,6 @@ export default defineConfig({
       {
         text: "v1.0.0",
         items: [
-          { text: 'v0.0.18', link: '/docs/v0.0.18/' },
           { text: "v1.0.0 (current)", link: "#" },
           { text: "Changelog", link: "#" },
         ],
@@ -28,7 +27,6 @@ export default defineConfig({
         {
           text: "Getting Started",
           items: [
-          { text: 'v0.0.18', link: '/docs/v0.0.18/' },
             { text: "Introduction", link: "/user-manual/introduction" },
             { text: "Logging In", link: "/user-manual/logging-in" },
             { text: "Dashboard Overview", link: "/user-manual/dashboard" },
@@ -37,7 +35,6 @@ export default defineConfig({
         {
           text: "Data Cleaning Tool",
           items: [
-          { text: 'v0.0.18', link: '/docs/v0.0.18/' },
             { text: "Uploading a File", link: "/user-manual/uploading-file" },
             { text: "Setting the Header Row", link: "/user-manual/header-row" },
             { text: "Configuring Columns", link: "/user-manual/columns" },
@@ -49,7 +46,6 @@ export default defineConfig({
         {
           text: "User Management",
           items: [
-          { text: 'v0.0.18', link: '/docs/v0.0.18/' },
             { text: "Managing Users", link: "/user-manual/managing-users" },
             {
               text: "Roles & Privileges",
@@ -63,7 +59,6 @@ export default defineConfig({
         {
           text: "Architecture",
           items: [
-          { text: 'v0.0.18', link: '/docs/v0.0.18/' },
             { text: "System Overview", link: "/technical/architecture" },
             { text: "Data Flow", link: "/technical/data-flow" },
             { text: "Columnar Storage", link: "/technical/columnar-storage" },
@@ -73,7 +68,6 @@ export default defineConfig({
         {
           text: "Reference",
           items: [
-          { text: 'v0.0.18', link: '/docs/v0.0.18/' },
             { text: "Tech Stack", link: "/technical/tech-stack" },
             {
               text: "useSpreadsheetData Hook",
