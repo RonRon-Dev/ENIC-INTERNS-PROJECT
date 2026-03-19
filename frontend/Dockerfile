@@ -14,10 +14,6 @@ COPY . .
 ARG VITE_APP_VERSION=dev
 ENV VITE_APP_VERSION=$VITE_APP_VERSION
 RUN npm run build
-
-FROM base AS docs-builder
-COPY . .
-# Build latest docs
 RUN npm run docs:build
 # Build each versioned snapshot if docs-versions/ exists
 RUN if [ -d "docs-versions" ]; then \
@@ -30,8 +26,8 @@ RUN if [ -d "docs-versions" ]; then \
     fi
 
 FROM nginx:alpine AS production
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY --from=docs-builder /app/docs/.vitepress/dist /usr/share/nginx/html/docs
+COPY --from=builder /app/build /usr/share/nginx/html
+COPY --from=builder /app/docs/.vitepress/build /usr/share/nginx/html/docs
 # Copy each versioned snapshot built output into /docs/v{version}/
 RUN mkdir -p /usr/share/nginx/html/docs
 COPY --from=docs-builder /app/docs-versions /tmp/docs-versions

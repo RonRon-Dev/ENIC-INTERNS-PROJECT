@@ -14,7 +14,8 @@ jobs:
     runs-on: [self-hosted, windows]
     environment: production
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      version: ${{ steps.bump.outputs.version }}
+      prev_version: ${{ steps.bump.outputs.prev_version }}
       skip: ${{ steps.bump.outputs.skip }}
       docs_only: ${{ steps.bump.outputs.docs_only }}
       bump: ${{ steps.bump.outputs.bump }}
@@ -60,59 +61,79 @@ jobs:
           $commitText = $filteredCommits -join "`n"
           Write-Host "Filtered commits: $commitText"
 
+          # always major for breaking changes
           if ($commitText -match 'BREAKING CHANGE') {
             "bump=major" >> $env:GITHUB_OUTPUT
             Write-Host "Major bump detected"
-          } elseif ($commitText -match '(?m)^feat') {
+
+            $currentVersion = node -p "require('./frontend/package.json').version"
+            $parts = $currentVersion -split "\."
+            $newVersion = "$([int]$parts[0] + 1).0.0"
+
+            $packageJson = Get-Content "frontend\package.json" -Raw | ConvertFrom-Json
+            $packageJson.version = $newVersion
+            $packageJson | ConvertTo-Json -Depth 10 | Set-Content "frontend\package.json"
+
+            "prev_version=$currentVersion" >> $env:GITHUB_OUTPUT
+            "version=$newVersion" >> $env:GITHUB_OUTPUT
+            Write-Host "Bumped to: beta-v$newVersion"
+            exit 0
+          }
+
+          # check for docs only
+          $hasDeployableCommits = $filteredCommits | Where-Object {
+            $_ -match "^(feat|fix|refactor|perf)"
+          }
+
+          if (-not $hasDeployableCommits) {
+            if ($filteredCommits | Where-Object { $_ -match "^docs" }) {
+              "docs_only=true" >> $env:GITHUB_OUTPUT
+              $VERSION = node -p "require('./frontend/package.json').version"
+              "version=$VERSION" >> $env:GITHUB_OUTPUT
+              Write-Host "Docs only change detected, keeping version: beta-v$VERSION"
+            } else {
+              "skip=true" >> $env:GITHUB_OUTPUT
+              Write-Host "No deployment needed"
+            }
+            exit 0
+          }
+
+          # count each commit type
+          $featCount = ($filteredCommits | Where-Object { $_ -match "^feat" }).Count
+          $fixCount = ($filteredCommits | Where-Object { $_ -match "^(fix|refactor|perf)" }).Count
+
+          Write-Host "feat commits: $featCount"
+          Write-Host "fix/refactor/perf commits: $fixCount"
+
+          # read current version
+          $currentVersion = node -p "require('./frontend/package.json').version"
+          $parts = $currentVersion -split "\."
+          $major = [int]$parts[0]
+          $minor = [int]$parts[1]
+          $patch = [int]$parts[2]
+
+          Write-Host "Current version: $currentVersion"
+
+          if ($featCount -gt 0) {
+            $minor = $minor + $featCount
+            $patch = $fixCount           # patch = number of fix commits
             "bump=minor" >> $env:GITHUB_OUTPUT
-            Write-Host "Minor bump detected"
-          } elseif ($commitText -match '(?m)^(fix|refactor|perf)') {
+          } else {
+            $patch = $patch + $fixCount  # only fixes, increment patch
             "bump=patch" >> $env:GITHUB_OUTPUT
-            Write-Host "Patch bump detected"
-          } elseif ($commitText -match '(?m)^docs') {
-            "docs_only=true" >> $env:GITHUB_OUTPUT
-            Write-Host "Docs only change detected"
-          } elseif ($commitText -match '(?m)^(chore|style|test|misc)') {
-            "skip=true" >> $env:GITHUB_OUTPUT
-            Write-Host "Skipping deployment"
-          } else {
-            "skip=true" >> $env:GITHUB_OUTPUT
-            Write-Host "No deployment needed"
           }
 
-      - name: Bump version in package.json
-        if: steps.bump.outputs.skip != 'true' && steps.bump.outputs.docs_only != 'true'
-        id: version-new
-        shell: powershell
-        run: |
-          cd frontend
-          npm version ${{ steps.bump.outputs.bump }} --no-git-tag-version
-          $VERSION = node -p "require('./package.json').version"
-          "version=$VERSION" >> $env:GITHUB_OUTPUT
-          Write-Host "Bumped to: beta-v$VERSION"
+          $newVersion = "$major.$minor.$patch"
+          Write-Host "Calculated version: $currentVersion -> $newVersion"
 
-      - name: Get current version for docs only
-        if: steps.bump.outputs.docs_only == 'true'
-        id: version-docs
-        shell: powershell
-        run: |
-          cd frontend
-          $VERSION = node -p "require('./package.json').version"
-          "version=$VERSION" >> $env:GITHUB_OUTPUT
-          Write-Host "Docs only, keeping version: beta-v$VERSION"
+          # write new version to package.json
+          $packageJson = Get-Content "frontend\package.json" -Raw | ConvertFrom-Json
+          $packageJson.version = $newVersion
+          $packageJson | ConvertTo-Json -Depth 10 | Set-Content "frontend\package.json"
 
-      - name: Set version output
-        if: steps.bump.outputs.skip != 'true'
-        id: version
-        shell: powershell
-        run: |
-          if ("${{ steps.bump.outputs.docs_only }}" -eq "true") {
-            $VERSION = node -p "require('./frontend/package.json').version"
-          } else {
-            $VERSION = "${{ steps.version-new.outputs.version }}"
-          }
-          "version=$VERSION" >> $env:GITHUB_OUTPUT
-          Write-Host "Final version: beta-v$VERSION"
+          "prev_version=$currentVersion" >> $env:GITHUB_OUTPUT
+          "version=$newVersion" >> $env:GITHUB_OUTPUT
+          Write-Host "Bumped to: beta-v$newVersion"
 
       - name: Commit version bump
         if: steps.bump.outputs.skip != 'true' && steps.bump.outputs.docs_only != 'true'
@@ -121,7 +142,7 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add frontend/package.json
-          git commit -m "chore: bump version to beta-v${{ steps.version.outputs.version }}"
+          git commit -m "chore: bump version to beta-v${{ steps.bump.outputs.version }}"
           git push origin main
 
   docs:
@@ -133,8 +154,6 @@ jobs:
        needs.version-bump.outputs.bump == 'major')
     runs-on: [self-hosted, windows]
     environment: production
-    outputs:
-      result: ${{ job.status }}
 
     steps:
       - name: Checkout Code
@@ -171,7 +190,7 @@ jobs:
         shell: powershell
         run: |
           $prevVersion = "v${{ needs.version-bump.outputs.prev_version }}"
-          $srcDocs     = "frontend\docs"
+          $srcDocs      = "frontend\docs"
           $destSnapshot = "frontend\docs-versions\$prevVersion"
 
           if (!(Test-Path $destSnapshot)) {
@@ -228,9 +247,15 @@ jobs:
           git config user.email "actions@github.com"
           git pull origin main
           git add frontend/docs-versions/ frontend/docs/.vitepress/config.ts
-          git commit -m "docs: snapshot v${{ needs.version-bump.outputs.prev_version }} to v${{ needs.version-bump.outputs.version }}"
-          git push origin main
-          Write-Host "Docs changes committed"
+
+          $status = git status --porcelain
+          if ($status) {
+            git commit -m "docs: snapshot v${{ needs.version-bump.outputs.prev_version }} to v${{ needs.version-bump.outputs.version }}"
+            git push origin main
+            Write-Host "Docs changes committed"
+          } else {
+            Write-Host "No docs changes to commit"
+          }
 
   prepare:
     needs: [version-bump, docs]
