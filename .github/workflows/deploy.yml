@@ -116,7 +116,7 @@ jobs:
     # needs: version-bump
     if: >
       needs.version-bump.outputs.skip != 'true' &&
-      needs.version-bump.outputs.docs_only == 'true' &&
+      needs.version-bump.outputs.docs_only != 'true' &&
       (needs.version-bump.outputs.bump == 'minor' ||
        needs.version-bump.outputs.bump == 'major')
     runs-on: [self-hosted, windows]

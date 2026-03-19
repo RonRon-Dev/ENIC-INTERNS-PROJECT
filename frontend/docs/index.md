@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: Version Bump Test
-  text: Documentation Testing Trest:wa Tangina
+  text: Documentation Testing Test 1`23
   tagline: User manual and technical reference for the ENIC Management Information System — built by ENIC Interns.
   actions:
     - theme: brand
