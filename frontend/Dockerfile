@@ -30,7 +30,7 @@ COPY --from=builder /app/build /usr/share/nginx/html
 COPY --from=builder /app/docs/.vitepress/build /usr/share/nginx/html/docs
 # Copy each versioned snapshot built output into /docs/v{version}/
 RUN mkdir -p /usr/share/nginx/html/docs
-COPY --from=docs-builder /app/docs-versions /tmp/docs-versions
+COPY --from=builder /app/docs-versions /tmp/docs-versions
 RUN if [ -d "/tmp/docs-versions" ]; then \
       for dir in /tmp/docs-versions/*/; do \
         version=$(basename "$dir"); \
