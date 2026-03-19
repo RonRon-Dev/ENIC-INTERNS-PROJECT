@@ -30,20 +30,48 @@ jobs:
         id: bump
         shell: powershell
         run: |
-          $COMMITS = git log --pretty=%B origin/main..HEAD
-          Write-Host "Commits: $COMMITS"
+          # Get the last chore/version bump commit hash to compare from
+          $lastVersionCommit = git log --pretty="%H %s" | Where-Object { 
+            $_ -match "chore: bump version" -or $_ -match "docs: snapshot" 
+          } | Select-Object -First 1
 
-          if ($COMMITS -match 'BREAKING CHANGE') {
+          if ($lastVersionCommit) {
+            $lastHash = ($lastVersionCommit -split " ")[0]
+            Write-Host "Last version commit: $lastHash"
+            $COMMITS = git log "$lastHash..HEAD" --pretty=%B
+          } else {
+            # fallback: get last 10 commits if no version commit found
+            $COMMITS = git log -10 --pretty=%B
+          }
+
+          Write-Host "Commits to analyze: $COMMITS"
+
+          # skip if only chore/docs-snapshot/version-bump commits
+          $filteredCommits = $COMMITS | Where-Object {
+            $_ -notmatch "^chore: bump version" -and
+            $_ -notmatch "^docs: snapshot" -and
+            $_ -notmatch "^$"
+          }
+
+          if (-not $filteredCommits) {
+            "skip=true" >> $env:GITHUB_OUTPUT
+            Write-Host "Only chore/snapshot commits found, skipping"
+            exit 0
+          }
+
+          $commitText = $filteredCommits -join "`n"
+          Write-Host "Filtered commits: $commitText"
+
+          if ($commitText -match 'BREAKING CHANGE') {
             "bump=major" >> $env:GITHUB_OUTPUT
             Write-Host "Major bump detected"
-          } elseif ($COMMITS -match '(?m)^feat') {
+          } elseif ($commitText -match '(?m)^feat') {
             "bump=minor" >> $env:GITHUB_OUTPUT
             Write-Host "Minor bump detected"
-          } elseif ($COMMITS -match '(?m)^(fix|refactor|perf)') {
+          } elseif ($commitText -match '(?m)^(fix|refactor|perf)') {
             "bump=patch" >> $env:GITHUB_OUTPUT
             Write-Host "Patch bump detected"
-          } elseif ($COMMITS -match '(?m)^docs') {
-            # ← detect docs commits, deploy but skip version bump
+          } elseif ($commitText -match '(?m)^docs') {
             "docs_only=true" >> $env:GITHUB_OUTPUT
             Write-Host "Docs only change detected"
           } else {
