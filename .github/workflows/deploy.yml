@@ -113,10 +113,10 @@ jobs:
           Write-Host ".env.prod generated"
 
   docs-snapshot:
-    needs: version-bump
+    # needs: version-bump
     if: >
       needs.version-bump.outputs.skip != 'true' &&
-      needs.version-bump.outputs.docs_only != 'true' &&
+      needs.version-bump.outputs.docs_only == 'true' &&
       (needs.version-bump.outputs.bump == 'minor' ||
        needs.version-bump.outputs.bump == 'major')
     runs-on: [self-hosted, windows]
@@ -128,11 +128,6 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
 
       - name: Install dependencies
         shell: powershell
