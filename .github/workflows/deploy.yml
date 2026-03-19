@@ -28,22 +28,22 @@ jobs:
         id: bump
         shell: powershell
         run: |
-          $COMMIT_MSG = git log -1 --pretty=%B
-          Write-Host "Commit message: $COMMIT_MSG"
+        $COMMITS = git log --pretty=%B origin/main..HEAD
+        Write-Host "Commits: $COMMITS"
 
-          if ($COMMIT_MSG -match '^(chore|docs|style|test|misc)') {
-            "skip=true" >> $env:GITHUB_OUTPUT
-            Write-Host "Skipping deployment for: $COMMIT_MSG"
-            exit 0
-          }
-
-          if ($COMMIT_MSG -match 'BREAKING CHANGE') {
-            "bump=major" >> $env:GITHUB_OUTPUT
-          } elseif ($COMMIT_MSG -match '^feat') {
-            "bump=minor" >> $env:GITHUB_OUTPUT
-          } else {
-            "bump=patch" >> $env:GITHUB_OUTPUT
-          }
+        if ($COMMITS -match 'BREAKING CHANGE') {
+          "bump=major" >> $env:GITHUB_OUTPUT
+          Write-Host "Major bump detected"
+        } elseif ($COMMITS -match '(?m)^feat') {
+          "bump=minor" >> $env:GITHUB_OUTPUT
+          Write-Host "Minor bump detected"
+        } elseif ($COMMITS -match '(?m)^(fix|refactor|perf)') {
+          "bump=patch" >> $env:GITHUB_OUTPUT
+          Write-Host "Patch bump detected"
+        } else {
+          "skip=true" >> $env:GITHUB_OUTPUT
+          Write-Host "No version bump needed"
+        }
 
       - name: Bump version in package.json
         if: steps.bump.outputs.skip != 'true'
