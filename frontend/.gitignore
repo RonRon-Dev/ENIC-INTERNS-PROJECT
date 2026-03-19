@@ -14,8 +14,8 @@ dist
 dist-ssr
 *.local
 build/*
-
-frontend/docs/.vitepress/cache/*
+frontend/docs/.vitepress/cache
+frontend/docs/.vitepress/dist
 
 
 # Test generated output — keep source files, ignore results only

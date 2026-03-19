@@ -9,3 +9,5 @@ backend/appsettings.json
 backend/Migrations/
 appsettings.json
 Migrations
+frontend/docs/.vitepress/cache
+frontend/docs/.vitepress/dist
