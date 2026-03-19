@@ -16,7 +16,8 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       skip: ${{ steps.bump.outputs.skip }}
-      docs_only: ${{ steps.bump.outputs.docs_only }}  # ← add this
+      docs_only: ${{ steps.bump.outputs.docs_only }}
+      bump: ${{ steps.bump.outputs.bump }}
 
     steps:
       - name: Checkout Code
@@ -70,17 +71,16 @@ jobs:
             Write-Host "Patch bump detected"
           } elseif ($commitText -match '(?m)^docs') {
             "docs_only=true" >> $env:GITHUB_OUTPUT
-            Write-Host "Docs only change detected, deploying without version bump"
+            Write-Host "Docs only change detected"
           } elseif ($commitText -match '(?m)^(chore|style|test|misc)') {
             "skip=true" >> $env:GITHUB_OUTPUT
-            Write-Host "Chore/style/test commit, skipping deployment"
+            Write-Host "Skipping deployment"
           } else {
             "skip=true" >> $env:GITHUB_OUTPUT
             Write-Host "No deployment needed"
           }
 
       - name: Bump version in package.json
-        # ← only bump when NOT docs_only
         if: steps.bump.outputs.skip != 'true' && steps.bump.outputs.docs_only != 'true'
         id: version-new
         shell: powershell
@@ -92,7 +92,6 @@ jobs:
           Write-Host "Bumped to: beta-v$VERSION"
 
       - name: Get current version for docs only
-        # ← get version without bumping for docs_only
         if: steps.bump.outputs.docs_only == 'true'
         id: version-docs
         shell: powershell
@@ -116,7 +115,6 @@ jobs:
           Write-Host "Final version: beta-v$VERSION"
 
       - name: Commit version bump
-        # ← only commit when NOT docs_only
         if: steps.bump.outputs.skip != 'true' && steps.bump.outputs.docs_only != 'true'
         shell: powershell
         run: |
@@ -126,9 +124,125 @@ jobs:
           git commit -m "chore: bump version to beta-v${{ steps.version.outputs.version }}"
           git push origin main
 
-  prepare:
+  docs:
     needs: version-bump
-    if: needs.version-bump.outputs.skip != 'true'
+    if: >
+      needs.version-bump.outputs.skip != 'true' &&
+      (needs.version-bump.outputs.docs_only == 'true' ||
+       needs.version-bump.outputs.bump == 'minor' ||
+       needs.version-bump.outputs.bump == 'major')
+    runs-on: [self-hosted, windows]
+    environment: production
+    outputs:
+      result: ${{ job.status }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Check if docs folder exists
+        id: docs-check
+        shell: powershell
+        run: |
+          if (Test-Path "frontend\docs") {
+            "exists=true" >> $env:GITHUB_OUTPUT
+            Write-Host "Docs folder found"
+          } else {
+            "exists=false" >> $env:GITHUB_OUTPUT
+            Write-Host "No docs folder found, skipping"
+          }
+
+      - name: Install dependencies
+        if: steps.docs-check.outputs.exists == 'true'
+        shell: powershell
+        run: |
+          cd frontend
+          npm install
+
+      - name: Snapshot docs for minor and major bumps
+        if: >
+          steps.docs-check.outputs.exists == 'true' &&
+          needs.version-bump.outputs.docs_only != 'true' &&
+          (needs.version-bump.outputs.bump == 'minor' ||
+           needs.version-bump.outputs.bump == 'major')
+        shell: powershell
+        run: |
+          $prevVersion = "v${{ needs.version-bump.outputs.prev_version }}"
+          $srcDocs     = "frontend\docs"
+          $destSnapshot = "frontend\docs-versions\$prevVersion"
+
+          if (!(Test-Path $destSnapshot)) {
+            Copy-Item -Recurse -Force $srcDocs $destSnapshot
+            Write-Host "Snapshot created: $destSnapshot"
+          } else {
+            Write-Host "Snapshot already exists: $destSnapshot - skipping"
+          }
+
+      - name: Update snapshot config
+        if: >
+          steps.docs-check.outputs.exists == 'true' &&
+          needs.version-bump.outputs.docs_only != 'true' &&
+          (needs.version-bump.outputs.bump == 'minor' ||
+           needs.version-bump.outputs.bump == 'major')
+        shell: powershell
+        run: |
+          $prevVersion = "v${{ needs.version-bump.outputs.prev_version }}"
+          $configPath  = "frontend\docs-versions\$prevVersion\.vitepress\config.ts"
+
+          if (Test-Path $configPath) {
+            $content = Get-Content $configPath -Raw
+            $content = $content -replace "base:.*,", "base: '/docs/$prevVersion/',"
+            $content = $content -replace "text: 'v[\d.]+'", "text: '$prevVersion'"
+            Set-Content $configPath $content
+            Write-Host "Snapshot config updated for $prevVersion"
+          }
+
+      - name: Update version dropdown in latest docs
+        if: >
+          steps.docs-check.outputs.exists == 'true' &&
+          needs.version-bump.outputs.docs_only != 'true' &&
+          (needs.version-bump.outputs.bump == 'minor' ||
+           needs.version-bump.outputs.bump == 'major')
+        shell: powershell
+        run: |
+          $prevVersion = "v${{ needs.version-bump.outputs.prev_version }}"
+          $newVersion  = "v${{ needs.version-bump.outputs.version }}"
+          $configPath  = "frontend\docs\.vitepress\config.ts"
+          $content     = Get-Content $configPath -Raw
+
+          $content = $content -replace "text: 'v[\d.]+'", "text: '$newVersion'"
+          $newEntry = "          { text: '$prevVersion', link: '/docs/$prevVersion/' },"
+          $content  = $content -replace "(items: \[)", "`$1`n$newEntry"
+
+          Set-Content $configPath $content
+          Write-Host "Latest config updated: added $prevVersion to dropdown"
+
+      - name: Commit docs changes
+        if: steps.docs-check.outputs.exists == 'true'
+        shell: powershell
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add frontend/docs-versions/ frontend/docs/.vitepress/config.ts
+          
+          $status = git status --porcelain
+          if ($status) {
+            git commit -m "docs: snapshot v${{ needs.version-bump.outputs.prev_version }} to v${{ needs.version-bump.outputs.version }}"
+            git push origin main
+            Write-Host "Docs changes committed"
+          } else {
+            Write-Host "No docs changes to commit"
+          }
+
+  prepare:
+    needs: [version-bump, docs]
+    if: >
+      always() &&
+      needs.version-bump.outputs.skip != 'true' &&
+      (needs.docs.result == 'success' || needs.docs.result == 'skipped')
     runs-on: [self-hosted, windows]
     environment: production
 
@@ -154,8 +268,12 @@ jobs:
           Write-Host ".env.prod generated"
 
   deploy:
-    needs: [version-bump, prepare]
-    if: needs.version-bump.outputs.skip != 'true'
+    needs: [version-bump, docs, prepare]
+    if: >
+      always() &&
+      needs.version-bump.outputs.skip != 'true' &&
+      needs.prepare.result == 'success' &&
+      (needs.docs.result == 'success' || needs.docs.result == 'skipped')
     runs-on: [self-hosted, windows]
     environment: production
 
