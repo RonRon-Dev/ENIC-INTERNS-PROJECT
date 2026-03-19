@@ -34,8 +34,8 @@ COPY --from=builder /app/docs-versions /tmp/docs-versions
 RUN if [ -d "/tmp/docs-versions" ]; then \
       for dir in /tmp/docs-versions/*/; do \
         version=$(basename "$dir"); \
-        if [ -d "${dir}.vitepress/dist" ]; then \
-          cp -r "${dir}.vitepress/dist" "/usr/share/nginx/html/docs/${version}"; \
+        if [ -d "${dir}.vitepress/build" ]; then \
+          cp -r "${dir}.vitepress/build" "/usr/share/nginx/html/docs/${version}"; \
           echo "Copied versioned docs: ${version}"; \
         fi; \
       done; \
