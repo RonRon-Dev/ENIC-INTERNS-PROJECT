@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: Version Bump Test
-  text: Documentation
+  text: Documentation Testing
   tagline: User manual and technical reference for the ENIC Management Information System — built by ENIC Interns.
   actions:
     - theme: brand
