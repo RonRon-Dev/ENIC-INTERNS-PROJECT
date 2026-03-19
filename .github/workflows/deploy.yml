@@ -4,9 +4,10 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "**.nix"
-      - ".env.production"
-      - ".github/**"
+      - '**.nix'
+      - '.env.production'
+      - '**.md'
+      - '.github/**'
 
 jobs:
   version-bump:
@@ -14,10 +15,7 @@ jobs:
     environment: production
     outputs:
       version: ${{ steps.version.outputs.version }}
-      prev_version: ${{ steps.version.outputs.prev_version }}
       skip: ${{ steps.bump.outputs.skip }}
-      bump: ${{ steps.bump.outputs.bump }}
-      docs_only: ${{ steps.bump.outputs.docs_only }}  # ← new output
 
     steps:
       - name: Checkout Code
@@ -80,31 +78,18 @@ jobs:
           }
 
       - name: Bump version in package.json
-        if: steps.bump.outputs.skip != 'true' && steps.bump.outputs.docs_only != 'true'
+        if: steps.bump.outputs.skip != 'true'
         id: version
         shell: powershell
         run: |
           cd frontend
-          $PREV_VERSION = node -p "require('./package.json').version"
-          "prev_version=$PREV_VERSION" >> $env:GITHUB_OUTPUT
-
           npm version ${{ steps.bump.outputs.bump }} --no-git-tag-version
           $VERSION = node -p "require('./package.json').version"
           "version=$VERSION" >> $env:GITHUB_OUTPUT
-          Write-Host "Bumped from v$PREV_VERSION to beta-v$VERSION"
-
-      - name: Get current version for docs only
-        if: steps.bump.outputs.docs_only == 'true'
-        id: docs-version
-        shell: powershell
-        run: |
-          cd frontend
-          $VERSION = node -p "require('./package.json').version"
-          "version=$VERSION" >> $env:GITHUB_OUTPUT
-          Write-Host "Docs only deploy, keeping version: beta-v$VERSION"
+          Write-Host "Bumped to: beta-v$VERSION"
 
       - name: Commit version bump
-        if: steps.bump.outputs.skip != 'true' && steps.bump.outputs.docs_only != 'true'
+        if: steps.bump.outputs.skip != 'true'
         shell: powershell
         run: |
           git config user.name "GitHub Actions"
@@ -115,7 +100,7 @@ jobs:
 
   prepare:
     needs: version-bump
-    if: needs.version-bump.outputs.skip != 'true'  # ← runs for both bump and docs_only
+    if: needs.version-bump.outputs.skip != 'true'
     runs-on: [self-hosted, windows]
     environment: production
 
@@ -140,90 +125,9 @@ jobs:
           "APP_VERSION=beta-v${{ needs.version-bump.outputs.version }}" | Out-File .env.prod -Encoding utf8
           Write-Host ".env.prod generated"
 
-  docs-snapshot:
-    # needs: version-bump
-    if: >
-      needs.version-bump.outputs.skip != 'true' &&
-      needs.version-bump.outputs.docs_only != 'true' &&
-      (needs.version-bump.outputs.bump == 'minor' ||
-       needs.version-bump.outputs.bump == 'major')
-    runs-on: [self-hosted, windows]
-    environment: production
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GH_PAT }}
-
-      - name: Install dependencies
-        shell: powershell
-        run: |
-          cd frontend
-          npm install
-
-      - name: Snapshot current docs into docs-versions/v{prev_version}
-        shell: powershell
-        run: |
-          $prevVersion = "v${{ needs.version-bump.outputs.prev_version }}"
-          $newVersion  = "v${{ needs.version-bump.outputs.version }}"
-          $srcDocs     = "frontend\docs"
-          $destSnapshot = "frontend\docs-versions\$prevVersion"
-
-          if (!(Test-Path $destSnapshot)) {
-            Copy-Item -Recurse -Force $srcDocs $destSnapshot
-            Write-Host "Snapshot created: $destSnapshot"
-          } else {
-            Write-Host "Snapshot already exists: $destSnapshot - skipping"
-          }
-
-      - name: Update snapshot config.ts base and version
-        shell: powershell
-        run: |
-          $prevVersion  = "v${{ needs.version-bump.outputs.prev_version }}"
-          $configPath   = "frontend\docs-versions\$prevVersion\.vitepress\config.ts"
-
-          if (Test-Path $configPath) {
-            $content = Get-Content $configPath -Raw
-            $content = $content -replace "base:.*,", "base: '/docs/$prevVersion/',"
-            $content = $content -replace "text: 'v[\d.]+'", "text: '$prevVersion'"
-            Set-Content $configPath $content
-            Write-Host "Snapshot config.ts updated for $prevVersion"
-          }
-
-      - name: Update version dropdown in latest docs config.ts
-        shell: powershell
-        run: |
-          $prevVersion = "v${{ needs.version-bump.outputs.prev_version }}"
-          $newVersion  = "v${{ needs.version-bump.outputs.version }}"
-          $configPath  = "frontend\docs\.vitepress\config.ts"
-          $content     = Get-Content $configPath -Raw
-
-          $content = $content -replace "text: 'v[\d.]+'", "text: '$newVersion'"
-          $newEntry = "          { text: '$prevVersion', link: '/docs/$prevVersion/' },"
-          $content  = $content -replace "(items: \[)", "`$1`n$newEntry"
-
-          Set-Content $configPath $content
-          Write-Host "Latest config.ts updated: added $prevVersion to dropdown"
-
-      - name: Commit snapshot and config changes
-        shell: powershell
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add frontend/docs-versions/ frontend/docs/.vitepress/config.ts
-          git commit -m "docs: snapshot v${{ needs.version-bump.outputs.prev_version }} to latest v${{ needs.version-bump.outputs.version }}"
-          git push origin main
-          Write-Host "Snapshot committed and pushed"
-
   deploy:
-    needs: [version-bump, prepare, docs-snapshot]
-    if: >
-      always() &&
-      needs.version-bump.outputs.skip != 'true' &&
-      needs.prepare.result == 'success' &&
-      (needs.docs-snapshot.result == 'success' || needs.docs-snapshot.result == 'skipped')
+    needs: [version-bump, prepare]
+    if: needs.version-bump.outputs.skip != 'true'
     runs-on: [self-hosted, windows]
     environment: production
 
@@ -275,12 +179,7 @@ jobs:
       - name: Notify success
         if: needs.deploy.result == 'success'
         shell: powershell
-        run: |
-          if ("${{ needs.version-bump.outputs.docs_only }}" -eq "true") {
-            Write-Host "Successfully deployed docs update"
-          } else {
-            Write-Host "Successfully deployed beta-v${{ needs.version-bump.outputs.version }}"
-          }
+        run: Write-Host "Successfully deployed beta-v${{ needs.version-bump.outputs.version }}"
 
       - name: Notify failure
         if: needs.deploy.result == 'failure'
