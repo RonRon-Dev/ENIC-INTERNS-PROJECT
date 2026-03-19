@@ -17,9 +17,31 @@ RUN npm run build
 
 FROM base AS docs-builder
 COPY . .
+# Build latest docs
 RUN npm run docs:build
+# Build each versioned snapshot if docs-versions/ exists
+RUN if [ -d "docs-versions" ]; then \
+      for dir in docs-versions/*/; do \
+        if [ -f "${dir}.vitepress/config.ts" ]; then \
+          echo "Building versioned docs: $dir" && \
+          npx vitepress build "$dir"; \
+        fi; \
+      done; \
+    fi
 
 FROM nginx:alpine AS production
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY --from=docs-builder /app/docs/.vitepress/dist /usr/share/nginx/html/docs
+# Copy each versioned snapshot built output into /docs/v{version}/
+RUN mkdir -p /usr/share/nginx/html/docs
+COPY --from=docs-builder /app/docs-versions /tmp/docs-versions
+RUN if [ -d "/tmp/docs-versions" ]; then \
+      for dir in /tmp/docs-versions/*/; do \
+        version=$(basename "$dir"); \
+        if [ -d "${dir}.vitepress/dist" ]; then \
+          cp -r "${dir}.vitepress/dist" "/usr/share/nginx/html/docs/${version}"; \
+          echo "Copied versioned docs: ${version}"; \
+        fi; \
+      done; \
+    fi
 COPY ./nginx/nginx.conf /etc/nginx/conf.d/default.conf
