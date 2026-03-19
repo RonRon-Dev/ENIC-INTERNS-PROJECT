@@ -226,6 +226,7 @@ jobs:
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
+          git pull origin main
           git add frontend/docs-versions/ frontend/docs/.vitepress/config.ts
           git commit -m "docs: snapshot v${{ needs.version-bump.outputs.prev_version }} to v${{ needs.version-bump.outputs.version }}"
           git push origin main
