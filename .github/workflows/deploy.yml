@@ -17,6 +17,7 @@ jobs:
       prev_version: ${{ steps.version.outputs.prev_version }}
       skip: ${{ steps.bump.outputs.skip }}
       bump: ${{ steps.bump.outputs.bump }}
+      docs_only: ${{ steps.bump.outputs.docs_only }}  # ← new output
 
     steps:
       - name: Checkout Code
@@ -41,18 +42,21 @@ jobs:
           } elseif ($COMMITS -match '(?m)^(fix|refactor|perf)') {
             "bump=patch" >> $env:GITHUB_OUTPUT
             Write-Host "Patch bump detected"
+          } elseif ($COMMITS -match '(?m)^docs') {
+            # ← detect docs commits, deploy but skip version bump
+            "docs_only=true" >> $env:GITHUB_OUTPUT
+            Write-Host "Docs only change detected"
           } else {
             "skip=true" >> $env:GITHUB_OUTPUT
-            Write-Host "No version bump needed"
+            Write-Host "No version bump needed, skipping deployment"
           }
 
       - name: Bump version in package.json
-        if: steps.bump.outputs.skip != 'true'
+        if: steps.bump.outputs.skip != 'true' && steps.bump.outputs.docs_only != 'true'
         id: version
         shell: powershell
         run: |
           cd frontend
-          # Capture previous version BEFORE bumping
           $PREV_VERSION = node -p "require('./package.json').version"
           "prev_version=$PREV_VERSION" >> $env:GITHUB_OUTPUT
 
@@ -61,8 +65,18 @@ jobs:
           "version=$VERSION" >> $env:GITHUB_OUTPUT
           Write-Host "Bumped from v$PREV_VERSION to beta-v$VERSION"
 
+      - name: Get current version for docs only
+        if: steps.bump.outputs.docs_only == 'true'
+        id: docs-version
+        shell: powershell
+        run: |
+          cd frontend
+          $VERSION = node -p "require('./package.json').version"
+          "version=$VERSION" >> $env:GITHUB_OUTPUT
+          Write-Host "Docs only deploy, keeping version: beta-v$VERSION"
+
       - name: Commit version bump
-        if: steps.bump.outputs.skip != 'true'
+        if: steps.bump.outputs.skip != 'true' && steps.bump.outputs.docs_only != 'true'
         shell: powershell
         run: |
           git config user.name "GitHub Actions"
@@ -73,7 +87,7 @@ jobs:
 
   prepare:
     needs: version-bump
-    if: needs.version-bump.outputs.skip != 'true'
+    if: needs.version-bump.outputs.skip != 'true'  # ← runs for both bump and docs_only
     runs-on: [self-hosted, windows]
     environment: production
 
@@ -102,6 +116,7 @@ jobs:
     needs: version-bump
     if: >
       needs.version-bump.outputs.skip != 'true' &&
+      needs.version-bump.outputs.docs_only != 'true' &&
       (needs.version-bump.outputs.bump == 'minor' ||
        needs.version-bump.outputs.bump == 'major')
     runs-on: [self-hosted, windows]
@@ -133,12 +148,11 @@ jobs:
           $srcDocs     = "frontend\docs"
           $destSnapshot = "frontend\docs-versions\$prevVersion"
 
-          # Copy current docs source as versioned snapshot
           if (!(Test-Path $destSnapshot)) {
             Copy-Item -Recurse -Force $srcDocs $destSnapshot
             Write-Host "Snapshot created: $destSnapshot"
           } else {
-            Write-Host "Snapshot already exists: $destSnapshot — skipping"
+            Write-Host "Snapshot already exists: $destSnapshot - skipping"
           }
 
       - name: Update snapshot config.ts base and version
@@ -149,9 +163,7 @@ jobs:
 
           if (Test-Path $configPath) {
             $content = Get-Content $configPath -Raw
-            # Fix base to point to versioned path
             $content = $content -replace "base:.*,", "base: '/docs/$prevVersion/',"
-            # Fix version label
             $content = $content -replace "text: 'v[\d.]+'", "text: '$prevVersion'"
             Set-Content $configPath $content
             Write-Host "Snapshot config.ts updated for $prevVersion"
@@ -165,10 +177,7 @@ jobs:
           $configPath  = "frontend\docs\.vitepress\config.ts"
           $content     = Get-Content $configPath -Raw
 
-          # Update current version label
           $content = $content -replace "text: 'v[\d.]+'", "text: '$newVersion'"
-
-          # Inject new version entry into dropdown items list
           $newEntry = "          { text: '$prevVersion', link: '/docs/$prevVersion/' },"
           $content  = $content -replace "(items: \[)", "`$1`n$newEntry"
 
@@ -181,7 +190,7 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add frontend/docs-versions/ frontend/docs/.vitepress/config.ts
-          git commit -m "docs: snapshot v${{ needs.version-bump.outputs.prev_version }} → latest is now v${{ needs.version-bump.outputs.version }}"
+          git commit -m "docs: snapshot v${{ needs.version-bump.outputs.prev_version }} to latest v${{ needs.version-bump.outputs.version }}"
           git push origin main
           Write-Host "Snapshot committed and pushed"
 
@@ -243,7 +252,12 @@ jobs:
       - name: Notify success
         if: needs.deploy.result == 'success'
         shell: powershell
-        run: Write-Host "Successfully deployed beta-v${{ needs.version-bump.outputs.version }}"
+        run: |
+          if ("${{ needs.version-bump.outputs.docs_only }}" -eq "true") {
+            Write-Host "Successfully deployed docs update"
+          } else {
+            Write-Host "Successfully deployed beta-v${{ needs.version-bump.outputs.version }}"
+          }
 
       - name: Notify failure
         if: needs.deploy.result == 'failure'
