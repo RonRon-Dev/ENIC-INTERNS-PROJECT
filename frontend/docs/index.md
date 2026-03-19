@@ -27,3 +27,4 @@ features:
     title: Web Worker Architecture
     details: All data processing runs off the main thread in a Web Worker. The UI stays responsive no matter the file size.
 ---
+
