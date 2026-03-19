@@ -23,6 +23,13 @@ A centralized MIS platform where employees can access and manage a variety of in
 - [Getting Started](#-getting-started)
   - [Manual Installation](#manual-installation)
   - [Docker Installation](#docker-installation)
+- [Contributing Guide](#-contributing-guide) 
+  - [Commit Types](#-commit-types)
+  - [Version Bumping](#-version-bumping)
+  - [Examples](#-examples)
+  - [Workflow](#-workflow)
+  - [Before Pushing](#-before-pushing)
+  - [Pull Request Checklist](#-pull-request-checklist)
 - [Default Credentials](#-default-credentials)
 - [Environment Variables](#-environment-variables)
 - [Available Roles](#-available-roles)
@@ -193,6 +200,151 @@ docker-compose down
 ```bash
 docker compose --profile prod up -d --build
 ```
+
+---
+
+## Contributing Guide
+
+### Commit Message Convention
+
+This project uses **Conventional Commits** to automate versioning and deployments.
+Every commit message must follow this format:
+```
+<type>: <short description>
+```
+
+---
+
+## Commit Types
+
+### Triggers Deployment
+
+| Type | Description | Version Bump | Example |
+|------|-------------|--------------|---------|
+| `feat` | New feature | **Minor** (0.1.0) | `feat: add user dashboard` |
+| `fix` | Bug fix | **Patch** (0.0.1) | `fix: resolve login redirect issue` |
+| `refactor` | Code restructure, no feature/fix | **Patch** (0.0.1) | `refactor: simplify auth service` |
+| `perf` | Performance improvement | **Patch** (0.0.1) | `perf: optimize database queries` |
+| `BREAKING CHANGE` | Breaking API/feature change | **Major** (1.0.0) | `BREAKING CHANGE: redesign auth system` |
+
+### Skips Deployment
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `chore` | Maintenance, dependencies | `chore: update npm packages` |
+| `docs` | Documentation only | `docs: update API documentation` |
+| `style` | Formatting, whitespace | `style: fix indentation` |
+| `test` | Adding or updating tests | `test: add auth unit tests` |
+| `misc` | Miscellaneous changes | `misc: update gitignore` |
+
+---
+
+## Version Bumping
+
+Versions follow **Semantic Versioning** (`MAJOR.MINOR.PATCH`):
+```
+MAJOR → BREAKING CHANGE commits    (1.0.0 → 2.0.0)
+MINOR → feat commits               (0.0.1 → 0.1.0)
+PATCH → everything else            (0.0.1 → 0.0.2)
+```
+
+---
+
+## Examples
+
+### Good Commit Messages
+```bash
+feat: add employee management page
+fix: resolve null reference in auth service
+refactor: clean up dashboard controller
+perf: add pagination to user list
+BREAKING CHANGE: replace cookie auth with JWT
+chore: bump version to beta-v0.1.0
+docs: add setup instructions to README
+style: format files with csharpier
+test: add unit tests for auth service
+misc: update .gitignore
+```
+
+### Bad Commit Messages
+```bash
+# too vague
+fixed stuff
+updated code
+changes
+wip
+
+# no type prefix
+add new feature
+bug fix
+clean up
+```
+---
+
+## Workflow
+```
+1. Create a branch from develop
+   git checkout -b feature/your-feature
+
+2. Make your changes and commit
+   git commit -m "feat: add your feature"
+
+3. Push your branch
+   git push origin feature/your-feature
+
+4. Open a Pull Request to main
+   - CI runs automatically (lint, format, type-check, build)
+   - PR must pass all checks before merging
+
+5. PR is reviewed and merged to main
+   - CD deploys automatically
+   - Version is bumped based on commit message
+```
+
+---
+
+## Before Pushing
+
+### Frontend
+```bash
+cd frontend
+npm run lint          # check code quality
+npm run format:check  # check formatting
+npm run type-check    # check TypeScript types
+npm run build         # verify build works
+```
+
+### Backend
+```bash
+cd backend
+dotnet restore
+dotnet format --verify-no-changes  # check formatting
+dotnet build                        # verify build works
+```
+
+### Database Changes
+```bash
+# always create migrations before pushing model changes
+cd backend
+dotnet ef migrations add YourMigrationName
+git add .
+git commit -m "feat/fix: description of model change"
+```
+
+---
+
+## Pull Request Checklist
+
+Before opening a PR make sure:
+
+- [ ] Commit message follows the convention above
+- [ ] Code is formatted (`npm run format` / `dotnet format`)
+- [ ] No lint errors (`npm run lint`)
+- [ ] TypeScript types are correct (`npm run type-check`)
+- [ ] Project builds successfully
+- [ ] Migrations are created for any model changes
+- [ ] `appsettings.Production.json` is **never** committed
+- [ ] No secrets or credentials in code
 
 ---
 
