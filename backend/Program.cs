@@ -18,6 +18,7 @@ using Scalar.AspNetCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
 
 // EF Core
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -224,6 +225,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IPagesService, PagesServices>();
 builder.Services.AddScoped<ActivityLoggerService>();
 
 var app = builder.Build();

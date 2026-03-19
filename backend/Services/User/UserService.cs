@@ -7,11 +7,22 @@ using backend.Services.ActivityLogger;
 using backend.Services.Interface;
 using BCrypt.Net;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace backend.Services.User;
 
-public class UserService(AppDbContext context, ActivityLoggerService logger) : IUserService
+public class UserService(
+    AppDbContext context,
+    ActivityLoggerService logger,
+    IMemoryCache cache
+) : IUserService
 {
+    private const string RolesCacheKey = "users:roles:list";
+    private static readonly MemoryCacheEntryOptions RolesCacheOptions = new()
+    {
+        AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+    };
+
     // Getting all users with their roles, but not including sensitive information
     // like password hash.
     public async Task<List<UserResponse>> GetAllUsersAsync()
@@ -97,9 +108,14 @@ public class UserService(AppDbContext context, ActivityLoggerService logger) : I
             .ToListAsync();
     }
 
-    public async Task<List<RoleResponse>> GetRolesAsync() =>
-        await context
-            .Roles.OrderBy(r => r.Name)
+    public async Task<List<RoleResponse>> GetRolesAsync()
+    {
+        if (cache.TryGetValue(RolesCacheKey, out List<RoleResponse>? cachedRoles))
+            return cachedRoles!;
+
+        var roles = await context
+            .Roles.AsNoTracking()
+            .OrderBy(r => r.Name)
             .Select(r => new RoleResponse
             {
                 Id = r.Id,
@@ -107,6 +123,11 @@ public class UserService(AppDbContext context, ActivityLoggerService logger) : I
                 Icon = r.Icon,
             })
             .ToListAsync();
+
+        cache.Set(RolesCacheKey, roles, RolesCacheOptions);
+
+        return roles;
+    }
 
     public async Task<UserStatsResponse> GetUserStatsAsync()
     {
@@ -586,6 +607,7 @@ public class UserService(AppDbContext context, ActivityLoggerService logger) : I
             };
 
         await context.SaveChangesAsync();
+        cache.Remove(RolesCacheKey);
 
         await logger.LogPrivilegeChangeAsync(
             admin.Id,

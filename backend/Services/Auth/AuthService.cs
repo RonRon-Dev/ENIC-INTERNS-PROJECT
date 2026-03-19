@@ -259,14 +259,14 @@ public class AuthService(AppDbContext context, IConfiguration configuration, Act
                 };
             }
 
-            // 3rd failed attempt ONLY: lock for 2 minutes
+            // 3rd failed attempt ONLY:
             if (user.FailedLoginAttempts == 3)
             {
-                user.LockoutEndUtc = DateTime.UtcNow.AddMinutes(2);
+                user.LockoutEndUtc = DateTime.UtcNow.AddMinutes(5);
 
                 await logger.LogAuthenticationAsync(
                     user.Id, user.UserName,
-                    "Account Temporarily Locked (3 failed login attempts) - 2 Minute " +
+                    "Account Temporarily Locked (3 failed login attempts) - 5 Minute " +
                         "Lockout",
                     false, null);
 
@@ -275,7 +275,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration, Act
                 return new AuthResponse
                 {
                     Success = false,
-                    Message = "Too many failed attempts. Account locked for 2 minutes.",
+                    Message = "Too many failed attempts. Account locked for 5 minutes.",
                     AccessToken = null!,
                     RefreshToken = null!,
                     ForcePasswordChange = false,
