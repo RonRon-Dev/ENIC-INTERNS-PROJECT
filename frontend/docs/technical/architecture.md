@@ -40,7 +40,7 @@ All row data lives inside the Web Worker. After a file is committed, the main th
 
 | Module | Description |
 |---|---|
-| [Web Worker Design](/technical/web-worker) | Internals of `spreadsheet.worker.ts` |
+<!-- | [Web Worker Design](/technical/web-worker) | Internals of `spreadsheet.worker.ts` | -->
 | [Data Flow](/technical/data-flow) | Upload → PARSE → COMMIT → QUERY lifecycle |
 | [Columnar Storage](/technical/columnar-storage) | How row data is stored in memory |
 | [Message Protocol](/technical/message-protocol) | Full Worker ↔ Main message reference |
