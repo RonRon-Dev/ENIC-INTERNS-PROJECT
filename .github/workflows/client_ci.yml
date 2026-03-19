@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  test-frontend:
+  install:
     runs-on: [self-hosted, linux]
     steps:
       - uses: actions/checkout@v3
@@ -15,21 +15,45 @@ jobs:
       - name: Install dependencies
         run: nix develop .# --command bash -c "cd frontend && npm install"
 
+  lint:
+    needs: install
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v3
+
       - name: Check code quality (lint)
-        run: nix develop .# --command bash -c "cd frontend && npm run lint"
+        run: nix develop .# --command bash -c "cd frontend && npm install && npm run lint"
+
+  format:
+    needs: install
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v3
 
       - name: Check formatting (prettier)
-        run: nix develop .# --command bash -c "cd frontend && npm run format:check"
+        run: nix develop .# --command bash -c "cd frontend && npm install && npm run format:check"
+
+  type-check:
+    needs: install
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v3
 
       - name: Type check
-        run: nix develop .# --command bash -c "cd frontend && npm run type-check"
+        run: nix develop .# --command bash -c "cd frontend && npm install && npm run type-check"
+
+  build:
+    needs: [lint, format, type-check]
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v3
 
       - name: Verify build
-        run: nix develop .# --command bash -c "cd frontend && npm run build"
+        run: nix develop .# --command bash -c "cd frontend && npm install && npm run build"
 
   all-checks-passed:
-    needs: [test-frontend]
-    runs-on: [self-hosted, linux]  # ← fix nixos to linux to match test-frontend
+    needs: [build]
+    runs-on: [self-hosted, linux]
     steps:
       - name: All checks passed
-        run: echo "✅ All checks passed for frontend successfully!"
+        run: echo "All checks passed for frontend successfully!"
